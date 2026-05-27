@@ -217,6 +217,7 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		groupresource.NewResource,
 		groupresource.NewMembershipResource,
 		roleresource.NewResource,
+		roleresource.NewAssignmentResource,
 		tokenresource.NewResource,
 	}
 }
