@@ -72,7 +72,7 @@ func (a *OAuthClientCredentialsAuthenticator) fetchAccessToken() (string, error)
 		return "", fmt.Errorf("failed to create token request: %w", err)
 	}
 
-	resp, err := http.Post(atlassianOAuthTokenURL, "application/json", bytes.NewReader(body))
+	resp, err := http.Post(OAuthTokenURL, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("OAuth client credentials exchange failed: unable to reach Atlassian auth server: %w", err)
 	}

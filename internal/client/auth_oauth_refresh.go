@@ -9,7 +9,9 @@ import (
 	"time"
 )
 
-const atlassianOAuthTokenURL = "https://auth.atlassian.com/oauth/token"
+// OAuthTokenURL is the Atlassian OAuth token endpoint URL.
+// It is a variable so tests can override it with a mock server URL.
+var OAuthTokenURL = "https://auth.atlassian.com/oauth/token"
 
 // OAuthRefreshAuthenticator implements OAuth 2.0 three-legged (3LO) refresh token auth.
 // The user obtains a refresh token out-of-band; the authenticator handles access token
@@ -79,7 +81,7 @@ func (a *OAuthRefreshAuthenticator) refreshAccessToken() (string, error) {
 		return "", fmt.Errorf("failed to create token request: %w", err)
 	}
 
-	resp, err := http.Post(atlassianOAuthTokenURL, "application/json", bytes.NewReader(body))
+	resp, err := http.Post(OAuthTokenURL, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("OAuth token refresh failed: unable to reach Atlassian auth server: %w", err)
 	}
