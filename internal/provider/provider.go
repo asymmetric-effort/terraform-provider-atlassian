@@ -3,7 +3,10 @@ package provider
 
 import (
 	"context"
+	"os"
+	"time"
 
+	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
@@ -108,8 +111,96 @@ func (p *AtlassianProvider) Configure(ctx context.Context, req provider.Configur
 		return
 	}
 
-	// Configuration validation and client creation will be implemented
-	// in objectives #7, #8, #9, and #10.
+	// Resolve values with environment variable fallbacks
+	url := stringValueOrEnv(config.URL, "ATLASSIAN_URL")
+	username := stringValueOrEnv(config.Username, "ATLASSIAN_USERNAME")
+	apiToken := stringValueOrEnv(config.APIToken, "ATLASSIAN_API_TOKEN")
+	oauthClientID := stringValueOrEnv(config.OAuthClientID, "ATLASSIAN_OAUTH_CLIENT_ID")
+	oauthClientSecret := stringValueOrEnv(config.OAuthClientSecret, "ATLASSIAN_OAUTH_CLIENT_SECRET")
+	oauthRefreshToken := stringValueOrEnv(config.OAuthRefreshToken, "ATLASSIAN_OAUTH_REFRESH_TOKEN")
+
+	// Build client config with retry parameters
+	clientConfig := atlassian.DefaultConfig()
+	clientConfig.BaseURL = url
+
+	if !config.RequestTimeout.IsNull() && !config.RequestTimeout.IsUnknown() {
+		d, err := time.ParseDuration(config.RequestTimeout.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Invalid request_timeout",
+				"Could not parse request_timeout as a duration (e.g., 30s, 1m): "+err.Error())
+			return
+		}
+		clientConfig.RequestTimeout = d
+	}
+	if !config.MaxRetries.IsNull() && !config.MaxRetries.IsUnknown() {
+		clientConfig.MaxRetries = int(config.MaxRetries.ValueInt64())
+	}
+	if !config.RetryWaitMin.IsNull() && !config.RetryWaitMin.IsUnknown() {
+		d, err := time.ParseDuration(config.RetryWaitMin.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Invalid retry_wait_min",
+				"Could not parse retry_wait_min as a duration (e.g., 1s, 500ms): "+err.Error())
+			return
+		}
+		clientConfig.RetryWaitMin = d
+	}
+	if !config.RetryWaitMax.IsNull() && !config.RetryWaitMax.IsUnknown() {
+		d, err := time.ParseDuration(config.RetryWaitMax.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Invalid retry_wait_max",
+				"Could not parse retry_wait_max as a duration (e.g., 30s, 1m): "+err.Error())
+			return
+		}
+		clientConfig.RetryWaitMax = d
+	}
+
+	// Determine authentication method
+	var auth atlassian.Authenticator
+	var authErr error
+
+	hasAPIToken := username != "" || apiToken != ""
+	hasOAuthRefresh := oauthRefreshToken != ""
+	hasOAuthClientCreds := oauthClientID != "" && oauthClientSecret != "" && !hasOAuthRefresh
+
+	switch {
+	case hasAPIToken:
+		auth, authErr = atlassian.NewTokenAuthenticator(username, apiToken)
+	case hasOAuthRefresh:
+		auth, authErr = atlassian.NewOAuthRefreshAuthenticator(oauthClientID, oauthClientSecret, oauthRefreshToken)
+	case hasOAuthClientCreds:
+		auth, authErr = atlassian.NewOAuthClientCredentialsAuthenticator(oauthClientID, oauthClientSecret)
+	default:
+		resp.Diagnostics.AddError("No authentication configured",
+			"Configure either API token auth (username + api_token) or OAuth 2.0 "+
+				"(oauth_client_id + oauth_client_secret, with optional oauth_refresh_token). "+
+				"Values can be set via provider attributes or environment variables "+
+				"(ATLASSIAN_USERNAME, ATLASSIAN_API_TOKEN, ATLASSIAN_OAUTH_CLIENT_ID, etc.)")
+		return
+	}
+
+	if authErr != nil {
+		resp.Diagnostics.AddError("Authentication configuration error", authErr.Error())
+		return
+	}
+
+	// Create the API client
+	apiClient, err := atlassian.NewClient(clientConfig, auth)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to create Atlassian API client", err.Error())
+		return
+	}
+
+	// Make the client available to resources and data sources
+	resp.ResourceData = apiClient
+	resp.DataSourceData = apiClient
+}
+
+// stringValueOrEnv returns the Terraform config value if set, otherwise the environment variable.
+func stringValueOrEnv(val types.String, envVar string) string {
+	if !val.IsNull() && !val.IsUnknown() {
+		return val.ValueString()
+	}
+	return os.Getenv(envVar)
 }
 
 // Resources defines the resources implemented in the provider.
