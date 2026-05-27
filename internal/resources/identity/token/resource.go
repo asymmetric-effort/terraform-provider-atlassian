@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -157,16 +156,32 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	var created apiTokenCreateResponse
 	err = r.client.Post(ctx, endpoint, bytes.NewReader(bodyBytes), &created)
 	if err != nil {
-		msg := err.Error()
-		switch {
-		case isStatusCode(err, http.StatusNotFound):
-			msg = fmt.Sprintf("User with account ID %q not found. Verify the user_account_id is correct and the user exists.", plan.UserAccountID.ValueString())
-		case isStatusCode(err, http.StatusForbidden):
-			msg = "Permission denied: the authenticated user does not have permission to create API tokens for this user. Ensure the service account has the required privileges."
-		case isStatusCode(err, http.StatusConflict):
-			msg = "Token limit exceeded: the user has reached the maximum number of API tokens. Revoke an existing token before creating a new one."
+		if apiErr, ok := err.(*atlassian.APIError); ok {
+			switch apiErr.StatusCode {
+			case http.StatusNotFound:
+				resp.Diagnostics.AddError(
+					"User not found",
+					fmt.Sprintf("User with account ID %q not found. Verify the user_account_id is correct and the user exists.", plan.UserAccountID.ValueString()),
+				)
+				return
+			case http.StatusForbidden:
+				resp.Diagnostics.AddError(
+					"Permission denied",
+					fmt.Sprintf("The authenticated user does not have permission to create API tokens for user %q. Ensure the service account has the required privileges.", plan.UserAccountID.ValueString()),
+				)
+				return
+			case http.StatusConflict:
+				resp.Diagnostics.AddError(
+					"Token limit exceeded",
+					fmt.Sprintf("User %q has reached the maximum number of API tokens. Revoke an existing token before creating a new one.", plan.UserAccountID.ValueString()),
+				)
+				return
+			}
 		}
-		resp.Diagnostics.AddError("Failed to create API token", msg)
+		resp.Diagnostics.AddError(
+			"Failed to create API token",
+			fmt.Sprintf("Could not create API token for user %q with label %q: %s", plan.UserAccountID.ValueString(), plan.Label.ValueString(), err.Error()),
+		)
 		return
 	}
 
@@ -193,13 +208,13 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	var token apiToken
 	err := r.client.Get(ctx, endpoint, &token)
 	if err != nil {
-		if isStatusCode(err, http.StatusNotFound) {
+		if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
 			resp.State.RemoveResource(ctx)
 			return
 		}
 		resp.Diagnostics.AddError(
 			"Failed to read API token",
-			fmt.Sprintf("Could not read API token %s for user %s: %s",
+			fmt.Sprintf("Could not read API token %q for user %q: %s. Verify the token and user account IDs are correct.",
 				state.TokenID.ValueString(),
 				state.UserAccountID.ValueString(),
 				err.Error(),
@@ -240,15 +255,23 @@ func (r *Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 
 	err := r.client.Delete(ctx, endpoint)
 	if err != nil {
-		if isStatusCode(err, http.StatusNotFound) {
-			// Already revoked, nothing to do.
-			return
+		if apiErr, ok := err.(*atlassian.APIError); ok {
+			switch apiErr.StatusCode {
+			case http.StatusNotFound:
+				// Already revoked, nothing to do.
+				return
+			case http.StatusForbidden:
+				resp.Diagnostics.AddError(
+					"Permission denied",
+					fmt.Sprintf("The authenticated user does not have permission to revoke API tokens for user %q. Ensure the service account has the required privileges.", state.UserAccountID.ValueString()),
+				)
+				return
+			}
 		}
-		msg := err.Error()
-		if isStatusCode(err, http.StatusForbidden) {
-			msg = "Permission denied: the authenticated user does not have permission to revoke API tokens for this user. Ensure the service account has the required privileges."
-		}
-		resp.Diagnostics.AddError("Failed to revoke API token", msg)
+		resp.Diagnostics.AddError(
+			"Failed to revoke API token",
+			fmt.Sprintf("Could not revoke API token %q for user %q: %s", state.TokenID.ValueString(), state.UserAccountID.ValueString(), err.Error()),
+		)
 		return
 	}
 }
@@ -256,14 +279,4 @@ func (r *Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 // ImportState imports an existing API token by token_id.
 func (r *Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("token_id"), req, resp)
-}
-
-// isStatusCode checks whether an error is an APIError with the given HTTP status code.
-func isStatusCode(err error, code int) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	expected := fmt.Sprintf("HTTP %d)", code)
-	return strings.Contains(msg, expected)
 }

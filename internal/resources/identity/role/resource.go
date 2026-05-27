@@ -9,7 +9,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -347,14 +346,4 @@ func (r *Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 // ImportState imports an existing Atlassian role by its role ID.
 func (r *Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("role_id"), req, resp)
-}
-
-// isStatusCode checks whether an error contains a specific HTTP status code.
-func isStatusCode(err error, code int) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	expected := fmt.Sprintf("HTTP %d)", code)
-	return strings.Contains(msg, expected)
 }

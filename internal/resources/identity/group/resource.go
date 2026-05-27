@@ -127,9 +127,26 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	var apiResp apiGroupResponse
 	err = r.client.Post(ctx, "/rest/api/3/group", bytes.NewReader(bodyBytes), &apiResp)
 	if err != nil {
+		if apiErr, ok := err.(*atlassian.APIError); ok {
+			switch apiErr.StatusCode {
+			case 409:
+				resp.Diagnostics.AddError(
+					"Duplicate group name",
+					fmt.Sprintf("A group with the name %q already exists. Each group name must be unique within the Atlassian organization.", plan.Name.ValueString()),
+				)
+				return
+			case 403:
+				resp.Diagnostics.AddError(
+					"Permission denied",
+					"The authenticated user does not have permission to create groups. "+
+						"Ensure the user has the 'Browse users and groups' global permission.",
+				)
+				return
+			}
+		}
 		resp.Diagnostics.AddError(
 			"Failed to create group",
-			"Could not create group '"+plan.Name.ValueString()+"': "+err.Error(),
+			fmt.Sprintf("Could not create group %q: %s", plan.Name.ValueString(), err.Error()),
 		)
 		return
 	}
@@ -159,7 +176,7 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 		}
 		resp.Diagnostics.AddError(
 			"Failed to read group",
-			"Could not read group (ID: "+groupID+"): "+err.Error(),
+			fmt.Sprintf("Could not read group with ID %q: %s. Verify the group ID is correct and the group has not been deleted.", groupID, err.Error()),
 		)
 		return
 	}
@@ -267,7 +284,7 @@ func (r *Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 		}
 		resp.Diagnostics.AddError(
 			"Failed to delete group",
-			"Could not delete group '"+state.Name.ValueString()+"' (ID: "+groupID+"): "+err.Error(),
+			fmt.Sprintf("Could not delete group %q (ID: %s): %s", state.Name.ValueString(), groupID, err.Error()),
 		)
 	}
 }

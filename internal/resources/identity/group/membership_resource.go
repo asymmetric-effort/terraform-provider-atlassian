@@ -127,6 +127,13 @@ func (r *MembershipResource) Create(ctx context.Context, req resource.CreateRequ
 				case 409:
 					// User is already a member; this is acceptable for idempotent create.
 					continue
+				case 403:
+					resp.Diagnostics.AddError(
+						"Permission denied",
+						fmt.Sprintf("The authenticated user does not have permission to add user %q to group %q. "+
+							"Ensure the user has the 'Browse users and groups' global permission.", accountID, groupID),
+					)
+					return
 				}
 			}
 			resp.Diagnostics.AddError(

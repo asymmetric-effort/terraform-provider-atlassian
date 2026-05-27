@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -139,14 +138,26 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	var created apiUser
 	err = r.client.Post(ctx, "/rest/api/3/user", bytes.NewReader(bodyBytes), &created)
 	if err != nil {
-		msg := err.Error()
-		switch {
-		case isStatusCode(err, http.StatusConflict):
-			msg = fmt.Sprintf("A user with email %q already exists. Each email must be unique within the Atlassian organization.", plan.Email.ValueString())
-		case isStatusCode(err, http.StatusForbidden):
-			msg = "Permission denied: the authenticated user does not have permission to create users. Ensure the service account has organization admin privileges."
+		if apiErr, ok := err.(*atlassian.APIError); ok {
+			switch apiErr.StatusCode {
+			case http.StatusConflict:
+				resp.Diagnostics.AddError(
+					"Duplicate email address",
+					fmt.Sprintf("A user with email %q already exists. Each email must be unique within the Atlassian organization.", plan.Email.ValueString()),
+				)
+				return
+			case http.StatusForbidden:
+				resp.Diagnostics.AddError(
+					"Permission denied",
+					"The authenticated user does not have permission to create users. Ensure the service account has organization admin privileges.",
+				)
+				return
+			}
 		}
-		resp.Diagnostics.AddError("Failed to create user", msg)
+		resp.Diagnostics.AddError(
+			"Failed to create user",
+			fmt.Sprintf("Could not create user with email %q: %s", plan.Email.ValueString(), err.Error()),
+		)
 		return
 	}
 
@@ -169,13 +180,14 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	var user apiUser
 	err := r.client.Get(ctx, fmt.Sprintf("/rest/api/3/user?accountId=%s", state.AccountID.ValueString()), &user)
 	if err != nil {
-		if isStatusCode(err, http.StatusNotFound) {
+		if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
 			resp.State.RemoveResource(ctx)
 			return
 		}
 		resp.Diagnostics.AddError(
 			"Failed to read user",
-			fmt.Sprintf("Could not read user with account ID %s: %s", state.AccountID.ValueString(), err.Error()),
+			fmt.Sprintf("Could not read user with account ID %q: %s. Verify the account ID is correct and the user has not been deleted.",
+				state.AccountID.ValueString(), err.Error()),
 		)
 		return
 	}
@@ -214,14 +226,26 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	var updated apiUser
 	err = r.client.Put(ctx, fmt.Sprintf("/rest/api/3/user?accountId=%s", state.AccountID.ValueString()), bytes.NewReader(bodyBytes), &updated)
 	if err != nil {
-		msg := err.Error()
-		switch {
-		case isStatusCode(err, http.StatusNotFound):
-			msg = fmt.Sprintf("User with account ID %s not found. The user may have been deleted outside of Terraform.", state.AccountID.ValueString())
-		case isStatusCode(err, http.StatusForbidden):
-			msg = "Permission denied: the authenticated user does not have permission to update users. Ensure the service account has organization admin privileges."
+		if apiErr, ok := err.(*atlassian.APIError); ok {
+			switch apiErr.StatusCode {
+			case http.StatusNotFound:
+				resp.Diagnostics.AddError(
+					"User not found",
+					fmt.Sprintf("User with account ID %q not found. The user may have been deleted outside of Terraform.", state.AccountID.ValueString()),
+				)
+				return
+			case http.StatusForbidden:
+				resp.Diagnostics.AddError(
+					"Permission denied",
+					"The authenticated user does not have permission to update users. Ensure the service account has organization admin privileges.",
+				)
+				return
+			}
 		}
-		resp.Diagnostics.AddError("Failed to update user", msg)
+		resp.Diagnostics.AddError(
+			"Failed to update user",
+			fmt.Sprintf("Could not update user with account ID %q: %s", state.AccountID.ValueString(), err.Error()),
+		)
 		return
 	}
 
@@ -243,15 +267,24 @@ func (r *Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 
 	err := r.client.Delete(ctx, fmt.Sprintf("/rest/api/3/user?accountId=%s", state.AccountID.ValueString()))
 	if err != nil {
-		if isStatusCode(err, http.StatusNotFound) {
-			// Already deleted, nothing to do.
-			return
+		if apiErr, ok := err.(*atlassian.APIError); ok {
+			switch apiErr.StatusCode {
+			case http.StatusNotFound:
+				// Already deleted, nothing to do.
+				return
+			case http.StatusForbidden:
+				resp.Diagnostics.AddError(
+					"Permission denied",
+					fmt.Sprintf("The authenticated user does not have permission to delete user %q. "+
+						"Ensure the service account has organization admin privileges.", state.AccountID.ValueString()),
+				)
+				return
+			}
 		}
-		msg := err.Error()
-		if isStatusCode(err, http.StatusForbidden) {
-			msg = "Permission denied: the authenticated user does not have permission to delete users. Ensure the service account has organization admin privileges."
-		}
-		resp.Diagnostics.AddError("Failed to delete user", msg)
+		resp.Diagnostics.AddError(
+			"Failed to delete user",
+			fmt.Sprintf("Could not delete user with account ID %q: %s", state.AccountID.ValueString(), err.Error()),
+		)
 		return
 	}
 }
@@ -259,14 +292,4 @@ func (r *Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 // ImportState imports an existing user by account ID.
 func (r *Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("account_id"), req, resp)
-}
-
-// isStatusCode checks whether an error is an APIError with the given HTTP status code.
-func isStatusCode(err error, code int) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	expected := fmt.Sprintf("HTTP %d)", code)
-	return strings.Contains(msg, expected)
 }

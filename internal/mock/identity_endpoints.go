@@ -46,6 +46,22 @@ func registerUserEndpoints(s *Server) {
 			return
 		}
 
+		// Check for duplicate email
+		for _, item := range store.List() {
+			var existing map[string]interface{}
+			json.Unmarshal(item, &existing)
+			if existing["emailAddress"] == email {
+				WriteError(w, http.StatusConflict, "A user with this email address already exists")
+				return
+			}
+		}
+
+		// Simulate permission denied via special header
+		if r.Header.Get("X-Mock-Forbidden") == "true" {
+			WriteError(w, http.StatusForbidden, "Insufficient permissions")
+			return
+		}
+
 		accountID := nextID("user")
 		user := map[string]interface{}{
 			"accountId":    accountID,
@@ -158,6 +174,16 @@ func registerGroupEndpoints(s *Server) {
 		if name == "" {
 			WriteError(w, http.StatusBadRequest, "name is required")
 			return
+		}
+
+		// Check for duplicate group name
+		for _, item := range store.List() {
+			var existing map[string]interface{}
+			json.Unmarshal(item, &existing)
+			if existing["name"] == name {
+				WriteError(w, http.StatusConflict, "A group with this name already exists")
+				return
+			}
 		}
 
 		groupID := nextID("group")
@@ -379,6 +405,16 @@ func registerRoleEndpoints(s *Server) {
 			return
 		}
 
+		// Check for duplicate role name
+		for _, item := range store.List() {
+			var existing map[string]interface{}
+			json.Unmarshal(item, &existing)
+			if existing["name"] == name {
+				WriteError(w, http.StatusConflict, "A role with this name already exists")
+				return
+			}
+		}
+
 		roleID := nextID("role")
 		role := map[string]interface{}{
 			"id":          roleID,
@@ -473,6 +509,20 @@ func registerTokenEndpoints(s *Server) {
 		label, _ := req["label"].(string)
 		if label == "" {
 			WriteError(w, http.StatusBadRequest, "label is required")
+			return
+		}
+
+		// Check token limit per user (max 5)
+		tokenCount := 0
+		for _, item := range store.List() {
+			var existing map[string]interface{}
+			json.Unmarshal(item, &existing)
+			if uid, _ := existing["userAccountId"].(string); uid == accountID {
+				tokenCount++
+			}
+		}
+		if tokenCount >= 5 {
+			WriteError(w, http.StatusConflict, "Token limit exceeded: maximum number of API tokens reached for this user")
 			return
 		}
 
