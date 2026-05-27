@@ -63,14 +63,16 @@ test:
 
 cover:
 	@echo "Running coverage analysis..."
-	@go test ./... -coverprofile=coverage.out -covermode=atomic 2>/dev/null || true
-	@COVERAGE=$$(go tool cover -func=coverage.out 2>/dev/null | grep total | awk '{print $$3}' | sed 's/%//' || echo "0"); \
-	echo "Coverage: $${COVERAGE}%"; \
-	if [ "$$(echo "$$COVERAGE < 98.0" | bc -l 2>/dev/null || echo 1)" = "1" ] && [ "$$COVERAGE" != "0" ]; then \
-		echo "WARNING: Coverage $${COVERAGE}% is below 98% threshold."; \
-	fi
+	@go test ./test/unit/... ./test/integration/... -coverprofile=coverage.out -covermode=atomic -coverpkg=./internal/...
 	@go tool cover -html=coverage.out -o coverage.html 2>/dev/null || true
-	@echo "Coverage report: coverage.out, coverage.html"
+	@COVERAGE=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
+	echo "Coverage: $${COVERAGE}%"; \
+	echo "Coverage report: coverage.out, coverage.html"; \
+	PASS=$$(echo "$$COVERAGE >= 98.0" | bc -l); \
+	if [ "$$PASS" != "1" ]; then \
+		echo "ERROR: Coverage $${COVERAGE}% is below the required 98% threshold."; \
+		exit 1; \
+	fi
 
 ## ---- Release targets (Issue #5) ----
 
