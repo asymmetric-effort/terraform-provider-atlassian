@@ -1,0 +1,28 @@
+THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
+
+This project incorporates components from the projects listed below. The original
+copyright notices and the licenses under which Asymmetric Effort, LLC received
+such components are set forth below.
+
+================================================================================
+
+github.com/hashicorp/terraform-plugin-framework
+License: MPL-2.0
+https://github.com/hashicorp/terraform-plugin-framework/blob/main/LICENSE
+
+github.com/hashicorp/terraform-plugin-go
+License: MPL-2.0
+https://github.com/hashicorp/terraform-plugin-go/blob/main/LICENSE
+
+github.com/hashicorp/terraform-plugin-log
+License: MPL-2.0
+https://github.com/hashicorp/terraform-plugin-log/blob/main/LICENSE
+
+golang.org/x/oauth2
+License: BSD-3-Clause
+https://cs.opensource.google/go/x/oauth2/+/master:LICENSE
+
+================================================================================
+
+Note: This file is updated as dependencies change. Run `go-licenses` or review
+go.sum to verify the complete dependency tree.
