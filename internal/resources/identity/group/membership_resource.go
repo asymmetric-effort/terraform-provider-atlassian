@@ -322,10 +322,7 @@ func (r *MembershipResource) addUserToGroup(ctx context.Context, groupID, accoun
 	reqBody := apiAddUserToGroupRequest{
 		AccountID: accountID,
 	}
-	bodyBytes, err := json.Marshal(reqBody)
-	if err != nil {
-		return fmt.Errorf("failed to marshal add-user request: %w", err)
-	}
+	bodyBytes, _ := json.Marshal(reqBody)
 
 	endpoint := fmt.Sprintf("/rest/api/3/group/user?groupId=%s", url.QueryEscape(groupID))
 	return r.client.Post(ctx, endpoint, bytes.NewReader(bodyBytes), nil)

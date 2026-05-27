@@ -129,14 +129,10 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 		Email:       plan.Email.ValueString(),
 		DisplayName: plan.DisplayName.ValueString(),
 	}
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to marshal user create request", err.Error())
-		return
-	}
+	bodyBytes, _ := json.Marshal(body)
 
 	var created apiUser
-	err = r.client.Post(ctx, "/rest/api/3/user", bytes.NewReader(bodyBytes), &created)
+	err := r.client.Post(ctx, "/rest/api/3/user", bytes.NewReader(bodyBytes), &created)
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok {
 			switch apiErr.StatusCode {
@@ -217,14 +213,10 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	body := apiUserUpdate{
 		DisplayName: plan.DisplayName.ValueString(),
 	}
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to marshal user update request", err.Error())
-		return
-	}
+	bodyBytes, _ := json.Marshal(body)
 
 	var updated apiUser
-	err = r.client.Put(ctx, fmt.Sprintf("/rest/api/3/user?accountId=%s", state.AccountID.ValueString()), bytes.NewReader(bodyBytes), &updated)
+	err := r.client.Put(ctx, fmt.Sprintf("/rest/api/3/user?accountId=%s", state.AccountID.ValueString()), bytes.NewReader(bodyBytes), &updated)
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok {
 			switch apiErr.StatusCode {

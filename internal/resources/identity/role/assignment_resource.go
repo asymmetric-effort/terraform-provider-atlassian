@@ -179,17 +179,10 @@ func (r *AssignmentResource) Create(ctx context.Context, req resource.CreateRequ
 		Scope:         plan.Scope.ValueString(),
 		ProductID:     plan.ProductID.ValueString(),
 	}
-	bodyBytes, err := json.Marshal(reqBody)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Failed to marshal role assignment create request",
-			err.Error(),
-		)
-		return
-	}
+	bodyBytes, _ := json.Marshal(reqBody)
 
 	var apiResp apiAssignmentResponse
-	err = r.client.Post(ctx, "/rest/api/3/role/assignment", bytes.NewReader(bodyBytes), &apiResp)
+	err := r.client.Post(ctx, "/rest/api/3/role/assignment", bytes.NewReader(bodyBytes), &apiResp)
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok {
 			switch apiErr.StatusCode {
@@ -321,14 +314,7 @@ func (r *AssignmentResource) Update(ctx context.Context, req resource.UpdateRequ
 		Scope:         plan.Scope.ValueString(),
 		ProductID:     plan.ProductID.ValueString(),
 	}
-	bodyBytes, err := json.Marshal(reqBody)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Failed to marshal role assignment update request",
-			err.Error(),
-		)
-		return
-	}
+	bodyBytes, _ := json.Marshal(reqBody)
 
 	var apiResp apiAssignmentResponse
 	err = r.client.Post(ctx, "/rest/api/3/role/assignment", bytes.NewReader(bodyBytes), &apiResp)

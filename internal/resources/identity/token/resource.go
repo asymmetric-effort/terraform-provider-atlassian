@@ -145,16 +145,12 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	body := apiTokenCreate{
 		Label: plan.Label.ValueString(),
 	}
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to marshal token create request", err.Error())
-		return
-	}
+	bodyBytes, _ := json.Marshal(body)
 
 	endpoint := fmt.Sprintf("/rest/api/3/user/%s/token", plan.UserAccountID.ValueString())
 
 	var created apiTokenCreateResponse
-	err = r.client.Post(ctx, endpoint, bytes.NewReader(bodyBytes), &created)
+	err := r.client.Post(ctx, endpoint, bytes.NewReader(bodyBytes), &created)
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok {
 			switch apiErr.StatusCode {

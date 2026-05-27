@@ -153,11 +153,6 @@ func ErrorResponse(message string) map[string]interface{} {
 	}
 }
 
-// main entry point for the mock server binary
-func init() {
-	// Package-level initialization if needed
-}
-
 // Run starts the mock server with default configuration.
 func Run(addr string) error {
 	s := NewServer()

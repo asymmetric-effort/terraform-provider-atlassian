@@ -115,17 +115,10 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	reqBody := apiGroupCreateRequest{
 		Name: plan.Name.ValueString(),
 	}
-	bodyBytes, err := json.Marshal(reqBody)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Failed to marshal group create request",
-			err.Error(),
-		)
-		return
-	}
+	bodyBytes, _ := json.Marshal(reqBody)
 
 	var apiResp apiGroupResponse
-	err = r.client.Post(ctx, "/rest/api/3/group", bytes.NewReader(bodyBytes), &apiResp)
+	err := r.client.Post(ctx, "/rest/api/3/group", bytes.NewReader(bodyBytes), &apiResp)
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok {
 			switch apiErr.StatusCode {
@@ -224,14 +217,7 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	reqBody := apiGroupCreateRequest{
 		Name: plan.Name.ValueString(),
 	}
-	bodyBytes, err := json.Marshal(reqBody)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Failed to marshal group create request",
-			err.Error(),
-		)
-		return
-	}
+	bodyBytes, _ := json.Marshal(reqBody)
 
 	var apiResp apiGroupResponse
 	err = r.client.Post(ctx, "/rest/api/3/group", bytes.NewReader(bodyBytes), &apiResp)
