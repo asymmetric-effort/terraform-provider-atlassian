@@ -162,6 +162,7 @@ func init() {
 func Run(addr string) error {
 	s := NewServer()
 	RegisterAuthEndpoints(s)
+	RegisterIdentityEndpoints(s)
 	return s.ListenAndServe(addr)
 }
 
