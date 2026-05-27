@@ -24,6 +24,7 @@ func RegisterIdentityEndpoints(s *Server) {
 	registerGroupEndpoints(s)
 	registerGroupMembershipEndpoints(s)
 	registerRoleEndpoints(s)
+	registerRoleAssignmentEndpoints(s)
 	registerTokenEndpoints(s)
 }
 
@@ -518,6 +519,71 @@ func registerTokenEndpoints(s *Server) {
 
 		if !store.Delete(storeKey) {
 			WriteError(w, http.StatusNotFound, "Token not found")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+}
+
+// registerRoleAssignmentEndpoints registers role assignment CRUD endpoints.
+func registerRoleAssignmentEndpoints(s *Server) {
+	store := s.GetStore("role_assignments")
+
+	// POST /rest/api/3/role/assignment — create role assignment
+	s.RegisterEndpoint("POST /rest/api/3/role/assignment", func(w http.ResponseWriter, r *http.Request) {
+		var req map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			WriteError(w, http.StatusBadRequest, "Could not parse request body")
+			return
+		}
+
+		roleID, _ := req["roleId"].(string)
+		principalType, _ := req["principalType"].(string)
+		principalID, _ := req["principalId"].(string)
+		scope, _ := req["scope"].(string)
+		productID, _ := req["productId"].(string)
+
+		if roleID == "" || principalType == "" || principalID == "" || scope == "" {
+			WriteError(w, http.StatusBadRequest, "roleId, principalType, principalId, and scope are required")
+			return
+		}
+
+		assignmentID := nextID("assign")
+		assignment := map[string]interface{}{
+			"id":            assignmentID,
+			"roleId":        roleID,
+			"principalType": principalType,
+			"principalId":   principalID,
+			"scope":         scope,
+		}
+		if productID != "" {
+			assignment["productId"] = productID
+		}
+
+		data, _ := json.Marshal(assignment)
+		store.Set(assignmentID, data)
+		WriteJSON(w, http.StatusCreated, assignment)
+	})
+
+	// GET /rest/api/3/role/assignment/{id} — read role assignment
+	s.RegisterEndpoint("GET /rest/api/3/role/assignment/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		item, ok := store.Get(id)
+		if !ok {
+			WriteError(w, http.StatusNotFound, "Role assignment not found")
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(item)
+	})
+
+	// DELETE /rest/api/3/role/assignment/{id} — delete role assignment
+	s.RegisterEndpoint("DELETE /rest/api/3/role/assignment/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if !store.Delete(id) {
+			WriteError(w, http.StatusNotFound, "Role assignment not found")
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
