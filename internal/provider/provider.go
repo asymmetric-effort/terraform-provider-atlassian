@@ -8,8 +8,10 @@ import (
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
 	groupdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/group"
+	roledatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/role"
 	userds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/user"
 	groupresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/group"
+	roleresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/role"
 	userrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/user"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -213,6 +215,7 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		userrs.NewResource,
 		groupresource.NewResource,
 		groupresource.NewMembershipResource,
+		roleresource.NewResource,
 	}
 }
 
@@ -221,5 +224,6 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 	return []func() datasource.DataSource{
 		userds.NewDataSource,
 		groupdatasource.NewDataSource,
+		roledatasource.NewDataSource,
 	}
 }
