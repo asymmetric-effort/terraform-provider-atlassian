@@ -116,7 +116,7 @@ release/major:
 
 api/build:
 	@echo "Building mock API Docker image..."
-	@docker build -t $(MOCK_IMAGE) -f internal/mock/Dockerfile internal/mock/
+	@docker build -t $(MOCK_IMAGE) -f internal/mock/Dockerfile .
 	@echo "Mock API image built: $(MOCK_IMAGE)"
 
 api/start:
