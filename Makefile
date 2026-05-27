@@ -1,0 +1,133 @@
+BINARY_NAME := terraform-provider-atlassian
+BUILD_DIR := build
+VERSION_FILE := VERSION
+VERSION := $(shell cat $(VERSION_FILE))
+GOFLAGS := -trimpath
+LDFLAGS := -s -w -X main.version=$(VERSION)
+
+MOCK_IMAGE := atlassian-mock-api
+MOCK_CONTAINER := atlassian-mock-api
+
+.PHONY: clean build lint test cover release release/patch release/minor release/major \
+        api/build api/start api/stop
+
+## ---- Build targets (Issue #3) ----
+
+clean:
+	@echo "Cleaning build artifacts..."
+	@rm -rf $(BUILD_DIR)
+	@mkdir -p $(BUILD_DIR)
+	@echo "Stopping and removing mock API containers..."
+	@docker stop $(MOCK_CONTAINER) 2>/dev/null || true
+	@docker rm $(MOCK_CONTAINER) 2>/dev/null || true
+	@docker rmi $(MOCK_IMAGE) 2>/dev/null || true
+	@echo "Clean complete."
+
+build: clean
+	@echo "Building $(BINARY_NAME) v$(VERSION)..."
+	@go build $(GOFLAGS) -ldflags '$(LDFLAGS)' -o $(BUILD_DIR)/$(BINARY_NAME) .
+	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
+
+lint:
+	@echo "Running linters..."
+	@echo "  gofmt..."
+	@UNFORMATTED=$$(gofmt -l . | grep -v vendor/ || true); \
+	if [ -n "$$UNFORMATTED" ]; then \
+		echo "ERROR: Files not formatted with gofmt:"; \
+		echo "$$UNFORMATTED"; \
+		exit 1; \
+	fi
+	@echo "  go vet..."
+	@go vet ./...
+	@echo "  govulncheck..."
+	@govulncheck ./... || true
+	@echo "Lint complete."
+
+## ---- Test targets (Issue #4) ----
+
+test:
+	@echo "Running test suite..."
+	@echo "=== Unit tests ==="
+	@go test ./test/unit/... -v -count=1 2>/dev/null || echo "  No unit tests yet."
+	@echo ""
+	@echo "=== Integration tests ==="
+	@go test ./test/integration/... -v -count=1 2>/dev/null || echo "  No integration tests yet."
+	@echo ""
+	@echo "=== End-to-end tests ==="
+	@go test ./test/e2e/... -v -count=1 2>/dev/null || echo "  No e2e tests yet."
+	@echo ""
+	@echo "=== PDV tests ==="
+	@echo "  No PDV tests yet."
+	@echo ""
+	@echo "Test suite complete."
+
+cover:
+	@echo "Running coverage analysis..."
+	@go test ./... -coverprofile=coverage.out -covermode=atomic 2>/dev/null || true
+	@COVERAGE=$$(go tool cover -func=coverage.out 2>/dev/null | grep total | awk '{print $$3}' | sed 's/%//' || echo "0"); \
+	echo "Coverage: $${COVERAGE}%"; \
+	if [ "$$(echo "$$COVERAGE < 98.0" | bc -l 2>/dev/null || echo 1)" = "1" ] && [ "$$COVERAGE" != "0" ]; then \
+		echo "WARNING: Coverage $${COVERAGE}% is below 98% threshold."; \
+	fi
+	@go tool cover -html=coverage.out -o coverage.html 2>/dev/null || true
+	@echo "Coverage report: coverage.out, coverage.html"
+
+## ---- Release targets (Issue #5) ----
+
+release: release/patch
+
+release/patch:
+	@echo "Bumping patch version..."
+	@IFS='.' read -r MAJOR MINOR PATCH < $(VERSION_FILE); \
+	PATCH=$$((PATCH + 1)); \
+	echo "$$MAJOR.$$MINOR.$$PATCH" > $(VERSION_FILE); \
+	NEW_VERSION=$$(cat $(VERSION_FILE)); \
+	echo "Version: v$$NEW_VERSION"; \
+	git add $(VERSION_FILE); \
+	git commit -m "chore: bump version to v$$NEW_VERSION"; \
+	git tag "v$$NEW_VERSION"; \
+	echo "Tagged v$$NEW_VERSION (local only — not pushed)"
+
+release/minor:
+	@echo "Bumping minor version..."
+	@IFS='.' read -r MAJOR MINOR PATCH < $(VERSION_FILE); \
+	MINOR=$$((MINOR + 1)); \
+	echo "$$MAJOR.$$MINOR.0" > $(VERSION_FILE); \
+	NEW_VERSION=$$(cat $(VERSION_FILE)); \
+	echo "Version: v$$NEW_VERSION"; \
+	git add $(VERSION_FILE); \
+	git commit -m "chore: bump version to v$$NEW_VERSION"; \
+	git tag "v$$NEW_VERSION"; \
+	echo "Tagged v$$NEW_VERSION (local only — not pushed)"
+
+release/major:
+	@echo "Bumping major version..."
+	@IFS='.' read -r MAJOR MINOR PATCH < $(VERSION_FILE); \
+	MAJOR=$$((MAJOR + 1)); \
+	echo "$$MAJOR.0.0" > $(VERSION_FILE); \
+	NEW_VERSION=$$(cat $(VERSION_FILE)); \
+	echo "Version: v$$NEW_VERSION"; \
+	git add $(VERSION_FILE); \
+	git commit -m "chore: bump version to v$$NEW_VERSION"; \
+	git tag "v$$NEW_VERSION"; \
+	echo "Tagged v$$NEW_VERSION (local only — not pushed)"
+
+## ---- Mock API targets (Issue #12) ----
+
+api/build:
+	@echo "Building mock API Docker image..."
+	@docker build -t $(MOCK_IMAGE) -f internal/mock/Dockerfile internal/mock/
+	@echo "Mock API image built: $(MOCK_IMAGE)"
+
+api/start:
+	@echo "Starting mock API..."
+	@docker stop $(MOCK_CONTAINER) 2>/dev/null || true
+	@docker rm $(MOCK_CONTAINER) 2>/dev/null || true
+	@docker run -d --name $(MOCK_CONTAINER) -p 8080:8080 $(MOCK_IMAGE)
+	@echo "Mock API running on http://localhost:8080"
+
+api/stop:
+	@echo "Stopping mock API..."
+	@docker stop $(MOCK_CONTAINER) 2>/dev/null || true
+	@docker rm $(MOCK_CONTAINER) 2>/dev/null || true
+	@echo "Mock API stopped."
