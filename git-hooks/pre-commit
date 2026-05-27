@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -e
+
+# Ensure Go toolchain is on PATH
+export PATH="$HOME/.bin:/usr/local/go/bin:$HOME/go/bin:$PATH"
+
+echo "Running pre-commit checks..."
+
+# Format check
+UNFORMATTED=$(gofmt -l . 2>/dev/null | grep -v vendor/ || true)
+if [ -n "$UNFORMATTED" ]; then
+    echo "ERROR: The following files are not formatted with gofmt:"
+    echo "$UNFORMATTED"
+    echo "Run 'gofmt -w .' to fix."
+    exit 1
+fi
+
+# Vet check
+echo "Running go vet..."
+go vet ./...
+
+echo "Pre-commit checks passed."

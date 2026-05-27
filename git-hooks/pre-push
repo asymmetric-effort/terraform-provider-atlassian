@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -e
+
+# Ensure Go toolchain is on PATH
+export PATH="$HOME/.bin:/usr/local/go/bin:$HOME/go/bin:$PATH"
+
+echo "Running pre-push checks..."
+
+echo "Running tests..."
+make test
+
+echo "Checking coverage..."
+make cover
+
+echo "Pre-push checks passed."
