@@ -68,8 +68,7 @@ cover:
 	@COVERAGE=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
 	echo "Coverage: $${COVERAGE}%"; \
 	echo "Coverage report: coverage.out, coverage.html"; \
-	PASS=$$(echo "$$COVERAGE >= 98.0" | bc -l); \
-	if [ "$$PASS" != "1" ]; then \
+	if [ $$(awk "BEGIN {print ($$COVERAGE < 98.0)}") -eq 1 ]; then \
 		echo "ERROR: Coverage $${COVERAGE}% is below the required 98% threshold."; \
 		exit 1; \
 	fi
