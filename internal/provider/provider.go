@@ -12,6 +12,7 @@ import (
 	userds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/user"
 	groupresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/group"
 	roleresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/role"
+	tokenresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/token"
 	userrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/user"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -216,6 +217,7 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		groupresource.NewResource,
 		groupresource.NewMembershipResource,
 		roleresource.NewResource,
+		tokenresource.NewResource,
 	}
 }
 
