@@ -7,6 +7,8 @@ import (
 	"time"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	userds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/user"
+	userrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/user"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
@@ -205,10 +207,14 @@ func stringValueOrEnv(val types.String, envVar string) string {
 
 // Resources defines the resources implemented in the provider.
 func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resource {
-	return []func() resource.Resource{}
+	return []func() resource.Resource{
+		userrs.NewResource,
+	}
 }
 
 // DataSources defines the data sources implemented in the provider.
 func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{}
+	return []func() datasource.DataSource{
+		userds.NewDataSource,
+	}
 }
