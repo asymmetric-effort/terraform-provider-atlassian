@@ -7,7 +7,9 @@ import (
 	"time"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	groupdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/group"
 	userds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/user"
+	groupresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/group"
 	userrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/user"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -209,6 +211,7 @@ func stringValueOrEnv(val types.String, envVar string) string {
 func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		userrs.NewResource,
+		groupresource.NewResource,
 	}
 }
 
@@ -216,5 +219,6 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		userds.NewDataSource,
+		groupdatasource.NewDataSource,
 	}
 }
