@@ -85,7 +85,7 @@ release/patch:
 	echo "Version: v$$NEW_VERSION"; \
 	git add $(VERSION_FILE); \
 	git commit -m "chore: bump version to v$$NEW_VERSION"; \
-	git tag "v$$NEW_VERSION"; \
+	git tag -a "v$$NEW_VERSION" -m "Release v$$NEW_VERSION"; \
 	echo "Tagged v$$NEW_VERSION (local only — not pushed)"
 
 release/minor:
@@ -97,7 +97,7 @@ release/minor:
 	echo "Version: v$$NEW_VERSION"; \
 	git add $(VERSION_FILE); \
 	git commit -m "chore: bump version to v$$NEW_VERSION"; \
-	git tag "v$$NEW_VERSION"; \
+	git tag -a "v$$NEW_VERSION" -m "Release v$$NEW_VERSION"; \
 	echo "Tagged v$$NEW_VERSION (local only — not pushed)"
 
 release/major:
@@ -109,7 +109,7 @@ release/major:
 	echo "Version: v$$NEW_VERSION"; \
 	git add $(VERSION_FILE); \
 	git commit -m "chore: bump version to v$$NEW_VERSION"; \
-	git tag "v$$NEW_VERSION"; \
+	git tag -a "v$$NEW_VERSION" -m "Release v$$NEW_VERSION"; \
 	echo "Tagged v$$NEW_VERSION (local only — not pushed)"
 
 ## ---- Mock API targets (Issue #12) ----
