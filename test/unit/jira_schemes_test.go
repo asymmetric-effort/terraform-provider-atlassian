@@ -285,6 +285,9 @@ func testSchemeMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
 			"description": description,
 			"self":        fmt.Sprintf("https://example.atlassian.net/rest/api/3/notificationscheme/%s", id),
 		}
+		if events, ok := req["notification_events"]; ok && events != nil {
+			ns["notification_events"] = events
+		}
 		notifSchemes[id] = ns
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
@@ -2002,6 +2005,9 @@ func TestJiraSecuritySchemeDataSourceReadBadConfig(t *testing.T) {
 // securityLevelListType is the tftypes type for the security_levels attribute.
 var securityLevelListType = tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}
 
+// notificationEventListType is the tftypes type for the notification_events attribute.
+var notificationEventListType = tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"event_type": tftypes.String, "recipient_type": tftypes.String, "recipient_id": tftypes.String}}}
+
 // TestJiraSecuritySchemeResourceCreateWithLevels tests creating a scheme with non-empty security levels.
 func TestJiraSecuritySchemeResourceCreateWithLevels(t *testing.T) {
 	t.Parallel()
@@ -2131,7 +2137,7 @@ func TestJiraNotificationSchemeResourceSchema(t *testing.T) {
 	if resp.Schema.Attributes == nil {
 		t.Fatal("expected schema to have attributes")
 	}
-	expectedAttrs := []string{"id", "name", "description"}
+	expectedAttrs := []string{"id", "name", "description", "notification_events"}
 	for _, attr := range expectedAttrs {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected schema to have attribute %q", attr)
@@ -2146,7 +2152,7 @@ func TestJiraNotificationSchemeResourceSchemaAttributeCount(t *testing.T) {
 	req := resource.SchemaRequest{}
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), req, resp)
-	expected := 3
+	expected := 4
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -2180,7 +2186,7 @@ func TestJiraNotificationSchemeResourceSchemaComputedAttributes(t *testing.T) {
 	req := resource.SchemaRequest{}
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), req, resp)
-	computedAttrs := []string{"id", "description"}
+	computedAttrs := []string{"id", "description", "notification_events"}
 	for _, name := range computedAttrs {
 		attr, ok := resp.Schema.Attributes[name]
 		if !ok {
@@ -2200,7 +2206,7 @@ func TestJiraNotificationSchemeResourceSchemaOptionalAttributes(t *testing.T) {
 	req := resource.SchemaRequest{}
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), req, resp)
-	optionalAttrs := []string{"description"}
+	optionalAttrs := []string{"description", "notification_events"}
 	for _, name := range optionalAttrs {
 		attr, ok := resp.Schema.Attributes[name]
 		if !ok {
@@ -2259,9 +2265,10 @@ func TestJiraNotificationSchemeResourceCRUDLifecycle(t *testing.T) {
 
 	// Create
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":        tftypes.NewValue(tftypes.String, "Test Notification Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "A test notification scheme"),
+		"id":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":                tftypes.NewValue(tftypes.String, "Test Notification Scheme"),
+		"description":         tftypes.NewValue(tftypes.String, "A test notification scheme"),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -2278,9 +2285,10 @@ func TestJiraNotificationSchemeResourceCRUDLifecycle(t *testing.T) {
 
 	// Read
 	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, nsID),
-		"name":        tftypes.NewValue(tftypes.String, "Test Notification Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "A test notification scheme"),
+		"id":                  tftypes.NewValue(tftypes.String, nsID),
+		"name":                tftypes.NewValue(tftypes.String, "Test Notification Scheme"),
+		"description":         tftypes.NewValue(tftypes.String, "A test notification scheme"),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -2293,14 +2301,16 @@ func TestJiraNotificationSchemeResourceCRUDLifecycle(t *testing.T) {
 
 	// Update
 	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, nsID),
-		"name":        tftypes.NewValue(tftypes.String, "Updated Notification Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "Updated desc"),
+		"id":                  tftypes.NewValue(tftypes.String, nsID),
+		"name":                tftypes.NewValue(tftypes.String, "Updated Notification Scheme"),
+		"description":         tftypes.NewValue(tftypes.String, "Updated desc"),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	updateState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, nsID),
-		"name":        tftypes.NewValue(tftypes.String, "Test Notification Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "A test notification scheme"),
+		"id":                  tftypes.NewValue(tftypes.String, nsID),
+		"name":                tftypes.NewValue(tftypes.String, "Test Notification Scheme"),
+		"description":         tftypes.NewValue(tftypes.String, "A test notification scheme"),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: updateState}, updateResp)
@@ -2313,9 +2323,10 @@ func TestJiraNotificationSchemeResourceCRUDLifecycle(t *testing.T) {
 
 	// Delete
 	delState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, nsID),
-		"name":        tftypes.NewValue(tftypes.String, "Updated Notification Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "Updated desc"),
+		"id":                  tftypes.NewValue(tftypes.String, nsID),
+		"name":                tftypes.NewValue(tftypes.String, "Updated Notification Scheme"),
+		"description":         tftypes.NewValue(tftypes.String, "Updated desc"),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	delResp := &resource.DeleteResponse{State: emptyState(ctx, s)}
 	r.Delete(ctx, resource.DeleteRequest{State: delState}, delResp)
@@ -2325,9 +2336,10 @@ func TestJiraNotificationSchemeResourceCRUDLifecycle(t *testing.T) {
 
 	// Read after delete should remove resource
 	readState2 := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, nsID),
-		"name":        tftypes.NewValue(tftypes.String, "Updated Notification Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "Updated desc"),
+		"id":                  tftypes.NewValue(tftypes.String, nsID),
+		"name":                tftypes.NewValue(tftypes.String, "Updated Notification Scheme"),
+		"description":         tftypes.NewValue(tftypes.String, "Updated desc"),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	readResp2 := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState2.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState2}, readResp2)
@@ -2347,9 +2359,10 @@ func TestJiraNotificationSchemeResourceCreateConflict(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":        tftypes.NewValue(tftypes.String, "Dup NS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":                tftypes.NewValue(tftypes.String, "Dup NS"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -2375,9 +2388,10 @@ func TestJiraNotificationSchemeResourceCreateForbidden(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":        tftypes.NewValue(tftypes.String, "Forbidden NS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":                tftypes.NewValue(tftypes.String, "Forbidden NS"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -2397,9 +2411,10 @@ func TestJiraNotificationSchemeResourceCreateServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":        tftypes.NewValue(tftypes.String, "Error NS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":                tftypes.NewValue(tftypes.String, "Error NS"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -2419,9 +2434,10 @@ func TestJiraNotificationSchemeResourceReadServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, "NS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, "some-id"),
+		"name":                tftypes.NewValue(tftypes.String, "NS"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	resp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: state}, resp)
@@ -2441,14 +2457,16 @@ func TestJiraNotificationSchemeResourceUpdateNotFound(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
-		"name":        tftypes.NewValue(tftypes.String, "Updated"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, "nonexistent"),
+		"name":                tftypes.NewValue(tftypes.String, "Updated"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
-		"name":        tftypes.NewValue(tftypes.String, "Old"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, "nonexistent"),
+		"name":                tftypes.NewValue(tftypes.String, "Old"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, resp)
@@ -2468,14 +2486,16 @@ func TestJiraNotificationSchemeResourceUpdateForbidden(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, "Updated"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, "some-id"),
+		"name":                tftypes.NewValue(tftypes.String, "Updated"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, "Old"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, "some-id"),
+		"name":                tftypes.NewValue(tftypes.String, "Old"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, resp)
@@ -2495,14 +2515,16 @@ func TestJiraNotificationSchemeResourceUpdateServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, "Updated"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, "some-id"),
+		"name":                tftypes.NewValue(tftypes.String, "Updated"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, "Old"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, "some-id"),
+		"name":                tftypes.NewValue(tftypes.String, "Old"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, resp)
@@ -2522,9 +2544,10 @@ func TestJiraNotificationSchemeResourceDeleteForbidden(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, "NS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, "some-id"),
+		"name":                tftypes.NewValue(tftypes.String, "NS"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	resp := &resource.DeleteResponse{State: emptyState(ctx, s)}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -2544,9 +2567,10 @@ func TestJiraNotificationSchemeResourceDeleteServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, "NS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, "some-id"),
+		"name":                tftypes.NewValue(tftypes.String, "NS"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	resp := &resource.DeleteResponse{State: emptyState(ctx, s)}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -2566,9 +2590,10 @@ func TestJiraNotificationSchemeResourceDeleteNotFound(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
-		"name":        tftypes.NewValue(tftypes.String, "NS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, "nonexistent"),
+		"name":                tftypes.NewValue(tftypes.String, "NS"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	resp := &resource.DeleteResponse{State: emptyState(ctx, s)}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -2656,9 +2681,10 @@ func TestJiraNotificationSchemeResourceUpdateStateGetError(t *testing.T) {
 	ctx := context.Background()
 	tfType := s.Type().TerraformType(ctx)
 	validPlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "id"),
-		"name":        tftypes.NewValue(tftypes.String, "n"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, "id"),
+		"name":                tftypes.NewValue(tftypes.String, "n"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{
@@ -2682,6 +2708,117 @@ func TestJiraNotificationSchemeResourceDeleteStateGetError(t *testing.T) {
 	}, resp)
 	if !resp.Diagnostics.HasError() {
 		t.Fatal("expected error")
+	}
+}
+
+// ==================== NOTIFICATION SCHEME NOTIFICATION EVENTS TESTS ====================
+
+// TestJiraNotificationSchemeResourceCreateWithEvents tests creating a scheme with non-empty notification events.
+func TestJiraNotificationSchemeResourceCreateWithEvents(t *testing.T) {
+	t.Parallel()
+	_, client := testSchemeMockServer(t)
+	ctx := context.Background()
+	r := notificationschemers.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	eventObjType := tftypes.Object{AttributeTypes: map[string]tftypes.Type{"event_type": tftypes.String, "recipient_type": tftypes.String, "recipient_id": tftypes.String}}
+
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":        tftypes.NewValue(tftypes.String, "Scheme With Events"),
+		"description": tftypes.NewValue(tftypes.String, "Has events"),
+		"notification_events": tftypes.NewValue(notificationEventListType, []tftypes.Value{
+			tftypes.NewValue(eventObjType, map[string]tftypes.Value{
+				"event_type":     tftypes.NewValue(tftypes.String, "issue_created"),
+				"recipient_type": tftypes.NewValue(tftypes.String, "group"),
+				"recipient_id":   tftypes.NewValue(tftypes.String, "developers"),
+			}),
+			tftypes.NewValue(eventObjType, map[string]tftypes.Value{
+				"event_type":     tftypes.NewValue(tftypes.String, "issue_updated"),
+				"recipient_type": tftypes.NewValue(tftypes.String, "user"),
+				"recipient_id":   tftypes.NewValue(tftypes.String, "user-123"),
+			}),
+		}),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create with events: %v", createResp.Diagnostics.Errors())
+	}
+	nsID := getStringAttr(t, createResp.State, "id")
+	if nsID == "" {
+		t.Fatal("expected non-empty ID after create")
+	}
+
+	// Read back and verify events are present
+	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":                  tftypes.NewValue(tftypes.String, nsID),
+		"name":                tftypes.NewValue(tftypes.String, "Scheme With Events"),
+		"description":         tftypes.NewValue(tftypes.String, "Has events"),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
+	})}
+	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
+	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read with events: %v", readResp.Diagnostics.Errors())
+	}
+}
+
+// TestJiraNotificationSchemeDataSourceReadWithEvents tests reading a scheme with non-empty notification events.
+func TestJiraNotificationSchemeDataSourceReadWithEvents(t *testing.T) {
+	t.Parallel()
+
+	// Custom mock server that returns notification_events in the response.
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /rest/api/3/notificationscheme/{id}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":          r.PathValue("id"),
+			"name":        "Notif Scheme With Events",
+			"description": "Has notification events",
+			"self":        "https://example.atlassian.net/rest/api/3/notificationscheme/ne-1",
+			"notification_events": []map[string]interface{}{
+				{"event_type": "issue_created", "recipient_type": "group", "recipient_id": "developers"},
+				{"event_type": "issue_updated", "recipient_type": "user", "recipient_id": "user-123"},
+			},
+		})
+	})
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+
+	cfg := atlassian.Config{
+		BaseURL:        ts.URL,
+		RequestTimeout: 5000000000,
+		MaxRetries:     0,
+		RetryWaitMin:   1000000000,
+		RetryWaitMax:   1000000000,
+	}
+	client, err := atlassian.NewClient(cfg, &testNoopAuth{})
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+
+	ctx := context.Background()
+	ds := notificationschemeds.NewDataSource()
+	configureDatasource(t, ds, client)
+	dss := getDatasourceSchema(t, ds)
+	dsType := dss.Type().TerraformType(ctx)
+
+	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
+		"id":                  tftypes.NewValue(tftypes.String, "ne-1"),
+		"name":                tftypes.NewValue(tftypes.String, nil),
+		"description":         tftypes.NewValue(tftypes.String, nil),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
+	})}
+	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
+	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
+	if dsResp.Diagnostics.HasError() {
+		t.Fatalf("DS Read with events: %v", dsResp.Diagnostics.Errors())
+	}
+	if name := getStringAttr(t, dsResp.State, "name"); name != "Notif Scheme With Events" {
+		t.Errorf("expected name 'Notif Scheme With Events', got %q", name)
 	}
 }
 
@@ -2709,7 +2846,7 @@ func TestJiraNotificationSchemeDataSourceSchema(t *testing.T) {
 	if resp.Schema.Attributes == nil {
 		t.Fatal("expected schema to have attributes")
 	}
-	expectedAttrs := []string{"id", "name", "description"}
+	expectedAttrs := []string{"id", "name", "description", "notification_events"}
 	for _, attr := range expectedAttrs {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected schema to have attribute %q", attr)
@@ -2724,7 +2861,7 @@ func TestJiraNotificationSchemeDataSourceSchemaAttributeCount(t *testing.T) {
 	req := datasource.SchemaRequest{}
 	resp := &datasource.SchemaResponse{}
 	ds.Schema(context.Background(), req, resp)
-	expected := 3
+	expected := 4
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -2752,9 +2889,10 @@ func TestJiraNotificationSchemeDataSourceByID(t *testing.T) {
 	rsTfType := rs.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":        tftypes.NewValue(tftypes.String, "DS Notif Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "ds desc"),
+		"id":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":                tftypes.NewValue(tftypes.String, "DS Notif Scheme"),
+		"description":         tftypes.NewValue(tftypes.String, "ds desc"),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -2769,9 +2907,10 @@ func TestJiraNotificationSchemeDataSourceByID(t *testing.T) {
 	dsType := dss.Type().TerraformType(ctx)
 
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, nsID),
-		"name":        tftypes.NewValue(tftypes.String, nil),
-		"description": tftypes.NewValue(tftypes.String, nil),
+		"id":                  tftypes.NewValue(tftypes.String, nsID),
+		"name":                tftypes.NewValue(tftypes.String, nil),
+		"description":         tftypes.NewValue(tftypes.String, nil),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -2794,9 +2933,10 @@ func TestJiraNotificationSchemeDataSourceNotFound(t *testing.T) {
 	dsType := dss.Type().TerraformType(ctx)
 
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
-		"name":        tftypes.NewValue(tftypes.String, nil),
-		"description": tftypes.NewValue(tftypes.String, nil),
+		"id":                  tftypes.NewValue(tftypes.String, "nonexistent"),
+		"name":                tftypes.NewValue(tftypes.String, nil),
+		"description":         tftypes.NewValue(tftypes.String, nil),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -2840,9 +2980,10 @@ func TestJiraNotificationSchemeDataSourceReadServerError(t *testing.T) {
 	dsType := dss.Type().TerraformType(ctx)
 
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, nil),
-		"description": tftypes.NewValue(tftypes.String, nil),
+		"id":                  tftypes.NewValue(tftypes.String, "some-id"),
+		"name":                tftypes.NewValue(tftypes.String, nil),
+		"description":         tftypes.NewValue(tftypes.String, nil),
+		"notification_events": tftypes.NewValue(notificationEventListType, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)

@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -26,31 +27,49 @@ var (
 	_ resource.ResourceWithImportState = &Resource{}
 )
 
+// apiNotificationEvent represents a single notification event in a scheme.
+type apiNotificationEvent struct {
+	EventType     string `json:"event_type"`
+	RecipientType string `json:"recipient_type"`
+	RecipientID   string `json:"recipient_id"`
+}
+
 // apiNotificationScheme represents the JSON structure returned by the Atlassian notification scheme API.
 type apiNotificationScheme struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Self        string `json:"self"`
+	ID                 string                 `json:"id"`
+	Name               string                 `json:"name"`
+	Description        string                 `json:"description"`
+	Self               string                 `json:"self"`
+	NotificationEvents []apiNotificationEvent `json:"notification_events,omitempty"`
 }
 
 // apiNotificationSchemeCreate represents the JSON body for creating a notification scheme.
 type apiNotificationSchemeCreate struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
+	Name               string                 `json:"name"`
+	Description        string                 `json:"description,omitempty"`
+	NotificationEvents []apiNotificationEvent `json:"notification_events,omitempty"`
 }
 
 // apiNotificationSchemeUpdate represents the JSON body for updating a notification scheme.
 type apiNotificationSchemeUpdate struct {
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
+	Name               string                 `json:"name,omitempty"`
+	Description        string                 `json:"description,omitempty"`
+	NotificationEvents []apiNotificationEvent `json:"notification_events,omitempty"`
+}
+
+// NotificationEvent describes a single notification event in the Terraform model.
+type NotificationEvent struct {
+	EventType     string `tfsdk:"event_type"`
+	RecipientType string `tfsdk:"recipient_type"`
+	RecipientID   string `tfsdk:"recipient_id"`
 }
 
 // ResourceModel describes the resource data model.
 type ResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
+	ID                 types.String `tfsdk:"id"`
+	Name               types.String `tfsdk:"name"`
+	Description        types.String `tfsdk:"description"`
+	NotificationEvents types.List   `tfsdk:"notification_events"`
 }
 
 // Resource implements the atlassian_jira_notification_scheme managed resource.
@@ -92,6 +111,27 @@ func (r *Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp *res
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"notification_events": schema.ListNestedAttribute{
+				Description: "Notification events within the scheme.",
+				Optional:    true,
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"event_type": schema.StringAttribute{
+							Description: "The type of event that triggers the notification.",
+							Required:    true,
+						},
+						"recipient_type": schema.StringAttribute{
+							Description: "The type of recipient for the notification.",
+							Required:    true,
+						},
+						"recipient_id": schema.StringAttribute{
+							Description: "The identifier of the notification recipient.",
+							Required:    true,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -126,6 +166,7 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
 	}
+	body.NotificationEvents = eventsFromPlan(ctx, plan.NotificationEvents)
 	bodyBytes, _ := json.Marshal(body)
 
 	var created apiNotificationScheme
@@ -164,6 +205,7 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	plan.ID = types.StringValue(created.ID)
 	plan.Name = types.StringValue(created.Name)
 	plan.Description = types.StringValue(created.Description)
+	plan.NotificationEvents = eventsToState(ctx, created.NotificationEvents)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -194,6 +236,7 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	state.ID = types.StringValue(ns.ID)
 	state.Name = types.StringValue(ns.Name)
 	state.Description = types.StringValue(ns.Description)
+	state.NotificationEvents = eventsToState(ctx, ns.NotificationEvents)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -218,6 +261,7 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
 	}
+	body.NotificationEvents = eventsFromPlan(ctx, plan.NotificationEvents)
 	bodyBytes, _ := json.Marshal(body)
 
 	var updated apiNotificationScheme
@@ -256,6 +300,7 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	plan.ID = types.StringValue(updated.ID)
 	plan.Name = types.StringValue(updated.Name)
 	plan.Description = types.StringValue(updated.Description)
+	plan.NotificationEvents = eventsToState(ctx, updated.NotificationEvents)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -295,4 +340,56 @@ func (r *Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 // ImportState imports an existing notification scheme by ID.
 func (r *Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// notificationEventObjectType is the attr.Type for the notification event nested object.
+var notificationEventObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"event_type":     types.StringType,
+		"recipient_type": types.StringType,
+		"recipient_id":   types.StringType,
+	},
+}
+
+// eventsFromPlan converts the Terraform notification_events list to API format.
+func eventsFromPlan(ctx context.Context, events types.List) []apiNotificationEvent {
+	if events.IsNull() || events.IsUnknown() {
+		return nil
+	}
+	var eventModels []NotificationEvent
+	events.ElementsAs(ctx, &eventModels, false)
+	var result []apiNotificationEvent
+	for _, e := range eventModels {
+		result = append(result, apiNotificationEvent{
+			EventType:     e.EventType,
+			RecipientType: e.RecipientType,
+			RecipientID:   e.RecipientID,
+		})
+	}
+	return result
+}
+
+// eventsToState converts API notification events to the Terraform state list.
+func eventsToState(ctx context.Context, events []apiNotificationEvent) types.List {
+	if len(events) == 0 {
+		return types.ListNull(notificationEventObjectType)
+	}
+	var elems []attr.Value
+	for _, e := range events {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"event_type":     types.StringType,
+				"recipient_type": types.StringType,
+				"recipient_id":   types.StringType,
+			},
+			map[string]attr.Value{
+				"event_type":     types.StringValue(e.EventType),
+				"recipient_type": types.StringValue(e.RecipientType),
+				"recipient_id":   types.StringValue(e.RecipientID),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(notificationEventObjectType, elems)
+	return list
 }
