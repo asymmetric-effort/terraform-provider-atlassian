@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -33,17 +34,41 @@ type apiEnvironmentType struct {
 	Name string `json:"name"`
 }
 
+// apiRestriction represents a single restriction entry in the Bitbucket API.
+type apiRestriction struct {
+	Type    string `json:"type"`
+	Pattern string `json:"pattern,omitempty"`
+}
+
 // apiDeployment represents the JSON structure returned by the Bitbucket environments API.
 type apiDeployment struct {
 	UUID            string             `json:"uuid"`
 	Name            string             `json:"name"`
 	EnvironmentType apiEnvironmentType `json:"environment_type"`
+	Lock            *bool              `json:"lock,omitempty"`
+	Restrictions    []apiRestriction   `json:"restrictions,omitempty"`
 }
 
 // apiDeploymentCreate represents the JSON body for creating a deployment environment.
 type apiDeploymentCreate struct {
 	Name            string             `json:"name"`
 	EnvironmentType apiEnvironmentType `json:"environment_type"`
+	Lock            *bool              `json:"lock,omitempty"`
+	Restrictions    []apiRestriction   `json:"restrictions,omitempty"`
+}
+
+// RestrictionModel describes a single restriction entry in the Terraform model.
+type RestrictionModel struct {
+	Type    string `tfsdk:"type"`
+	Pattern string `tfsdk:"pattern"`
+}
+
+// restrictionObjectType is the attr.Type for the restriction nested object.
+var restrictionObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"type":    types.StringType,
+		"pattern": types.StringType,
+	},
 }
 
 // ResourceModel describes the resource data model.
@@ -52,6 +77,8 @@ type ResourceModel struct {
 	Repository      types.String `tfsdk:"repository"`
 	Name            types.String `tfsdk:"name"`
 	EnvironmentType types.String `tfsdk:"environment_type"`
+	Lock            types.Bool   `tfsdk:"lock"`
+	Restrictions    types.List   `tfsdk:"restrictions"`
 }
 
 // Resource implements the atlassian_bitbucket_deployment managed resource.
@@ -95,6 +122,28 @@ func (r *Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp *res
 			"environment_type": schema.StringAttribute{
 				Description: "The type of deployment environment. Must be one of: test, staging, production.",
 				Required:    true,
+			},
+			"lock": schema.BoolAttribute{
+				Description: "Whether the deployment environment is locked.",
+				Optional:    true,
+				Computed:    true,
+			},
+			"restrictions": schema.ListNestedAttribute{
+				Description: "Restrictions applied to the deployment environment.",
+				Optional:    true,
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"type": schema.StringAttribute{
+							Description: "The type of restriction (e.g., branch_restriction, admin_only).",
+							Required:    true,
+						},
+						"pattern": schema.StringAttribute{
+							Description: "The pattern for the restriction (e.g., a branch name pattern).",
+							Optional:    true,
+						},
+					},
+				},
 			},
 		},
 	}
@@ -146,6 +195,11 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 		Name:            plan.Name.ValueString(),
 		EnvironmentType: apiEnvironmentType{Name: plan.EnvironmentType.ValueString()},
 	}
+	if !plan.Lock.IsNull() && !plan.Lock.IsUnknown() {
+		v := plan.Lock.ValueBool()
+		body.Lock = &v
+	}
+	body.Restrictions = restrictionsFromPlan(ctx, plan.Restrictions)
 	bodyBytes, _ := json.Marshal(body)
 
 	var created apiDeployment
@@ -183,6 +237,8 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	plan.ID = types.StringValue(created.UUID)
 	plan.Name = types.StringValue(created.Name)
 	plan.EnvironmentType = types.StringValue(created.EnvironmentType.Name)
+	plan.Lock = lockToState(created.Lock)
+	plan.Restrictions = restrictionsToState(ctx, created.Restrictions)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -218,6 +274,8 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	state.ID = types.StringValue(env.UUID)
 	state.Name = types.StringValue(env.Name)
 	state.EnvironmentType = types.StringValue(env.EnvironmentType.Name)
+	state.Lock = lockToState(env.Lock)
+	state.Restrictions = restrictionsToState(ctx, env.Restrictions)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -246,6 +304,11 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 		Name:            plan.Name.ValueString(),
 		EnvironmentType: apiEnvironmentType{Name: plan.EnvironmentType.ValueString()},
 	}
+	if !plan.Lock.IsNull() && !plan.Lock.IsUnknown() {
+		v := plan.Lock.ValueBool()
+		body.Lock = &v
+	}
+	body.Restrictions = restrictionsFromPlan(ctx, plan.Restrictions)
 	bodyBytes, _ := json.Marshal(body)
 
 	var updated apiDeployment
@@ -277,6 +340,8 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	plan.ID = types.StringValue(updated.UUID)
 	plan.Name = types.StringValue(updated.Name)
 	plan.EnvironmentType = types.StringValue(updated.EnvironmentType.Name)
+	plan.Lock = lockToState(updated.Lock)
+	plan.Restrictions = restrictionsToState(ctx, updated.Restrictions)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -320,4 +385,52 @@ func (r *Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 // ImportState imports an existing deployment environment by UUID.
 func (r *Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// lockToState converts an API lock pointer to a Terraform Bool value.
+func lockToState(lock *bool) types.Bool {
+	if lock == nil {
+		return types.BoolValue(false)
+	}
+	return types.BoolValue(*lock)
+}
+
+// restrictionsFromPlan converts the Terraform restrictions list to API format.
+func restrictionsFromPlan(ctx context.Context, restrictions types.List) []apiRestriction {
+	if restrictions.IsNull() || restrictions.IsUnknown() {
+		return nil
+	}
+	var models []RestrictionModel
+	restrictions.ElementsAs(ctx, &models, false)
+	var result []apiRestriction
+	for _, m := range models {
+		result = append(result, apiRestriction{
+			Type:    m.Type,
+			Pattern: m.Pattern,
+		})
+	}
+	return result
+}
+
+// restrictionsToState converts API restrictions to the Terraform state list.
+func restrictionsToState(ctx context.Context, restrictions []apiRestriction) types.List {
+	if len(restrictions) == 0 {
+		return types.ListNull(restrictionObjectType)
+	}
+	var elems []attr.Value
+	for _, r := range restrictions {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"type":    types.StringType,
+				"pattern": types.StringType,
+			},
+			map[string]attr.Value{
+				"type":    types.StringValue(r.Type),
+				"pattern": types.StringValue(r.Pattern),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(restrictionObjectType, elems)
+	return list
 }

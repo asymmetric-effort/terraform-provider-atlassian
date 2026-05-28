@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -24,11 +25,27 @@ type apiEnvironmentType struct {
 	Name string `json:"name"`
 }
 
+// apiRestriction represents a single restriction entry in the Bitbucket API.
+type apiRestriction struct {
+	Type    string `json:"type"`
+	Pattern string `json:"pattern,omitempty"`
+}
+
 // apiDeployment represents the JSON structure returned by the Bitbucket environments API.
 type apiDeployment struct {
 	UUID            string             `json:"uuid"`
 	Name            string             `json:"name"`
 	EnvironmentType apiEnvironmentType `json:"environment_type"`
+	Lock            *bool              `json:"lock,omitempty"`
+	Restrictions    []apiRestriction   `json:"restrictions,omitempty"`
+}
+
+// restrictionObjectType is the attr.Type for the restriction nested object.
+var restrictionObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"type":    types.StringType,
+		"pattern": types.StringType,
+	},
 }
 
 // DataSourceModel describes the data source data model.
@@ -37,6 +54,8 @@ type DataSourceModel struct {
 	Repository      types.String `tfsdk:"repository"`
 	Name            types.String `tfsdk:"name"`
 	EnvironmentType types.String `tfsdk:"environment_type"`
+	Lock            types.Bool   `tfsdk:"lock"`
+	Restrictions    types.List   `tfsdk:"restrictions"`
 }
 
 // DataSource implements the atlassian_bitbucket_deployment data source.
@@ -74,6 +93,26 @@ func (d *DataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp 
 			"environment_type": schema.StringAttribute{
 				Description: "The type of deployment environment (test, staging, production).",
 				Computed:    true,
+			},
+			"lock": schema.BoolAttribute{
+				Description: "Whether the deployment environment is locked.",
+				Computed:    true,
+			},
+			"restrictions": schema.ListNestedAttribute{
+				Description: "Restrictions applied to the deployment environment.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"type": schema.StringAttribute{
+							Description: "The type of restriction.",
+							Computed:    true,
+						},
+						"pattern": schema.StringAttribute{
+							Description: "The pattern for the restriction.",
+							Computed:    true,
+						},
+					},
+				},
 			},
 		},
 	}
@@ -141,6 +180,39 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 	config.ID = types.StringValue(env.UUID)
 	config.Name = types.StringValue(env.Name)
 	config.EnvironmentType = types.StringValue(env.EnvironmentType.Name)
+	config.Lock = lockToState(env.Lock)
+	config.Restrictions = restrictionsToState(ctx, env.Restrictions)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
+}
+
+// lockToState converts an API lock pointer to a Terraform Bool value.
+func lockToState(lock *bool) types.Bool {
+	if lock == nil {
+		return types.BoolValue(false)
+	}
+	return types.BoolValue(*lock)
+}
+
+// restrictionsToState converts API restrictions to the Terraform state list.
+func restrictionsToState(ctx context.Context, restrictions []apiRestriction) types.List {
+	if len(restrictions) == 0 {
+		return types.ListNull(restrictionObjectType)
+	}
+	var elems []attr.Value
+	for _, r := range restrictions {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"type":    types.StringType,
+				"pattern": types.StringType,
+			},
+			map[string]attr.Value{
+				"type":    types.StringValue(r.Type),
+				"pattern": types.StringValue(r.Pattern),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(restrictionObjectType, elems)
+	return list
 }

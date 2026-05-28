@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,9 +20,51 @@ import (
 // Ensure the DataSource type satisfies the datasource.DataSource interface.
 var _ datasource.DataSource = &DataSource{}
 
+// apiPipelineVariable represents a single pipeline variable in the API.
+type apiPipelineVariable struct {
+	Key     string `json:"key"`
+	Value   string `json:"value"`
+	Secured bool   `json:"secured"`
+}
+
 // apiPipeline represents the JSON structure returned by the Bitbucket pipelines_config API.
 type apiPipeline struct {
-	Enabled bool `json:"enabled"`
+	Enabled   bool                  `json:"enabled"`
+	Variables []apiPipelineVariable `json:"variables,omitempty"`
+}
+
+// variableObjectType is the attr.Type for the pipeline variable nested object.
+var variableObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"key":     types.StringType,
+		"value":   types.StringType,
+		"secured": types.BoolType,
+	},
+}
+
+// variablesToState converts API pipeline variables to the Terraform state list.
+func variablesToState(vars []apiPipelineVariable) types.List {
+	if len(vars) == 0 {
+		return types.ListNull(variableObjectType)
+	}
+	var elems []attr.Value
+	for _, v := range vars {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"key":     types.StringType,
+				"value":   types.StringType,
+				"secured": types.BoolType,
+			},
+			map[string]attr.Value{
+				"key":     types.StringValue(v.Key),
+				"value":   types.StringValue(v.Value),
+				"secured": types.BoolValue(v.Secured),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(variableObjectType, elems)
+	return list
 }
 
 // DataSourceModel describes the data source data model.
@@ -29,6 +72,7 @@ type DataSourceModel struct {
 	ID         types.String `tfsdk:"id"`
 	Repository types.String `tfsdk:"repository"`
 	Enabled    types.Bool   `tfsdk:"enabled"`
+	Variables  types.List   `tfsdk:"variables"`
 }
 
 // DataSource implements the atlassian_bitbucket_pipeline data source.
@@ -62,6 +106,26 @@ func (d *DataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp 
 			"enabled": schema.BoolAttribute{
 				Description: "Whether pipelines are enabled for this repository.",
 				Computed:    true,
+			},
+			"variables": schema.ListNestedAttribute{
+				Description: "Pipeline variables for this repository.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"key": schema.StringAttribute{
+							Description: "The name of the pipeline variable.",
+							Computed:    true,
+						},
+						"value": schema.StringAttribute{
+							Description: "The value of the pipeline variable.",
+							Computed:    true,
+						},
+						"secured": schema.BoolAttribute{
+							Description: "Whether the variable value is secured (masked in logs).",
+							Computed:    true,
+						},
+					},
+				},
 			},
 		},
 	}
@@ -128,6 +192,7 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 
 	config.ID = types.StringValue(config.Repository.ValueString())
 	config.Enabled = types.BoolValue(pipeline.Enabled)
+	config.Variables = variablesToState(pipeline.Variables)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }

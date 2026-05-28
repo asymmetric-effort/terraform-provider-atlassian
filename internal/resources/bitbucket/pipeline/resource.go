@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -29,10 +30,27 @@ var (
 	_ resource.ResourceWithImportState = &Resource{}
 )
 
+// apiPipelineVariable represents a single pipeline variable in the API.
+type apiPipelineVariable struct {
+	Key     string `json:"key"`
+	Value   string `json:"value"`
+	Secured bool   `json:"secured"`
+}
+
 // apiPipeline represents the JSON structure returned by the Bitbucket pipelines_config API.
 type apiPipeline struct {
-	UUID    string `json:"uuid,omitempty"`
-	Enabled bool   `json:"enabled"`
+	UUID      string                `json:"uuid,omitempty"`
+	Enabled   bool                  `json:"enabled"`
+	Variables []apiPipelineVariable `json:"variables,omitempty"`
+}
+
+// variableObjectType is the attr.Type for the pipeline variable nested object.
+var variableObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"key":     types.StringType,
+		"value":   types.StringType,
+		"secured": types.BoolType,
+	},
 }
 
 // ResourceModel describes the resource data model.
@@ -40,6 +58,7 @@ type ResourceModel struct {
 	ID         types.String `tfsdk:"id"`
 	Repository types.String `tfsdk:"repository"`
 	Enabled    types.Bool   `tfsdk:"enabled"`
+	Variables  types.List   `tfsdk:"variables"`
 }
 
 // Resource implements the atlassian_bitbucket_pipeline managed resource.
@@ -84,6 +103,28 @@ func (r *Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp *res
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"variables": schema.ListNestedAttribute{
+				Description: "Pipeline variables for this repository.",
+				Optional:    true,
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"key": schema.StringAttribute{
+							Description: "The name of the pipeline variable.",
+							Required:    true,
+						},
+						"value": schema.StringAttribute{
+							Description: "The value of the pipeline variable.",
+							Required:    true,
+						},
+						"secured": schema.BoolAttribute{
+							Description: "Whether the variable value is secured (masked in logs).",
+							Optional:    true,
+							Computed:    true,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -102,6 +143,53 @@ func (r *Resource) Configure(_ context.Context, req resource.ConfigureRequest, r
 		return
 	}
 	r.client = client
+}
+
+// variablesFromPlan converts the Terraform variables list to API format.
+func variablesFromPlan(ctx context.Context, vars types.List) []apiPipelineVariable {
+	if vars.IsNull() || vars.IsUnknown() {
+		return nil
+	}
+	var result []apiPipelineVariable
+	var elements []types.Object
+	vars.ElementsAs(ctx, &elements, false)
+	for _, elem := range elements {
+		attrs := elem.Attributes()
+		v := apiPipelineVariable{
+			Key:   attrs["key"].(types.String).ValueString(),
+			Value: attrs["value"].(types.String).ValueString(),
+		}
+		if secured, ok := attrs["secured"].(types.Bool); ok && !secured.IsNull() && !secured.IsUnknown() {
+			v.Secured = secured.ValueBool()
+		}
+		result = append(result, v)
+	}
+	return result
+}
+
+// variablesToState converts API pipeline variables to the Terraform state list.
+func variablesToState(ctx context.Context, vars []apiPipelineVariable) types.List {
+	if len(vars) == 0 {
+		return types.ListNull(variableObjectType)
+	}
+	var elems []attr.Value
+	for _, v := range vars {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"key":     types.StringType,
+				"value":   types.StringType,
+				"secured": types.BoolType,
+			},
+			map[string]attr.Value{
+				"key":     types.StringValue(v.Key),
+				"value":   types.StringValue(v.Value),
+				"secured": types.BoolValue(v.Secured),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(variableObjectType, elems)
+	return list
 }
 
 // repoPath builds the API path prefix for a repository.
@@ -135,7 +223,10 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 		enabled = plan.Enabled.ValueBool()
 	}
 
-	body := apiPipeline{Enabled: enabled}
+	body := apiPipeline{
+		Enabled:   enabled,
+		Variables: variablesFromPlan(ctx, plan.Variables),
+	}
 	bodyBytes, _ := json.Marshal(body)
 
 	var created apiPipeline
@@ -166,6 +257,7 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 
 	plan.ID = types.StringValue(plan.Repository.ValueString())
 	plan.Enabled = types.BoolValue(created.Enabled)
+	plan.Variables = variablesToState(ctx, created.Variables)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -200,6 +292,7 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 
 	state.ID = types.StringValue(state.Repository.ValueString())
 	state.Enabled = types.BoolValue(pipeline.Enabled)
+	state.Variables = variablesToState(ctx, pipeline.Variables)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -229,7 +322,10 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 		enabled = plan.Enabled.ValueBool()
 	}
 
-	body := apiPipeline{Enabled: enabled}
+	body := apiPipeline{
+		Enabled:   enabled,
+		Variables: variablesFromPlan(ctx, plan.Variables),
+	}
 	bodyBytes, _ := json.Marshal(body)
 
 	var updated apiPipeline
@@ -260,6 +356,7 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 
 	plan.ID = types.StringValue(state.Repository.ValueString())
 	plan.Enabled = types.BoolValue(updated.Enabled)
+	plan.Variables = variablesToState(ctx, updated.Variables)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }

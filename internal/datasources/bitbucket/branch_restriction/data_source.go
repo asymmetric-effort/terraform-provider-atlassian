@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -21,9 +22,11 @@ var _ datasource.DataSource = &DataSource{}
 
 // apiBranchRestriction represents the JSON structure returned by the Bitbucket branch restrictions API.
 type apiBranchRestriction struct {
-	ID      int    `json:"id"`
-	Kind    string `json:"kind"`
-	Pattern string `json:"pattern"`
+	ID      int      `json:"id"`
+	Kind    string   `json:"kind"`
+	Pattern string   `json:"pattern"`
+	Users   []string `json:"users"`
+	Groups  []string `json:"groups"`
 }
 
 // DataSourceModel describes the data source data model.
@@ -32,6 +35,8 @@ type DataSourceModel struct {
 	Repository types.String `tfsdk:"repository"`
 	Pattern    types.String `tfsdk:"pattern"`
 	Kind       types.String `tfsdk:"kind"`
+	Users      types.List   `tfsdk:"users"`
+	Groups     types.List   `tfsdk:"groups"`
 }
 
 // DataSource implements the atlassian_bitbucket_branch_restriction data source.
@@ -69,6 +74,16 @@ func (d *DataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp 
 			"kind": schema.StringAttribute{
 				Description: "The kind of restriction (push, delete, force, merge).",
 				Computed:    true,
+			},
+			"users": schema.ListAttribute{
+				Description: "List of user account IDs restricted.",
+				Computed:    true,
+				ElementType: types.StringType,
+			},
+			"groups": schema.ListAttribute{
+				Description: "List of group slugs restricted.",
+				Computed:    true,
+				ElementType: types.StringType,
 			},
 		},
 	}
@@ -136,6 +151,21 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 	config.ID = types.StringValue(fmt.Sprintf("%d", restriction.ID))
 	config.Pattern = types.StringValue(restriction.Pattern)
 	config.Kind = types.StringValue(restriction.Kind)
+	config.Users = stringsToList(restriction.Users)
+	config.Groups = stringsToList(restriction.Groups)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
+}
+
+// stringsToList converts a Go []string to a types.List of strings.
+func stringsToList(vals []string) types.List {
+	if vals == nil {
+		vals = []string{}
+	}
+	elems := make([]attr.Value, len(vals))
+	for i, v := range vals {
+		elems[i] = types.StringValue(v)
+	}
+	list, _ := types.ListValue(types.StringType, elems)
+	return list
 }

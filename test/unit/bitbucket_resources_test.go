@@ -31,6 +31,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
+// pipelineVariableListType is the tftypes type for the variables attribute on pipeline resources.
+var pipelineVariableListType = tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"key": tftypes.String, "value": tftypes.String, "secured": tftypes.Bool}}}
+
 // bitbucketIDCounter provides unique IDs for bitbucket mock server tests.
 var bitbucketIDCounter uint64
 
@@ -66,10 +69,20 @@ func testBitbucketMockServer(t *testing.T) (*httptest.Server, *atlassian.Client)
 		defer mu.Unlock()
 		id := atomic.AddInt64(&brIDCounter, 1)
 		idStr := strconv.FormatInt(id, 10)
+		var users []interface{}
+		if u, ok := req["users"].([]interface{}); ok {
+			users = u
+		}
+		var groups []interface{}
+		if g, ok := req["groups"].([]interface{}); ok {
+			groups = g
+		}
 		br := map[string]interface{}{
 			"id":      float64(id),
 			"kind":    kind,
 			"pattern": pattern,
+			"users":   users,
+			"groups":  groups,
 		}
 		branchRestrictions[idStr] = br
 		w.Header().Set("Content-Type", "application/json")
@@ -107,6 +120,12 @@ func testBitbucketMockServer(t *testing.T) (*httptest.Server, *atlassian.Client)
 		if pattern, ok := req["pattern"].(string); ok {
 			br["pattern"] = pattern
 		}
+		if u, ok := req["users"].([]interface{}); ok {
+			br["users"] = u
+		}
+		if g, ok := req["groups"].([]interface{}); ok {
+			br["groups"] = g
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(br)
 	})
@@ -136,6 +155,9 @@ func testBitbucketMockServer(t *testing.T) (*httptest.Server, *atlassian.Client)
 		defer mu.Unlock()
 		config := map[string]interface{}{
 			"enabled": enabled,
+		}
+		if vars, ok := req["variables"].([]interface{}); ok {
+			config["variables"] = vars
 		}
 		pipelines[key] = config
 		w.Header().Set("Content-Type", "application/json")
@@ -171,6 +193,11 @@ func testBitbucketMockServer(t *testing.T) (*httptest.Server, *atlassian.Client)
 		if et, ok := req["environment_type"].(map[string]interface{}); ok {
 			envType, _ = et["name"].(string)
 		}
+		lock, _ := req["lock"].(bool)
+		var restrictions []interface{}
+		if r, ok := req["restrictions"].([]interface{}); ok {
+			restrictions = r
+		}
 		mu.Lock()
 		defer mu.Unlock()
 		uuid := bitbucketNextID("env")
@@ -180,6 +207,8 @@ func testBitbucketMockServer(t *testing.T) (*httptest.Server, *atlassian.Client)
 			"environment_type": map[string]interface{}{
 				"name": envType,
 			},
+			"lock":         lock,
+			"restrictions": restrictions,
 		}
 		deployments[uuid] = dep
 		w.Header().Set("Content-Type", "application/json")
@@ -216,6 +245,12 @@ func testBitbucketMockServer(t *testing.T) (*httptest.Server, *atlassian.Client)
 		}
 		if et, ok := req["environment_type"].(map[string]interface{}); ok {
 			dep["environment_type"] = et
+		}
+		if lock, ok := req["lock"].(bool); ok {
+			dep["lock"] = lock
+		}
+		if restrictions, ok := req["restrictions"].([]interface{}); ok {
+			dep["restrictions"] = restrictions
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(dep)
@@ -371,14 +406,14 @@ func TestBranchRestrictionResourceSchema(t *testing.T) {
 	t.Parallel()
 	r := bbbranchrestrictionrs.NewResource()
 	s := getResourceSchema(t, r)
-	expectedAttrs := []string{"id", "repository", "pattern", "kind"}
+	expectedAttrs := []string{"id", "repository", "pattern", "kind", "users", "groups"}
 	for _, attr := range expectedAttrs {
 		if _, ok := s.Attributes[attr]; !ok {
 			t.Errorf("expected attribute %q", attr)
 		}
 	}
-	if len(s.Attributes) != 4 {
-		t.Errorf("expected 4 attributes, got %d", len(s.Attributes))
+	if len(s.Attributes) != 6 {
+		t.Errorf("expected 6 attributes, got %d", len(s.Attributes))
 	}
 }
 
@@ -423,6 +458,8 @@ func TestBranchRestrictionResourceCRUDLifecycle(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -446,6 +483,8 @@ func TestBranchRestrictionResourceCRUDLifecycle(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: readState}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -462,12 +501,16 @@ func TestBranchRestrictionResourceCRUDLifecycle(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "release/*"),
 		"kind":       tftypes.NewValue(tftypes.String, "delete"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	updateState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":         tftypes.NewValue(tftypes.String, id),
 		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: updateState}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: updateState}, updateResp)
@@ -484,6 +527,8 @@ func TestBranchRestrictionResourceCRUDLifecycle(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "release/*"),
 		"kind":       tftypes.NewValue(tftypes.String, "delete"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: deleteState}
 	r.Delete(ctx, resource.DeleteRequest{State: deleteState}, deleteResp)
@@ -513,6 +558,8 @@ func TestBranchRestrictionResourceCreateInvalidRepo(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "invalidrepo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -535,6 +582,8 @@ func TestBranchRestrictionResourceCreateForbidden(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -560,6 +609,8 @@ func TestBranchRestrictionResourceCreateNotFound(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -582,6 +633,8 @@ func TestBranchRestrictionResourceCreateGenericError(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -604,6 +657,8 @@ func TestBranchRestrictionResourceReadInvalidRepo(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "noslash"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: state}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -626,6 +681,8 @@ func TestBranchRestrictionResourceReadError(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: state}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -648,12 +705,16 @@ func TestBranchRestrictionResourceUpdateInvalidRepo(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "noslash"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":         tftypes.NewValue(tftypes.String, "1"),
 		"repository": tftypes.NewValue(tftypes.String, "noslash"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: state}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, updateResp)
@@ -676,12 +737,16 @@ func TestBranchRestrictionResourceUpdateNotFound(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":         tftypes.NewValue(tftypes.String, "1"),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: state}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, updateResp)
@@ -704,12 +769,16 @@ func TestBranchRestrictionResourceUpdateForbidden(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":         tftypes.NewValue(tftypes.String, "1"),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: state}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, updateResp)
@@ -732,12 +801,16 @@ func TestBranchRestrictionResourceUpdateGenericError(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":         tftypes.NewValue(tftypes.String, "1"),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: state}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, updateResp)
@@ -760,6 +833,8 @@ func TestBranchRestrictionResourceDeleteInvalidRepo(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "noslash"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: state}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -782,6 +857,8 @@ func TestBranchRestrictionResourceDeleteNotFound(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: state}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -804,6 +881,8 @@ func TestBranchRestrictionResourceDeleteForbidden(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: state}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -826,6 +905,8 @@ func TestBranchRestrictionResourceDeleteGenericError(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: state}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -851,14 +932,14 @@ func TestPipelineResourceSchema(t *testing.T) {
 	t.Parallel()
 	r := bbpipeliners.NewResource()
 	s := getResourceSchema(t, r)
-	expectedAttrs := []string{"id", "repository", "enabled"}
+	expectedAttrs := []string{"id", "repository", "enabled", "variables"}
 	for _, attr := range expectedAttrs {
 		if _, ok := s.Attributes[attr]; !ok {
 			t.Errorf("expected attribute %q", attr)
 		}
 	}
-	if len(s.Attributes) != 3 {
-		t.Errorf("expected 3 attributes, got %d", len(s.Attributes))
+	if len(s.Attributes) != 4 {
+		t.Errorf("expected 4 attributes, got %d", len(s.Attributes))
 	}
 }
 
@@ -902,6 +983,7 @@ func TestPipelineResourceCRUDLifecycle(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -917,6 +999,7 @@ func TestPipelineResourceCRUDLifecycle(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	readResp := &resource.ReadResponse{State: readState}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -929,11 +1012,13 @@ func TestPipelineResourceCRUDLifecycle(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, false),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	updateState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":         tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: updateState}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: updateState}, updateResp)
@@ -946,6 +1031,7 @@ func TestPipelineResourceCRUDLifecycle(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, false),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: deleteState}
 	r.Delete(ctx, resource.DeleteRequest{State: deleteState}, deleteResp)
@@ -967,6 +1053,7 @@ func TestPipelineResourceCreateInvalidRepo(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"repository": tftypes.NewValue(tftypes.String, "noslash"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -988,6 +1075,7 @@ func TestPipelineResourceCreateForbidden(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1009,6 +1097,7 @@ func TestPipelineResourceCreateNotFound(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1030,6 +1119,7 @@ func TestPipelineResourceCreateGenericError(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1051,6 +1141,7 @@ func TestPipelineResourceReadInvalidRepo(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, "noslash"),
 		"repository": tftypes.NewValue(tftypes.String, "noslash"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	readResp := &resource.ReadResponse{State: state}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -1072,6 +1163,7 @@ func TestPipelineResourceReadNotFound(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, "ws/repo"),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	readResp := &resource.ReadResponse{State: state}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -1094,6 +1186,7 @@ func TestPipelineResourceReadGenericError(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, "ws/repo"),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	readResp := &resource.ReadResponse{State: state}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -1115,11 +1208,13 @@ func TestPipelineResourceUpdateInvalidRepo(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, "noslash"),
 		"repository": tftypes.NewValue(tftypes.String, "noslash"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":         tftypes.NewValue(tftypes.String, "noslash"),
 		"repository": tftypes.NewValue(tftypes.String, "noslash"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: state}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, updateResp)
@@ -1141,11 +1236,13 @@ func TestPipelineResourceUpdateNotFound(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, "ws/repo"),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":         tftypes.NewValue(tftypes.String, "ws/repo"),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: state}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, updateResp)
@@ -1167,11 +1264,13 @@ func TestPipelineResourceUpdateForbidden(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, "ws/repo"),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":         tftypes.NewValue(tftypes.String, "ws/repo"),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: state}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, updateResp)
@@ -1193,11 +1292,13 @@ func TestPipelineResourceUpdateGenericError(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, "ws/repo"),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":         tftypes.NewValue(tftypes.String, "ws/repo"),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: state}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, updateResp)
@@ -1219,6 +1320,7 @@ func TestPipelineResourceDeleteInvalidRepo(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, "noslash"),
 		"repository": tftypes.NewValue(tftypes.String, "noslash"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: state}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -1240,6 +1342,7 @@ func TestPipelineResourceDeleteNotFound(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, "ws/repo"),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: state}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -1261,6 +1364,7 @@ func TestPipelineResourceDeleteForbidden(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, "ws/repo"),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: state}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -1282,6 +1386,7 @@ func TestPipelineResourceDeleteGenericError(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, "ws/repo"),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: state}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -1304,11 +1409,99 @@ func TestPipelineResourceCreateWithDefaultEnabled(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"repository": tftypes.NewValue(tftypes.String, "ws/myrepo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, nil),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
 	if createResp.Diagnostics.HasError() {
 		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+}
+
+func TestPipelineResourceCRUDWithVariables(t *testing.T) {
+	t.Parallel()
+	_, client := testBitbucketMockServer(t)
+	ctx := context.Background()
+	r := bbpipeliners.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	varObjType := tftypes.Object{AttributeTypes: map[string]tftypes.Type{"key": tftypes.String, "value": tftypes.String, "secured": tftypes.Bool}}
+
+	// Create with variables
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"repository": tftypes.NewValue(tftypes.String, "myworkspace/varrepo"),
+		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables": tftypes.NewValue(pipelineVariableListType, []tftypes.Value{
+			tftypes.NewValue(varObjType, map[string]tftypes.Value{
+				"key":     tftypes.NewValue(tftypes.String, "AWS_ACCESS_KEY"),
+				"value":   tftypes.NewValue(tftypes.String, "AKIAIOSFODNN7EXAMPLE"),
+				"secured": tftypes.NewValue(tftypes.Bool, true),
+			}),
+			tftypes.NewValue(varObjType, map[string]tftypes.Value{
+				"key":     tftypes.NewValue(tftypes.String, "DEPLOY_ENV"),
+				"value":   tftypes.NewValue(tftypes.String, "staging"),
+				"secured": tftypes.NewValue(tftypes.Bool, false),
+			}),
+		}),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+
+	// Read
+	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":         tftypes.NewValue(tftypes.String, "myworkspace/varrepo"),
+		"repository": tftypes.NewValue(tftypes.String, "myworkspace/varrepo"),
+		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
+	})}
+	readResp := &resource.ReadResponse{State: readState}
+	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+
+	// Update with different variables
+	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":         tftypes.NewValue(tftypes.String, "myworkspace/varrepo"),
+		"repository": tftypes.NewValue(tftypes.String, "myworkspace/varrepo"),
+		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables": tftypes.NewValue(pipelineVariableListType, []tftypes.Value{
+			tftypes.NewValue(varObjType, map[string]tftypes.Value{
+				"key":     tftypes.NewValue(tftypes.String, "DEPLOY_ENV"),
+				"value":   tftypes.NewValue(tftypes.String, "production"),
+				"secured": tftypes.NewValue(tftypes.Bool, false),
+			}),
+		}),
+	})}
+	updateState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":         tftypes.NewValue(tftypes.String, "myworkspace/varrepo"),
+		"repository": tftypes.NewValue(tftypes.String, "myworkspace/varrepo"),
+		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
+	})}
+	updateResp := &resource.UpdateResponse{State: updateState}
+	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: updateState}, updateResp)
+	if updateResp.Diagnostics.HasError() {
+		t.Fatalf("Update: %v", updateResp.Diagnostics.Errors())
+	}
+
+	// Delete
+	deleteState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":         tftypes.NewValue(tftypes.String, "myworkspace/varrepo"),
+		"repository": tftypes.NewValue(tftypes.String, "myworkspace/varrepo"),
+		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
+	})}
+	deleteResp := &resource.DeleteResponse{State: deleteState}
+	r.Delete(ctx, resource.DeleteRequest{State: deleteState}, deleteResp)
+	if deleteResp.Diagnostics.HasError() {
+		t.Fatalf("Delete: %v", deleteResp.Diagnostics.Errors())
 	}
 }
 
@@ -1329,14 +1522,14 @@ func TestDeploymentResourceSchema(t *testing.T) {
 	t.Parallel()
 	r := bbdeploymentrs.NewResource()
 	s := getResourceSchema(t, r)
-	expectedAttrs := []string{"id", "repository", "name", "environment_type"}
+	expectedAttrs := []string{"id", "repository", "name", "environment_type", "lock", "restrictions"}
 	for _, attr := range expectedAttrs {
 		if _, ok := s.Attributes[attr]; !ok {
 			t.Errorf("expected attribute %q", attr)
 		}
 	}
-	if len(s.Attributes) != 4 {
-		t.Errorf("expected 4 attributes, got %d", len(s.Attributes))
+	if len(s.Attributes) != 6 {
+		t.Errorf("expected 6 attributes, got %d", len(s.Attributes))
 	}
 }
 
@@ -1381,6 +1574,8 @@ func TestDeploymentResourceCRUDLifecycle(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"name":             tftypes.NewValue(tftypes.String, "staging-env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "staging"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1404,6 +1599,8 @@ func TestDeploymentResourceCRUDLifecycle(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"name":             tftypes.NewValue(tftypes.String, "staging-env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "staging"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: readState}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -1417,12 +1614,16 @@ func TestDeploymentResourceCRUDLifecycle(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"name":             tftypes.NewValue(tftypes.String, "production-env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "production"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	updateState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":               tftypes.NewValue(tftypes.String, id),
 		"repository":       tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"name":             tftypes.NewValue(tftypes.String, "staging-env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "staging"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: updateState}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: updateState}, updateResp)
@@ -1439,11 +1640,115 @@ func TestDeploymentResourceCRUDLifecycle(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"name":             tftypes.NewValue(tftypes.String, "production-env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "production"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: deleteState}
 	r.Delete(ctx, resource.DeleteRequest{State: deleteState}, deleteResp)
 	if deleteResp.Diagnostics.HasError() {
 		t.Fatalf("Delete: %v", deleteResp.Diagnostics.Errors())
+	}
+}
+
+func TestDeploymentResourceLockAndRestrictions(t *testing.T) {
+	t.Parallel()
+	_, client := testBitbucketMockServer(t)
+	ctx := context.Background()
+	r := bbdeploymentrs.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	restrictionListType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}
+
+	// Create with lock=true and restrictions
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":               tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"repository":       tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
+		"name":             tftypes.NewValue(tftypes.String, "locked-env"),
+		"environment_type": tftypes.NewValue(tftypes.String, "production"),
+		"lock":             tftypes.NewValue(tftypes.Bool, true),
+		"restrictions": tftypes.NewValue(restrictionListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}, map[string]tftypes.Value{
+				"type":    tftypes.NewValue(tftypes.String, "branch_restriction"),
+				"pattern": tftypes.NewValue(tftypes.String, "main"),
+			}),
+		}),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+	id := getStringAttr(t, createResp.State, "id")
+	if id == "" {
+		t.Fatal("expected non-empty id")
+	}
+	if got := getStringAttr(t, createResp.State, "name"); got != "locked-env" {
+		t.Errorf("expected name 'locked-env', got %q", got)
+	}
+
+	// Read back
+	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":               tftypes.NewValue(tftypes.String, id),
+		"repository":       tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
+		"name":             tftypes.NewValue(tftypes.String, "locked-env"),
+		"environment_type": tftypes.NewValue(tftypes.String, "production"),
+		"lock":             tftypes.NewValue(tftypes.Bool, true),
+		"restrictions": tftypes.NewValue(restrictionListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}, map[string]tftypes.Value{
+				"type":    tftypes.NewValue(tftypes.String, "branch_restriction"),
+				"pattern": tftypes.NewValue(tftypes.String, "main"),
+			}),
+		}),
+	})}
+	readResp := &resource.ReadResponse{State: readState}
+	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+
+	// Update: change lock to false and remove restrictions
+	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":               tftypes.NewValue(tftypes.String, id),
+		"repository":       tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
+		"name":             tftypes.NewValue(tftypes.String, "locked-env"),
+		"environment_type": tftypes.NewValue(tftypes.String, "production"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(restrictionListType, nil),
+	})}
+	updateState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":               tftypes.NewValue(tftypes.String, id),
+		"repository":       tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
+		"name":             tftypes.NewValue(tftypes.String, "locked-env"),
+		"environment_type": tftypes.NewValue(tftypes.String, "production"),
+		"lock":             tftypes.NewValue(tftypes.Bool, true),
+		"restrictions": tftypes.NewValue(restrictionListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}, map[string]tftypes.Value{
+				"type":    tftypes.NewValue(tftypes.String, "branch_restriction"),
+				"pattern": tftypes.NewValue(tftypes.String, "main"),
+			}),
+		}),
+	})}
+	updateResp := &resource.UpdateResponse{State: updateState}
+	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: updateState}, updateResp)
+	if updateResp.Diagnostics.HasError() {
+		t.Fatalf("Update: %v", updateResp.Diagnostics.Errors())
+	}
+
+	// Delete
+	deleteState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":               tftypes.NewValue(tftypes.String, id),
+		"repository":       tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
+		"name":             tftypes.NewValue(tftypes.String, "locked-env"),
+		"environment_type": tftypes.NewValue(tftypes.String, "production"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(restrictionListType, nil),
+	})}
+	deleteResp2 := &resource.DeleteResponse{State: deleteState}
+	r.Delete(ctx, resource.DeleteRequest{State: deleteState}, deleteResp2)
+	if deleteResp2.Diagnostics.HasError() {
+		t.Fatalf("Delete: %v", deleteResp2.Diagnostics.Errors())
 	}
 }
 
@@ -1461,6 +1766,8 @@ func TestDeploymentResourceCreateInvalidRepo(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "noslash"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1483,6 +1790,8 @@ func TestDeploymentResourceCreateForbidden(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1505,6 +1814,8 @@ func TestDeploymentResourceCreateNotFound(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1527,6 +1838,8 @@ func TestDeploymentResourceCreateConflict(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1549,6 +1862,8 @@ func TestDeploymentResourceCreateGenericError(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1571,6 +1886,8 @@ func TestDeploymentResourceReadInvalidRepo(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "noslash"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: state}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -1593,6 +1910,8 @@ func TestDeploymentResourceReadError(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: state}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -1615,12 +1934,16 @@ func TestDeploymentResourceUpdateInvalidRepo(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "noslash"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":               tftypes.NewValue(tftypes.String, "uuid-1"),
 		"repository":       tftypes.NewValue(tftypes.String, "noslash"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: state}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, updateResp)
@@ -1643,12 +1966,16 @@ func TestDeploymentResourceUpdateNotFound(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":               tftypes.NewValue(tftypes.String, "uuid-1"),
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: state}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, updateResp)
@@ -1671,12 +1998,16 @@ func TestDeploymentResourceUpdateForbidden(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":               tftypes.NewValue(tftypes.String, "uuid-1"),
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: state}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, updateResp)
@@ -1699,12 +2030,16 @@ func TestDeploymentResourceUpdateGenericError(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":               tftypes.NewValue(tftypes.String, "uuid-1"),
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: state}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, updateResp)
@@ -1727,6 +2062,8 @@ func TestDeploymentResourceDeleteInvalidRepo(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "noslash"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: state}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -1749,6 +2086,8 @@ func TestDeploymentResourceDeleteNotFound(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: state}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -1771,6 +2110,8 @@ func TestDeploymentResourceDeleteForbidden(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: state}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -1793,6 +2134,8 @@ func TestDeploymentResourceDeleteGenericError(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: state}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -2308,14 +2651,14 @@ func TestBranchRestrictionDataSourceSchema(t *testing.T) {
 	t.Parallel()
 	ds := bbbranchrestrictionds.NewDataSource()
 	s := getDatasourceSchema(t, ds)
-	expectedAttrs := []string{"id", "repository", "pattern", "kind"}
+	expectedAttrs := []string{"id", "repository", "pattern", "kind", "users", "groups"}
 	for _, attr := range expectedAttrs {
 		if _, ok := s.Attributes[attr]; !ok {
 			t.Errorf("expected attribute %q", attr)
 		}
 	}
-	if len(s.Attributes) != 4 {
-		t.Errorf("expected 4 attributes, got %d", len(s.Attributes))
+	if len(s.Attributes) != 6 {
+		t.Errorf("expected 6 attributes, got %d", len(s.Attributes))
 	}
 }
 
@@ -2355,6 +2698,8 @@ func TestBranchRestrictionDataSourceRead(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -2374,6 +2719,8 @@ func TestBranchRestrictionDataSourceRead(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
 		"pattern":    tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"kind":       tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, s)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -2399,6 +2746,8 @@ func TestBranchRestrictionDataSourceReadInvalidRepo(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "noslash"),
 		"pattern":    tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"kind":       tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, s)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -2421,6 +2770,8 @@ func TestBranchRestrictionDataSourceReadNotFound(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"kind":       tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, s)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -2443,6 +2794,8 @@ func TestBranchRestrictionDataSourceReadGenericError(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"kind":       tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, s)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -2466,8 +2819,8 @@ func TestPipelineDataSourceSchema(t *testing.T) {
 	t.Parallel()
 	ds := bbpipelineds.NewDataSource()
 	s := getDatasourceSchema(t, ds)
-	if len(s.Attributes) != 3 {
-		t.Errorf("expected 3 attributes, got %d", len(s.Attributes))
+	if len(s.Attributes) != 4 {
+		t.Errorf("expected 4 attributes, got %d", len(s.Attributes))
 	}
 }
 
@@ -2505,6 +2858,7 @@ func TestPipelineDataSourceRead(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"repository": tftypes.NewValue(tftypes.String, "myworkspace/dsrepo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -2522,6 +2876,56 @@ func TestPipelineDataSourceRead(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"repository": tftypes.NewValue(tftypes.String, "myworkspace/dsrepo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
+	})}
+	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, s)}
+	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+}
+
+func TestPipelineDataSourceReadWithVariables(t *testing.T) {
+	t.Parallel()
+	_, client := testBitbucketMockServer(t)
+	ctx := context.Background()
+
+	varObjType := tftypes.Object{AttributeTypes: map[string]tftypes.Type{"key": tftypes.String, "value": tftypes.String, "secured": tftypes.Bool}}
+
+	// Create pipeline with variables first
+	r := bbpipeliners.NewResource()
+	configureResource(t, r, client)
+	rs := getResourceSchema(t, r)
+	rsTfType := rs.Type().TerraformType(ctx)
+	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
+		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"repository": tftypes.NewValue(tftypes.String, "myworkspace/dsvarrepo"),
+		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables": tftypes.NewValue(pipelineVariableListType, []tftypes.Value{
+			tftypes.NewValue(varObjType, map[string]tftypes.Value{
+				"key":     tftypes.NewValue(tftypes.String, "MY_VAR"),
+				"value":   tftypes.NewValue(tftypes.String, "my_value"),
+				"secured": tftypes.NewValue(tftypes.Bool, false),
+			}),
+		}),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+
+	// Read via data source
+	ds := bbpipelineds.NewDataSource()
+	configureDatasource(t, ds, client)
+	s := getDatasourceSchema(t, ds)
+	tfType := s.Type().TerraformType(ctx)
+
+	config := tfsdk.Config{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"repository": tftypes.NewValue(tftypes.String, "myworkspace/dsvarrepo"),
+		"enabled":    tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, s)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -2543,6 +2947,7 @@ func TestPipelineDataSourceReadInvalidRepo(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"repository": tftypes.NewValue(tftypes.String, "noslash"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, s)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -2564,6 +2969,7 @@ func TestPipelineDataSourceReadNotFound(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, s)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -2585,6 +2991,7 @@ func TestPipelineDataSourceReadGenericError(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, s)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -2608,8 +3015,8 @@ func TestDeploymentDataSourceSchema(t *testing.T) {
 	t.Parallel()
 	ds := bbdeploymentds.NewDataSource()
 	s := getDatasourceSchema(t, ds)
-	if len(s.Attributes) != 4 {
-		t.Errorf("expected 4 attributes, got %d", len(s.Attributes))
+	if len(s.Attributes) != 6 {
+		t.Errorf("expected 6 attributes, got %d", len(s.Attributes))
 	}
 }
 
@@ -2647,6 +3054,8 @@ func TestDeploymentDataSourceReadInvalidRepo(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "noslash"),
 		"name":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"environment_type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"lock":             tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, tftypes.UnknownValue),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, s)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -2669,6 +3078,8 @@ func TestDeploymentDataSourceReadNotFound(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"environment_type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"lock":             tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, tftypes.UnknownValue),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, s)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -2691,6 +3102,8 @@ func TestDeploymentDataSourceReadGenericError(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"environment_type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"lock":             tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, tftypes.UnknownValue),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, s)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -2891,6 +3304,8 @@ func TestDeploymentDataSourceRead(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "myworkspace/dsrepo2"),
 		"name":             tftypes.NewValue(tftypes.String, "my-env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -2910,6 +3325,8 @@ func TestDeploymentDataSourceRead(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "myworkspace/dsrepo2"),
 		"name":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"environment_type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"lock":             tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, tftypes.UnknownValue),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, s)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -2918,6 +3335,137 @@ func TestDeploymentDataSourceRead(t *testing.T) {
 	}
 	if got := getStringAttr(t, readResp.State, "name"); got != "my-env" {
 		t.Errorf("expected name 'my-env', got %q", got)
+	}
+}
+
+func TestDeploymentDataSourceReadWithLockAndRestrictions(t *testing.T) {
+	t.Parallel()
+	_, client := testBitbucketMockServer(t)
+	ctx := context.Background()
+
+	restrictionListType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}
+
+	// Create a deployment with lock=true and restrictions
+	r := bbdeploymentrs.NewResource()
+	configureResource(t, r, client)
+	rs := getResourceSchema(t, r)
+	rsTfType := rs.Type().TerraformType(ctx)
+	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
+		"id":               tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"repository":       tftypes.NewValue(tftypes.String, "myworkspace/dsrepo-lock"),
+		"name":             tftypes.NewValue(tftypes.String, "locked-ds-env"),
+		"environment_type": tftypes.NewValue(tftypes.String, "production"),
+		"lock":             tftypes.NewValue(tftypes.Bool, true),
+		"restrictions": tftypes.NewValue(restrictionListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}, map[string]tftypes.Value{
+				"type":    tftypes.NewValue(tftypes.String, "admin_only"),
+				"pattern": tftypes.NewValue(tftypes.String, "release/*"),
+			}),
+		}),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+	id := getStringAttr(t, createResp.State, "id")
+
+	// Now read via data source
+	ds := bbdeploymentds.NewDataSource()
+	configureDatasource(t, ds, client)
+	s := getDatasourceSchema(t, ds)
+	tfType := s.Type().TerraformType(ctx)
+
+	config := tfsdk.Config{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":               tftypes.NewValue(tftypes.String, id),
+		"repository":       tftypes.NewValue(tftypes.String, "myworkspace/dsrepo-lock"),
+		"name":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"environment_type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"lock":             tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"restrictions":     tftypes.NewValue(restrictionListType, tftypes.UnknownValue),
+	})}
+	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, s)}
+	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+	if got := getStringAttr(t, readResp.State, "name"); got != "locked-ds-env" {
+		t.Errorf("expected name 'locked-ds-env', got %q", got)
+	}
+}
+
+func TestDeploymentResourceReadNoLockField(t *testing.T) {
+	t.Parallel()
+	// Mock server that returns a deployment without lock or restrictions fields
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodPost:
+			w.WriteHeader(201)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"uuid":             "env-no-lock",
+				"name":             "no-lock-env",
+				"environment_type": map[string]interface{}{"name": "test"},
+			})
+		case http.MethodGet:
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"uuid":             "env-no-lock",
+				"name":             "no-lock-env",
+				"environment_type": map[string]interface{}{"name": "test"},
+			})
+		}
+	}))
+	t.Cleanup(ts.Close)
+	auth, _ := atlassian.NewTokenAuthenticator("u@e.com", "tok")
+	c, _ := atlassian.NewClient(atlassian.Config{
+		BaseURL:        ts.URL,
+		RequestTimeout: 5 * time.Second,
+		MaxRetries:     0,
+		RetryWaitMin:   1 * time.Second,
+		RetryWaitMax:   1 * time.Second,
+	}, auth)
+
+	ctx := context.Background()
+	restrictionListType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}
+
+	// Test resource Read with nil lock
+	r := bbdeploymentrs.NewResource()
+	configureResource(t, r, c)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":               tftypes.NewValue(tftypes.String, "env-no-lock"),
+		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
+		"name":             tftypes.NewValue(tftypes.String, "no-lock-env"),
+		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(restrictionListType, nil),
+	})}
+	readResp := &resource.ReadResponse{State: state}
+	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+
+	// Test data source Read with nil lock
+	ds := bbdeploymentds.NewDataSource()
+	configureDatasource(t, ds, c)
+	dsSchema := getDatasourceSchema(t, ds)
+	dsTfType := dsSchema.Type().TerraformType(ctx)
+
+	config := tfsdk.Config{Schema: dsSchema, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
+		"id":               tftypes.NewValue(tftypes.String, "env-no-lock"),
+		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
+		"name":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"environment_type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"lock":             tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"restrictions":     tftypes.NewValue(restrictionListType, tftypes.UnknownValue),
+	})}
+	dsReadResp := &datasource.ReadResponse{State: emptyDSState(ctx, dsSchema)}
+	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsReadResp)
+	if dsReadResp.Diagnostics.HasError() {
+		t.Fatalf("DS Read: %v", dsReadResp.Diagnostics.Errors())
 	}
 }
 
@@ -2984,6 +3532,8 @@ func TestBranchRestrictionResourceReadNotFound(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "ws/repo"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: state}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -3006,6 +3556,8 @@ func TestDeploymentResourceReadNotFound(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "ws/repo"),
 		"name":             tftypes.NewValue(tftypes.String, "env"),
 		"environment_type": tftypes.NewValue(tftypes.String, "test"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: state}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -3352,5 +3904,171 @@ func TestBranchRestrictionResourceMetadataName(t *testing.T) {
 	r.Metadata(context.Background(), req, resp)
 	if !strings.Contains(resp.TypeName, "bitbucket_branch_restriction") {
 		t.Errorf("expected type name containing 'bitbucket_branch_restriction', got %q", resp.TypeName)
+	}
+}
+
+func TestBranchRestrictionResourceCRUDWithUsersAndGroups(t *testing.T) {
+	t.Parallel()
+	_, client := testBitbucketMockServer(t)
+	ctx := context.Background()
+	r := bbbranchrestrictionrs.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+	stringListType := tftypes.List{ElementType: tftypes.String}
+
+	// Create with users and groups
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
+		"pattern":    tftypes.NewValue(tftypes.String, "main"),
+		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users": tftypes.NewValue(stringListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.String, "user-abc-123"),
+			tftypes.NewValue(tftypes.String, "user-def-456"),
+		}),
+		"groups": tftypes.NewValue(stringListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.String, "developers"),
+		}),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+	id := getStringAttr(t, createResp.State, "id")
+	if id == "" {
+		t.Fatal("expected non-empty id")
+	}
+
+	// Read and verify users/groups round-trip
+	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":         tftypes.NewValue(tftypes.String, id),
+		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
+		"pattern":    tftypes.NewValue(tftypes.String, "main"),
+		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users": tftypes.NewValue(stringListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.String, "user-abc-123"),
+			tftypes.NewValue(tftypes.String, "user-def-456"),
+		}),
+		"groups": tftypes.NewValue(stringListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.String, "developers"),
+		}),
+	})}
+	readResp := &resource.ReadResponse{State: readState}
+	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+	if got := getStringAttr(t, readResp.State, "kind"); got != "push" {
+		t.Errorf("expected kind 'push', got %q", got)
+	}
+
+	// Update users/groups
+	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":         tftypes.NewValue(tftypes.String, id),
+		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
+		"pattern":    tftypes.NewValue(tftypes.String, "main"),
+		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users": tftypes.NewValue(stringListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.String, "user-ghi-789"),
+		}),
+		"groups": tftypes.NewValue(stringListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.String, "admins"),
+			tftypes.NewValue(tftypes.String, "reviewers"),
+		}),
+	})}
+	updateState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":         tftypes.NewValue(tftypes.String, id),
+		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
+		"pattern":    tftypes.NewValue(tftypes.String, "main"),
+		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users": tftypes.NewValue(stringListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.String, "user-abc-123"),
+			tftypes.NewValue(tftypes.String, "user-def-456"),
+		}),
+		"groups": tftypes.NewValue(stringListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.String, "developers"),
+		}),
+	})}
+	updateResp := &resource.UpdateResponse{State: updateState}
+	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: updateState}, updateResp)
+	if updateResp.Diagnostics.HasError() {
+		t.Fatalf("Update: %v", updateResp.Diagnostics.Errors())
+	}
+
+	// Delete
+	deleteState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":         tftypes.NewValue(tftypes.String, id),
+		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
+		"pattern":    tftypes.NewValue(tftypes.String, "main"),
+		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users": tftypes.NewValue(stringListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.String, "user-ghi-789"),
+		}),
+		"groups": tftypes.NewValue(stringListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.String, "admins"),
+			tftypes.NewValue(tftypes.String, "reviewers"),
+		}),
+	})}
+	deleteResp := &resource.DeleteResponse{State: deleteState}
+	r.Delete(ctx, resource.DeleteRequest{State: deleteState}, deleteResp)
+	if deleteResp.Diagnostics.HasError() {
+		t.Fatalf("Delete: %v", deleteResp.Diagnostics.Errors())
+	}
+}
+
+func TestBranchRestrictionDataSourceReadWithUsersAndGroups(t *testing.T) {
+	t.Parallel()
+	_, client := testBitbucketMockServer(t)
+	ctx := context.Background()
+	stringListType := tftypes.List{ElementType: tftypes.String}
+
+	// First create a restriction with users/groups via the resource
+	r := bbbranchrestrictionrs.NewResource()
+	configureResource(t, r, client)
+	rs := getResourceSchema(t, r)
+	rsTfType := rs.Type().TerraformType(ctx)
+
+	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
+		"id":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
+		"pattern":    tftypes.NewValue(tftypes.String, "develop"),
+		"kind":       tftypes.NewValue(tftypes.String, "delete"),
+		"users": tftypes.NewValue(stringListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.String, "user-xyz-999"),
+		}),
+		"groups": tftypes.NewValue(stringListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.String, "ops-team"),
+		}),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+	id := getStringAttr(t, createResp.State, "id")
+
+	// Now read via data source
+	ds := bbbranchrestrictionds.NewDataSource()
+	configureDatasource(t, ds, client)
+	s := getDatasourceSchema(t, ds)
+	tfType := s.Type().TerraformType(ctx)
+
+	config := tfsdk.Config{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":         tftypes.NewValue(tftypes.String, id),
+		"repository": tftypes.NewValue(tftypes.String, "myworkspace/myrepo"),
+		"pattern":    tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"kind":       tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue),
+	})}
+	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, s)}
+	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+	if got := getStringAttr(t, readResp.State, "kind"); got != "delete" {
+		t.Errorf("expected kind 'delete', got %q", got)
 	}
 }

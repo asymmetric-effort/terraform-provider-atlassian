@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -30,15 +31,19 @@ var (
 
 // apiBranchRestriction represents the JSON structure returned by the Bitbucket branch restrictions API.
 type apiBranchRestriction struct {
-	ID      int    `json:"id"`
-	Kind    string `json:"kind"`
-	Pattern string `json:"pattern"`
+	ID      int      `json:"id"`
+	Kind    string   `json:"kind"`
+	Pattern string   `json:"pattern"`
+	Users   []string `json:"users"`
+	Groups  []string `json:"groups"`
 }
 
 // apiBranchRestrictionCreate represents the JSON body for creating a branch restriction.
 type apiBranchRestrictionCreate struct {
-	Kind    string `json:"kind"`
-	Pattern string `json:"pattern"`
+	Kind    string   `json:"kind"`
+	Pattern string   `json:"pattern"`
+	Users   []string `json:"users,omitempty"`
+	Groups  []string `json:"groups,omitempty"`
 }
 
 // ResourceModel describes the resource data model.
@@ -47,6 +52,8 @@ type ResourceModel struct {
 	Repository types.String `tfsdk:"repository"`
 	Pattern    types.String `tfsdk:"pattern"`
 	Kind       types.String `tfsdk:"kind"`
+	Users      types.List   `tfsdk:"users"`
+	Groups     types.List   `tfsdk:"groups"`
 }
 
 // Resource implements the atlassian_bitbucket_branch_restriction managed resource.
@@ -90,6 +97,18 @@ func (r *Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp *res
 			"kind": schema.StringAttribute{
 				Description: "The kind of restriction. Must be one of: push, delete, force, merge.",
 				Required:    true,
+			},
+			"users": schema.ListAttribute{
+				Description: "List of user account IDs to restrict.",
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
+			},
+			"groups": schema.ListAttribute{
+				Description: "List of group slugs to restrict.",
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
 			},
 		},
 	}
@@ -140,6 +159,8 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	body := apiBranchRestrictionCreate{
 		Kind:    plan.Kind.ValueString(),
 		Pattern: plan.Pattern.ValueString(),
+		Users:   listToStrings(ctx, plan.Users),
+		Groups:  listToStrings(ctx, plan.Groups),
 	}
 	bodyBytes, _ := json.Marshal(body)
 
@@ -172,6 +193,8 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	plan.ID = types.StringValue(fmt.Sprintf("%d", created.ID))
 	plan.Pattern = types.StringValue(created.Pattern)
 	plan.Kind = types.StringValue(created.Kind)
+	plan.Users = stringsToList(ctx, created.Users)
+	plan.Groups = stringsToList(ctx, created.Groups)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -207,6 +230,8 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	state.ID = types.StringValue(fmt.Sprintf("%d", restriction.ID))
 	state.Pattern = types.StringValue(restriction.Pattern)
 	state.Kind = types.StringValue(restriction.Kind)
+	state.Users = stringsToList(ctx, restriction.Users)
+	state.Groups = stringsToList(ctx, restriction.Groups)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -234,6 +259,8 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	body := apiBranchRestrictionCreate{
 		Kind:    plan.Kind.ValueString(),
 		Pattern: plan.Pattern.ValueString(),
+		Users:   listToStrings(ctx, plan.Users),
+		Groups:  listToStrings(ctx, plan.Groups),
 	}
 	bodyBytes, _ := json.Marshal(body)
 
@@ -266,6 +293,8 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	plan.ID = types.StringValue(fmt.Sprintf("%d", updated.ID))
 	plan.Pattern = types.StringValue(updated.Pattern)
 	plan.Kind = types.StringValue(updated.Kind)
+	plan.Users = stringsToList(ctx, updated.Users)
+	plan.Groups = stringsToList(ctx, updated.Groups)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -309,4 +338,27 @@ func (r *Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 // ImportState imports an existing branch restriction by ID.
 func (r *Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// listToStrings converts a types.List of strings to a Go []string.
+func listToStrings(ctx context.Context, list types.List) []string {
+	if list.IsNull() || list.IsUnknown() {
+		return nil
+	}
+	var result []string
+	list.ElementsAs(ctx, &result, false)
+	return result
+}
+
+// stringsToList converts a Go []string to a types.List of strings.
+func stringsToList(_ context.Context, vals []string) types.List {
+	if vals == nil {
+		vals = []string{}
+	}
+	elems := make([]attr.Value, len(vals))
+	for i, v := range vals {
+		elems[i] = types.StringValue(v)
+	}
+	list, _ := types.ListValue(types.StringType, elems)
+	return list
 }

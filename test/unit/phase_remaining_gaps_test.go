@@ -262,12 +262,16 @@ func TestBBBranchRestrictionUpdateInvalidRepo(t *testing.T) {
 		"repository": tftypes.NewValue(tftypes.String, "invalid-no-slash"),
 		"pattern":    tftypes.NewValue(tftypes.String, "main"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":         tftypes.NewValue(tftypes.String, "1"),
 		"repository": tftypes.NewValue(tftypes.String, "invalid-no-slash"),
 		"pattern":    tftypes.NewValue(tftypes.String, "develop"),
 		"kind":       tftypes.NewValue(tftypes.String, "push"),
+		"users":      tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+		"groups":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, resp)
@@ -292,12 +296,16 @@ func TestBBDeploymentUpdateInvalidRepo(t *testing.T) {
 		"repository":       tftypes.NewValue(tftypes.String, "invalid-no-slash"),
 		"name":             tftypes.NewValue(tftypes.String, "Prod"),
 		"environment_type": tftypes.NewValue(tftypes.String, "Production"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":               tftypes.NewValue(tftypes.String, "env-1"),
 		"repository":       tftypes.NewValue(tftypes.String, "invalid-no-slash"),
 		"name":             tftypes.NewValue(tftypes.String, "Staging"),
 		"environment_type": tftypes.NewValue(tftypes.String, "Staging"),
+		"lock":             tftypes.NewValue(tftypes.Bool, false),
+		"restrictions":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "pattern": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, resp)
@@ -321,11 +329,13 @@ func TestBBPipelineUpdateInvalidRepo(t *testing.T) {
 		"id":         tftypes.NewValue(tftypes.String, "invalid-no-slash"),
 		"repository": tftypes.NewValue(tftypes.String, "invalid-no-slash"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, true),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":         tftypes.NewValue(tftypes.String, "invalid-no-slash"),
 		"repository": tftypes.NewValue(tftypes.String, "invalid-no-slash"),
 		"enabled":    tftypes.NewValue(tftypes.Bool, false),
+		"variables":  tftypes.NewValue(pipelineVariableListType, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, resp)
