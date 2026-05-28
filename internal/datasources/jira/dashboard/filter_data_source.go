@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -17,21 +18,60 @@ import (
 // Ensure the FilterDataSource type satisfies the datasource.DataSource interface.
 var _ datasource.DataSource = &FilterDataSource{}
 
+// apiFilterSharePermission represents a share permission entry in the filter API.
+type apiFilterSharePermission struct {
+	Type      string `json:"type"`
+	Parameter string `json:"parameter,omitempty"`
+}
+
 // apiFilter represents the JSON structure returned by the Atlassian filter API.
 type apiFilter struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	JQL         string `json:"jql"`
-	Self        string `json:"self"`
+	ID               string                     `json:"id"`
+	Name             string                     `json:"name"`
+	Description      string                     `json:"description"`
+	JQL              string                     `json:"jql"`
+	Self             string                     `json:"self"`
+	SharePermissions []apiFilterSharePermission `json:"sharePermissions,omitempty"`
 }
 
 // FilterDataSourceModel describes the filter data source data model.
 type FilterDataSourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
-	JQL         types.String `tfsdk:"jql"`
+	ID               types.String `tfsdk:"id"`
+	Name             types.String `tfsdk:"name"`
+	Description      types.String `tfsdk:"description"`
+	JQL              types.String `tfsdk:"jql"`
+	SharePermissions types.List   `tfsdk:"share_permissions"`
+}
+
+// filterSharePermissionObjectType is the attr.Type for filter share permission nested objects.
+var filterSharePermissionObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"type":      types.StringType,
+		"parameter": types.StringType,
+	},
+}
+
+// filterSharePermissionsToState converts API filter share permissions to the Terraform state list.
+func filterSharePermissionsToState(ctx context.Context, perms []apiFilterSharePermission) types.List {
+	if len(perms) == 0 {
+		return types.ListNull(filterSharePermissionObjectType)
+	}
+	var elems []attr.Value
+	for _, p := range perms {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"type":      types.StringType,
+				"parameter": types.StringType,
+			},
+			map[string]attr.Value{
+				"type":      types.StringValue(p.Type),
+				"parameter": types.StringValue(p.Parameter),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(filterSharePermissionObjectType, elems)
+	return list
 }
 
 // FilterDataSource implements the atlassian_jira_filter data source.
@@ -69,6 +109,22 @@ func (d *FilterDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 			"jql": schema.StringAttribute{
 				Description: "The JQL query for the filter.",
 				Computed:    true,
+			},
+			"share_permissions": schema.ListNestedAttribute{
+				Description: "Share permissions controlling who can view the filter.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"type": schema.StringAttribute{
+							Description: "The type of share permission.",
+							Computed:    true,
+						},
+						"parameter": schema.StringAttribute{
+							Description: "The parameter for the share permission.",
+							Computed:    true,
+						},
+					},
+				},
 			},
 		},
 	}
@@ -121,6 +177,7 @@ func (d *FilterDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	config.Name = types.StringValue(f.Name)
 	config.Description = types.StringValue(f.Description)
 	config.JQL = types.StringValue(f.JQL)
+	config.SharePermissions = filterSharePermissionsToState(ctx, f.SharePermissions)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }

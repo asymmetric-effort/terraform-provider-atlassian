@@ -603,8 +603,8 @@ func TestJiraDashboardResourceSchema(t *testing.T) {
 			t.Errorf("expected attribute %q", attr)
 		}
 	}
-	if len(resp.Schema.Attributes) != 3 {
-		t.Errorf("expected 3 attributes, got %d", len(resp.Schema.Attributes))
+	if len(resp.Schema.Attributes) != 4 {
+		t.Errorf("expected 4 attributes, got %d", len(resp.Schema.Attributes))
 	}
 }
 
@@ -686,9 +686,10 @@ func TestJiraDashboardResourceCRUDLifecycle(t *testing.T) {
 
 	// Create
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":        tftypes.NewValue(tftypes.String, "Test Dashboard"),
-		"description": tftypes.NewValue(tftypes.String, "A test dashboard"),
+		"id":                tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":              tftypes.NewValue(tftypes.String, "Test Dashboard"),
+		"description":       tftypes.NewValue(tftypes.String, "A test dashboard"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -706,6 +707,7 @@ func TestJiraDashboardResourceCRUDLifecycle(t *testing.T) {
 	// Read
 	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "Test Dashboard"), "description": tftypes.NewValue(tftypes.String, "A test dashboard"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -716,6 +718,7 @@ func TestJiraDashboardResourceCRUDLifecycle(t *testing.T) {
 	// Update
 	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "Updated Dashboard"), "description": tftypes.NewValue(tftypes.String, "Updated desc"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
@@ -753,6 +756,7 @@ func TestJiraDashboardResourceCreateNoDescription(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "No Desc Dashboard"), "description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -772,6 +776,7 @@ func TestJiraDashboardResourceCreateDuplicate(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Dup Dashboard"), "description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp1 := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp1)
@@ -796,6 +801,7 @@ func TestJiraDashboardResourceUpdateNotFound(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "nonexistent"), "name": tftypes.NewValue(tftypes.String, "X"), "description": tftypes.NewValue(tftypes.String, ""),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}, State: state}, resp)
@@ -815,6 +821,7 @@ func TestJiraDashboardResourceDeleteNotFound(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "nonexistent"), "name": tftypes.NewValue(tftypes.String, "X"), "description": tftypes.NewValue(tftypes.String, ""),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -834,6 +841,7 @@ func TestJiraDashboardResourceReadNotFound(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "nonexistent"), "name": tftypes.NewValue(tftypes.String, "X"), "description": tftypes.NewValue(tftypes.String, ""),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: state}, resp)
@@ -856,6 +864,7 @@ func TestJiraDashboardResourceCreateForbidden(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Forbidden"), "description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -875,6 +884,7 @@ func TestJiraDashboardResourceUpdateForbidden(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, "X"), "description": tftypes.NewValue(tftypes.String, ""),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}, State: state}, resp)
@@ -894,6 +904,7 @@ func TestJiraDashboardResourceDeleteForbidden(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, "X"), "description": tftypes.NewValue(tftypes.String, ""),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -913,6 +924,7 @@ func TestJiraDashboardResourceReadServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, "X"), "description": tftypes.NewValue(tftypes.String, ""),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: state}, resp)
@@ -932,6 +944,7 @@ func TestJiraDashboardResourceCreateServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Error"), "description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -982,13 +995,13 @@ func TestJiraDashboardDataSourceSchema(t *testing.T) {
 	ds := dashboarddatasource.NewDataSource()
 	resp := &datasource.SchemaResponse{}
 	ds.Schema(context.Background(), datasource.SchemaRequest{}, resp)
-	for _, attr := range []string{"id", "name", "description"} {
+	for _, attr := range []string{"id", "name", "description", "share_permissions"} {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected attribute %q", attr)
 		}
 	}
-	if len(resp.Schema.Attributes) != 3 {
-		t.Errorf("expected 3 attributes, got %d", len(resp.Schema.Attributes))
+	if len(resp.Schema.Attributes) != 4 {
+		t.Errorf("expected 4 attributes, got %d", len(resp.Schema.Attributes))
 	}
 }
 
@@ -1005,6 +1018,7 @@ func TestJiraDashboardDataSourceRead(t *testing.T) {
 	rsTfType := rs.Type().TerraformType(ctx)
 	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "DS Dashboard"), "description": tftypes.NewValue(tftypes.String, "ds desc"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1020,6 +1034,7 @@ func TestJiraDashboardDataSourceRead(t *testing.T) {
 	dsTfType := dss.Type().TerraformType(ctx)
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -1039,6 +1054,7 @@ func TestJiraDashboardDataSourceReadNotFound(t *testing.T) {
 	dsTfType := dss.Type().TerraformType(ctx)
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "nonexistent"), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, resp)
@@ -1058,6 +1074,7 @@ func TestJiraDashboardDataSourceReadServerError(t *testing.T) {
 	dsTfType := dss.Type().TerraformType(ctx)
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, resp)
@@ -1108,13 +1125,13 @@ func TestJiraFilterResourceSchema(t *testing.T) {
 	r := dashboardresource.NewFilterResource()
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), resource.SchemaRequest{}, resp)
-	for _, attr := range []string{"id", "name", "description", "jql"} {
+	for _, attr := range []string{"id", "name", "description", "jql", "share_permissions"} {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected attribute %q", attr)
 		}
 	}
-	if len(resp.Schema.Attributes) != 4 {
-		t.Errorf("expected 4 attributes, got %d", len(resp.Schema.Attributes))
+	if len(resp.Schema.Attributes) != 5 {
+		t.Errorf("expected 5 attributes, got %d", len(resp.Schema.Attributes))
 	}
 }
 
@@ -1156,6 +1173,7 @@ func TestJiraFilterResourceCRUDLifecycle(t *testing.T) {
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Test Filter"),
 		"description": tftypes.NewValue(tftypes.String, "A filter"), "jql": tftypes.NewValue(tftypes.String, "project = TEST"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1174,6 +1192,7 @@ func TestJiraFilterResourceCRUDLifecycle(t *testing.T) {
 	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "Test Filter"),
 		"description": tftypes.NewValue(tftypes.String, "A filter"), "jql": tftypes.NewValue(tftypes.String, "project = TEST"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -1185,6 +1204,7 @@ func TestJiraFilterResourceCRUDLifecycle(t *testing.T) {
 	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "Updated Filter"),
 		"description": tftypes.NewValue(tftypes.String, "Updated"), "jql": tftypes.NewValue(tftypes.String, "project = UPDATED"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
@@ -1213,6 +1233,7 @@ func TestJiraFilterResourceCreateDuplicate(t *testing.T) {
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Dup Filter"),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "jql": tftypes.NewValue(tftypes.String, "x=y"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp1 := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp1)
@@ -1238,6 +1259,7 @@ func TestJiraFilterResourceErrorPaths(t *testing.T) {
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "nonexistent"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""), "jql": tftypes.NewValue(tftypes.String, "x"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 
 	// Update not found
@@ -1269,6 +1291,7 @@ func TestJiraFilterResourceErrorPaths(t *testing.T) {
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "F"),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "jql": tftypes.NewValue(tftypes.String, "x"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	r2.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
 	if !cResp.Diagnostics.HasError() {
@@ -1313,6 +1336,7 @@ func TestJiraFilterDataSourceRead(t *testing.T) {
 	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "DS Filter"),
 		"description": tftypes.NewValue(tftypes.String, "ds desc"), "jql": tftypes.NewValue(tftypes.String, "a=b"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1328,6 +1352,7 @@ func TestJiraFilterDataSourceRead(t *testing.T) {
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "jql": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -1354,8 +1379,8 @@ func TestJiraFilterDataSourceSchema(t *testing.T) {
 	ds := dashboarddatasource.NewFilterDataSource()
 	resp := &datasource.SchemaResponse{}
 	ds.Schema(context.Background(), datasource.SchemaRequest{}, resp)
-	if len(resp.Schema.Attributes) != 4 {
-		t.Errorf("expected 4 attributes, got %d", len(resp.Schema.Attributes))
+	if len(resp.Schema.Attributes) != 5 {
+		t.Errorf("expected 5 attributes, got %d", len(resp.Schema.Attributes))
 	}
 }
 
@@ -1371,6 +1396,7 @@ func TestJiraFilterDataSourceReadNotFound(t *testing.T) {
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "nonexistent"), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "jql": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, resp)
@@ -2691,6 +2717,7 @@ func TestJiraDashboardResourceUpdateServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "some-id"), "name": tftypes.NewValue(tftypes.String, "X"), "description": tftypes.NewValue(tftypes.String, ""),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}, State: state}, resp)
@@ -2710,6 +2737,7 @@ func TestJiraDashboardResourceDeleteServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "some-id"), "name": tftypes.NewValue(tftypes.String, "X"), "description": tftypes.NewValue(tftypes.String, ""),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -2730,6 +2758,7 @@ func TestJiraFilterResourceUpdateServerError(t *testing.T) {
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "some-id"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""), "jql": tftypes.NewValue(tftypes.String, "x"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}, State: state}, resp)
@@ -2750,6 +2779,7 @@ func TestJiraFilterResourceDeleteServerError(t *testing.T) {
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "some-id"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""), "jql": tftypes.NewValue(tftypes.String, "x"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -2770,6 +2800,7 @@ func TestJiraFilterResourceCreateServerError(t *testing.T) {
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Error"),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "jql": tftypes.NewValue(tftypes.String, "x"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -2950,6 +2981,7 @@ func TestJiraFilterDataSourceServerError(t *testing.T) {
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "jql": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, resp)
@@ -3004,6 +3036,7 @@ func TestJiraDashboardResourceUpdateBadPlan(t *testing.T) {
 	badPlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tftypes.String, "invalid")}
 	goodState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, "X"), "description": tftypes.NewValue(tftypes.String, ""),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: badPlan, State: goodState}, resp)
@@ -3023,6 +3056,7 @@ func TestJiraDashboardResourceUpdateBadState(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 	goodPlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, "X"), "description": tftypes.NewValue(tftypes.String, ""),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	badState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tftypes.String, "invalid")}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -3093,6 +3127,7 @@ func TestJiraFilterResourceUpdateBadPlan(t *testing.T) {
 	goodState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""), "jql": tftypes.NewValue(tftypes.String, "x"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: badPlan, State: goodState}, resp)
@@ -3113,6 +3148,7 @@ func TestJiraFilterResourceUpdateBadState(t *testing.T) {
 	goodPlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""), "jql": tftypes.NewValue(tftypes.String, "x"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	badState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tftypes.String, "invalid")}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -3617,4 +3653,235 @@ func TestJiraPriorityResourceReadNotFound(t *testing.T) {
 	if !resp.State.Raw.IsNull() {
 		t.Error("expected state removed")
 	}
+}
+
+// TestJiraDashboardWithSharePermissions tests creating a dashboard with non-empty share_permissions.
+func TestJiraDashboardWithSharePermissions(t *testing.T) {
+	t.Parallel()
+	_, client := testMiscMockServer(t)
+	ctx := context.Background()
+	r := dashboardresource.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	spObjType := tftypes.Object{AttributeTypes: map[string]tftypes.Type{
+		"type": tftypes.String, "parameter": tftypes.String,
+	}}
+	spListType := tftypes.List{ElementType: spObjType}
+
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":        tftypes.NewValue(tftypes.String, "Shared Dashboard"),
+		"description": tftypes.NewValue(tftypes.String, "With permissions"),
+		"share_permissions": tftypes.NewValue(spListType, []tftypes.Value{
+			tftypes.NewValue(spObjType, map[string]tftypes.Value{
+				"type":      tftypes.NewValue(tftypes.String, "global"),
+				"parameter": tftypes.NewValue(tftypes.String, ""),
+			}),
+		}),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create with share_permissions: %v", createResp.Diagnostics.Errors())
+	}
+	id := getStringAttr(t, createResp.State, "id")
+	if id == "" {
+		t.Fatal("expected non-empty ID")
+	}
+}
+
+// TestJiraDashboardSharePermissionsToStateNonEmpty exercises the non-empty
+// path of sharePermissionsToState via a Read that returns sharePermissions.
+func TestJiraDashboardSharePermissionsToStateNonEmpty(t *testing.T) {
+	t.Parallel()
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /rest/api/3/dashboard/d-sp-1", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "d-sp-1", "name": "Test", "description": "desc",
+			"sharePermissions": []map[string]interface{}{
+				{"type": "global", "parameter": ""},
+				{"type": "group", "parameter": "developers"},
+			},
+		})
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 5e9, MaxRetries: 0, RetryWaitMin: 1e9, RetryWaitMax: 1e9}
+	client, _ := atlassian.NewClient(cfg, &testNoopAuth{})
+	ctx := context.Background()
+
+	r := dashboardresource.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+	spObjType := tftypes.Object{AttributeTypes: map[string]tftypes.Type{
+		"type": tftypes.String, "parameter": tftypes.String,
+	}}
+	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":                tftypes.NewValue(tftypes.String, "d-sp-1"),
+		"name":              tftypes.NewValue(tftypes.String, "Test"),
+		"description":       tftypes.NewValue(tftypes.String, "desc"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: spObjType}, nil),
+	})}
+	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
+	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+
+	ds := dashboarddatasource.NewDataSource()
+	configureDatasource(t, ds, client)
+	dss := getDatasourceSchema(t, ds)
+	dsTfType := dss.Type().TerraformType(ctx)
+	dsConfig := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
+		"id":                tftypes.NewValue(tftypes.String, "d-sp-1"),
+		"name":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"description":       tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: spObjType}, nil),
+	})}
+	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
+	ds.Read(ctx, datasource.ReadRequest{Config: dsConfig}, dsResp)
+	if dsResp.Diagnostics.HasError() {
+		t.Fatalf("DataSource Read: %v", dsResp.Diagnostics.Errors())
+	}
+}
+
+// TestJiraFilterWithSharePermissions tests creating a filter with non-empty share_permissions.
+func TestJiraFilterWithSharePermissions(t *testing.T) {
+	t.Parallel()
+	_, client := testMiscMockServer(t)
+	ctx := context.Background()
+	r := dashboardresource.NewFilterResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	spObjType := tftypes.Object{AttributeTypes: map[string]tftypes.Type{
+		"type": tftypes.String, "parameter": tftypes.String,
+	}}
+	spListType := tftypes.List{ElementType: spObjType}
+
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":        tftypes.NewValue(tftypes.String, "Shared Filter"),
+		"description": tftypes.NewValue(tftypes.String, "With permissions"),
+		"jql":         tftypes.NewValue(tftypes.String, "project = TEST"),
+		"share_permissions": tftypes.NewValue(spListType, []tftypes.Value{
+			tftypes.NewValue(spObjType, map[string]tftypes.Value{
+				"type":      tftypes.NewValue(tftypes.String, "group"),
+				"parameter": tftypes.NewValue(tftypes.String, "developers"),
+			}),
+		}),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create with share_permissions: %v", createResp.Diagnostics.Errors())
+	}
+	id := getStringAttr(t, createResp.State, "id")
+	if id == "" {
+		t.Fatal("expected non-empty ID")
+	}
+}
+
+// TestJiraFilterSharePermissionsToStateNonEmpty exercises the non-empty
+// path of filterSharePermissionsToState via a Read that returns sharePermissions.
+func TestJiraFilterSharePermissionsToStateNonEmpty(t *testing.T) {
+	t.Parallel()
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /rest/api/3/filter/f-sp-1", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "f-sp-1", "name": "Test Filter", "description": "desc", "jql": "project = TEST",
+			"sharePermissions": []map[string]interface{}{
+				{"type": "group", "parameter": "testers"},
+			},
+		})
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 5e9, MaxRetries: 0, RetryWaitMin: 1e9, RetryWaitMax: 1e9}
+	client, _ := atlassian.NewClient(cfg, &testNoopAuth{})
+	ctx := context.Background()
+
+	r := dashboardresource.NewFilterResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+	spObjType := tftypes.Object{AttributeTypes: map[string]tftypes.Type{
+		"type": tftypes.String, "parameter": tftypes.String,
+	}}
+	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":                tftypes.NewValue(tftypes.String, "f-sp-1"),
+		"name":              tftypes.NewValue(tftypes.String, "Test Filter"),
+		"description":       tftypes.NewValue(tftypes.String, "desc"),
+		"jql":               tftypes.NewValue(tftypes.String, "project = TEST"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: spObjType}, nil),
+	})}
+	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
+	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+
+	ds := dashboarddatasource.NewFilterDataSource()
+	configureDatasource(t, ds, client)
+	dss := getDatasourceSchema(t, ds)
+	dsTfType := dss.Type().TerraformType(ctx)
+	dsConfig := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
+		"id":                tftypes.NewValue(tftypes.String, "f-sp-1"),
+		"name":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"description":       tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"jql":               tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: spObjType}, nil),
+	})}
+	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
+	ds.Read(ctx, datasource.ReadRequest{Config: dsConfig}, dsResp)
+	if dsResp.Diagnostics.HasError() {
+		t.Fatalf("DataSource Read: %v", dsResp.Diagnostics.Errors())
+	}
+}
+
+// TestJiraFilterJQLRequired verifies that the jql attribute is required in the filter resource schema.
+func TestJiraFilterJQLRequired(t *testing.T) {
+	t.Parallel()
+	r := dashboardresource.NewFilterResource()
+	resp := &resource.SchemaResponse{}
+	r.Schema(context.Background(), resource.SchemaRequest{}, resp)
+	jqlAttr, ok := resp.Schema.Attributes["jql"]
+	if !ok {
+		t.Fatal("expected jql attribute in schema")
+	}
+	if !jqlAttr.IsRequired() {
+		t.Error("jql should be required")
+	}
+}
+
+// TestJiraFilterJQLDescriptionMentionsValidation verifies the JQL description mentions validation.
+func TestJiraFilterJQLDescriptionMentionsValidation(t *testing.T) {
+	t.Parallel()
+	r := dashboardresource.NewFilterResource()
+	resp := &resource.SchemaResponse{}
+	r.Schema(context.Background(), resource.SchemaRequest{}, resp)
+	jqlAttr := resp.Schema.Attributes["jql"]
+	desc := jqlAttr.GetDescription()
+	if desc == "" {
+		t.Fatal("expected non-empty jql description")
+	}
+	if !jqlContainsValidation(desc) {
+		t.Errorf("expected jql description to mention validation, got %q", desc)
+	}
+}
+
+// jqlContainsValidation checks if the JQL description mentions validation.
+func jqlContainsValidation(desc string) bool {
+	for i := 0; i <= len(desc)-5; i++ {
+		if desc[i:i+5] == "valid" {
+			return true
+		}
+	}
+	return false
 }

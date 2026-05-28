@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -26,31 +27,95 @@ var (
 	_ resource.ResourceWithImportState = &Resource{}
 )
 
+// apiSharePermission represents a share permission entry in the Atlassian API.
+type apiSharePermission struct {
+	Type      string `json:"type"`
+	Parameter string `json:"parameter,omitempty"`
+}
+
 // apiDashboard represents the JSON structure returned by the Atlassian dashboard API.
 type apiDashboard struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Self        string `json:"self"`
+	ID               string               `json:"id"`
+	Name             string               `json:"name"`
+	Description      string               `json:"description"`
+	Self             string               `json:"self"`
+	SharePermissions []apiSharePermission `json:"sharePermissions,omitempty"`
 }
 
 // apiDashboardCreate represents the JSON body for creating a dashboard.
 type apiDashboardCreate struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
+	Name             string               `json:"name"`
+	Description      string               `json:"description,omitempty"`
+	SharePermissions []apiSharePermission `json:"sharePermissions,omitempty"`
 }
 
 // apiDashboardUpdate represents the JSON body for updating a dashboard.
 type apiDashboardUpdate struct {
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
+	Name             string               `json:"name,omitempty"`
+	Description      string               `json:"description,omitempty"`
+	SharePermissions []apiSharePermission `json:"sharePermissions,omitempty"`
+}
+
+// SharePermissionModel describes a single share permission in the Terraform model.
+type SharePermissionModel struct {
+	Type      string `tfsdk:"type"`
+	Parameter string `tfsdk:"parameter"`
 }
 
 // ResourceModel describes the resource data model.
 type ResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
+	ID               types.String `tfsdk:"id"`
+	Name             types.String `tfsdk:"name"`
+	Description      types.String `tfsdk:"description"`
+	SharePermissions types.List   `tfsdk:"share_permissions"`
+}
+
+// sharePermissionObjectType is the attr.Type for the share permission nested object.
+var sharePermissionObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"type":      types.StringType,
+		"parameter": types.StringType,
+	},
+}
+
+// sharePermissionsFromPlan converts the Terraform share_permissions list to API format.
+func sharePermissionsFromPlan(ctx context.Context, perms types.List) []apiSharePermission {
+	if perms.IsNull() || perms.IsUnknown() {
+		return nil
+	}
+	var models []SharePermissionModel
+	perms.ElementsAs(ctx, &models, false)
+	var result []apiSharePermission
+	for _, m := range models {
+		result = append(result, apiSharePermission{
+			Type:      m.Type,
+			Parameter: m.Parameter,
+		})
+	}
+	return result
+}
+
+// sharePermissionsToState converts API share permissions to the Terraform state list.
+func sharePermissionsToState(ctx context.Context, perms []apiSharePermission) types.List {
+	if len(perms) == 0 {
+		return types.ListNull(sharePermissionObjectType)
+	}
+	var elems []attr.Value
+	for _, p := range perms {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"type":      types.StringType,
+				"parameter": types.StringType,
+			},
+			map[string]attr.Value{
+				"type":      types.StringValue(p.Type),
+				"parameter": types.StringValue(p.Parameter),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(sharePermissionObjectType, elems)
+	return list
 }
 
 // Resource implements the atlassian_jira_dashboard managed resource.
@@ -92,6 +157,23 @@ func (r *Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp *res
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"share_permissions": schema.ListNestedAttribute{
+				Description: "Share permissions controlling who can view the dashboard (e.g., global, project, group).",
+				Optional:    true,
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"type": schema.StringAttribute{
+							Description: "The type of share permission: global, project, or group.",
+							Required:    true,
+						},
+						"parameter": schema.StringAttribute{
+							Description: "The parameter for the share permission (e.g., group name). Empty for global.",
+							Optional:    true,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -126,6 +208,7 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
 	}
+	body.SharePermissions = sharePermissionsFromPlan(ctx, plan.SharePermissions)
 	bodyBytes, _ := json.Marshal(body)
 
 	var created apiDashboard
@@ -164,6 +247,7 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	plan.ID = types.StringValue(created.ID)
 	plan.Name = types.StringValue(created.Name)
 	plan.Description = types.StringValue(created.Description)
+	plan.SharePermissions = sharePermissionsToState(ctx, created.SharePermissions)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -194,6 +278,7 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	state.ID = types.StringValue(d.ID)
 	state.Name = types.StringValue(d.Name)
 	state.Description = types.StringValue(d.Description)
+	state.SharePermissions = sharePermissionsToState(ctx, d.SharePermissions)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -218,6 +303,7 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
 	}
+	body.SharePermissions = sharePermissionsFromPlan(ctx, plan.SharePermissions)
 	bodyBytes, _ := json.Marshal(body)
 
 	var updated apiDashboard
@@ -256,6 +342,7 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	plan.ID = types.StringValue(updated.ID)
 	plan.Name = types.StringValue(updated.Name)
 	plan.Description = types.StringValue(updated.Description)
+	plan.SharePermissions = sharePermissionsToState(ctx, updated.SharePermissions)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }

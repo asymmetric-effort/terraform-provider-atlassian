@@ -367,9 +367,10 @@ func TestDashboardCreateBadRequest(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":        tftypes.NewValue(tftypes.String, "D"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":              tftypes.NewValue(tftypes.String, "D"),
+		"description":       tftypes.NewValue(tftypes.String, ""),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -389,9 +390,10 @@ func TestDashboardUpdateBadRequest(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "d-1"),
-		"name":        tftypes.NewValue(tftypes.String, "D"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                tftypes.NewValue(tftypes.String, "d-1"),
+		"name":              tftypes.NewValue(tftypes.String, "D"),
+		"description":       tftypes.NewValue(tftypes.String, ""),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -412,10 +414,11 @@ func TestFilterCreateBadRequest(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":        tftypes.NewValue(tftypes.String, "F"),
-		"description": tftypes.NewValue(tftypes.String, ""),
-		"jql":         tftypes.NewValue(tftypes.String, "project = TEST"),
+		"id":                tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":              tftypes.NewValue(tftypes.String, "F"),
+		"description":       tftypes.NewValue(tftypes.String, ""),
+		"jql":               tftypes.NewValue(tftypes.String, "project = TEST"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -435,10 +438,11 @@ func TestFilterUpdateBadRequest(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "f-1"),
-		"name":        tftypes.NewValue(tftypes.String, "F"),
-		"description": tftypes.NewValue(tftypes.String, ""),
-		"jql":         tftypes.NewValue(tftypes.String, "project = TEST"),
+		"id":                tftypes.NewValue(tftypes.String, "f-1"),
+		"name":              tftypes.NewValue(tftypes.String, "F"),
+		"description":       tftypes.NewValue(tftypes.String, ""),
+		"jql":               tftypes.NewValue(tftypes.String, "project = TEST"),
+		"share_permissions": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"type": tftypes.String, "parameter": tftypes.String}}}, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}

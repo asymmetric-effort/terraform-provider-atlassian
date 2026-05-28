@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -26,35 +27,99 @@ var (
 	_ resource.ResourceWithImportState = &FilterResource{}
 )
 
+// apiFilterSharePermission represents a share permission entry in the filter API.
+type apiFilterSharePermission struct {
+	Type      string `json:"type"`
+	Parameter string `json:"parameter,omitempty"`
+}
+
 // apiFilter represents the JSON structure returned by the Atlassian filter API.
 type apiFilter struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	JQL         string `json:"jql"`
-	Self        string `json:"self"`
+	ID               string                     `json:"id"`
+	Name             string                     `json:"name"`
+	Description      string                     `json:"description"`
+	JQL              string                     `json:"jql"`
+	Self             string                     `json:"self"`
+	SharePermissions []apiFilterSharePermission `json:"sharePermissions,omitempty"`
 }
 
 // apiFilterCreate represents the JSON body for creating a filter.
 type apiFilterCreate struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	JQL         string `json:"jql"`
+	Name             string                     `json:"name"`
+	Description      string                     `json:"description,omitempty"`
+	JQL              string                     `json:"jql"`
+	SharePermissions []apiFilterSharePermission `json:"sharePermissions,omitempty"`
 }
 
 // apiFilterUpdate represents the JSON body for updating a filter.
 type apiFilterUpdate struct {
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
-	JQL         string `json:"jql,omitempty"`
+	Name             string                     `json:"name,omitempty"`
+	Description      string                     `json:"description,omitempty"`
+	JQL              string                     `json:"jql,omitempty"`
+	SharePermissions []apiFilterSharePermission `json:"sharePermissions,omitempty"`
+}
+
+// FilterSharePermissionModel describes a single share permission in the filter Terraform model.
+type FilterSharePermissionModel struct {
+	Type      string `tfsdk:"type"`
+	Parameter string `tfsdk:"parameter"`
 }
 
 // FilterResourceModel describes the filter resource data model.
 type FilterResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
-	JQL         types.String `tfsdk:"jql"`
+	ID               types.String `tfsdk:"id"`
+	Name             types.String `tfsdk:"name"`
+	Description      types.String `tfsdk:"description"`
+	JQL              types.String `tfsdk:"jql"`
+	SharePermissions types.List   `tfsdk:"share_permissions"`
+}
+
+// filterSharePermissionObjectType is the attr.Type for the filter share permission nested object.
+var filterSharePermissionObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"type":      types.StringType,
+		"parameter": types.StringType,
+	},
+}
+
+// filterSharePermissionsFromPlan converts the Terraform share_permissions list to API format for filters.
+func filterSharePermissionsFromPlan(ctx context.Context, perms types.List) []apiFilterSharePermission {
+	if perms.IsNull() || perms.IsUnknown() {
+		return nil
+	}
+	var models []FilterSharePermissionModel
+	perms.ElementsAs(ctx, &models, false)
+	var result []apiFilterSharePermission
+	for _, m := range models {
+		result = append(result, apiFilterSharePermission{
+			Type:      m.Type,
+			Parameter: m.Parameter,
+		})
+	}
+	return result
+}
+
+// filterSharePermissionsToState converts API filter share permissions to the Terraform state list.
+func filterSharePermissionsToState(ctx context.Context, perms []apiFilterSharePermission) types.List {
+	if len(perms) == 0 {
+		return types.ListNull(filterSharePermissionObjectType)
+	}
+	var elems []attr.Value
+	for _, p := range perms {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"type":      types.StringType,
+				"parameter": types.StringType,
+			},
+			map[string]attr.Value{
+				"type":      types.StringValue(p.Type),
+				"parameter": types.StringValue(p.Parameter),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(filterSharePermissionObjectType, elems)
+	return list
 }
 
 // FilterResource implements the atlassian_jira_filter managed resource.
@@ -97,8 +162,25 @@ func (r *FilterResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				},
 			},
 			"jql": schema.StringAttribute{
-				Description: "The JQL query for the filter.",
+				Description: "The JQL query for the filter. Must be a valid JQL expression; the Atlassian API validates syntax on create and update.",
 				Required:    true,
+			},
+			"share_permissions": schema.ListNestedAttribute{
+				Description: "Share permissions controlling who can view the filter (e.g., global, project, group).",
+				Optional:    true,
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"type": schema.StringAttribute{
+							Description: "The type of share permission: global, project, or group.",
+							Required:    true,
+						},
+						"parameter": schema.StringAttribute{
+							Description: "The parameter for the share permission (e.g., group name). Empty for global.",
+							Optional:    true,
+						},
+					},
+				},
 			},
 		},
 	}
@@ -135,6 +217,7 @@ func (r *FilterResource) Create(ctx context.Context, req resource.CreateRequest,
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
 	}
+	body.SharePermissions = filterSharePermissionsFromPlan(ctx, plan.SharePermissions)
 	bodyBytes, _ := json.Marshal(body)
 
 	var created apiFilter
@@ -174,6 +257,7 @@ func (r *FilterResource) Create(ctx context.Context, req resource.CreateRequest,
 	plan.Name = types.StringValue(created.Name)
 	plan.Description = types.StringValue(created.Description)
 	plan.JQL = types.StringValue(created.JQL)
+	plan.SharePermissions = filterSharePermissionsToState(ctx, created.SharePermissions)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -205,6 +289,7 @@ func (r *FilterResource) Read(ctx context.Context, req resource.ReadRequest, res
 	state.Name = types.StringValue(f.Name)
 	state.Description = types.StringValue(f.Description)
 	state.JQL = types.StringValue(f.JQL)
+	state.SharePermissions = filterSharePermissionsToState(ctx, f.SharePermissions)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -230,6 +315,7 @@ func (r *FilterResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
 	}
+	body.SharePermissions = filterSharePermissionsFromPlan(ctx, plan.SharePermissions)
 	bodyBytes, _ := json.Marshal(body)
 
 	var updated apiFilter
@@ -269,6 +355,7 @@ func (r *FilterResource) Update(ctx context.Context, req resource.UpdateRequest,
 	plan.Name = types.StringValue(updated.Name)
 	plan.Description = types.StringValue(updated.Description)
 	plan.JQL = types.StringValue(updated.JQL)
+	plan.SharePermissions = filterSharePermissionsToState(ctx, updated.SharePermissions)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
