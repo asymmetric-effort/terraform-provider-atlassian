@@ -525,6 +525,7 @@ func TestPermissionDeniedCustomField(t *testing.T) {
 		"name":        tftypes.NewValue(tftypes.String, "Custom"),
 		"type":        tftypes.NewValue(tftypes.String, "string"),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"options":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)

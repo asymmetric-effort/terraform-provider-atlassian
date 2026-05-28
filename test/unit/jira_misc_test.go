@@ -232,6 +232,9 @@ func testMiscMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
 		description, _ := req["description"].(string)
 		fieldType, _ := req["type"].(string)
 		cf := map[string]interface{}{"id": id, "name": name, "description": description, "type": fieldType, "self": fmt.Sprintf("https://example.atlassian.net/rest/api/3/field/%s", id)}
+		if rawOpts, ok := req["options"]; ok && rawOpts != nil {
+			cf["options"] = rawOpts
+		}
 		fields[id] = cf
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
@@ -1425,13 +1428,13 @@ func TestJiraCustomFieldResourceSchema(t *testing.T) {
 	r := customfieldresource.NewResource()
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), resource.SchemaRequest{}, resp)
-	for _, attr := range []string{"id", "name", "description", "type"} {
+	for _, attr := range []string{"id", "name", "description", "type", "options"} {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected attribute %q", attr)
 		}
 	}
-	if len(resp.Schema.Attributes) != 4 {
-		t.Errorf("expected 4 attributes, got %d", len(resp.Schema.Attributes))
+	if len(resp.Schema.Attributes) != 5 {
+		t.Errorf("expected 5 attributes, got %d", len(resp.Schema.Attributes))
 	}
 	if !resp.Schema.Attributes["name"].IsRequired() {
 		t.Error("name should be required")
@@ -1466,6 +1469,7 @@ func TestJiraCustomFieldResourceCRUDLifecycle(t *testing.T) {
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Test Field"),
 		"description": tftypes.NewValue(tftypes.String, "A field"), "type": tftypes.NewValue(tftypes.String, "text"),
+		"options": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1483,6 +1487,7 @@ func TestJiraCustomFieldResourceCRUDLifecycle(t *testing.T) {
 	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "Test Field"),
 		"description": tftypes.NewValue(tftypes.String, "A field"), "type": tftypes.NewValue(tftypes.String, "text"),
+		"options": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{}),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -1493,6 +1498,7 @@ func TestJiraCustomFieldResourceCRUDLifecycle(t *testing.T) {
 	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "Updated Field"),
 		"description": tftypes.NewValue(tftypes.String, "Updated"), "type": tftypes.NewValue(tftypes.String, "number"),
+		"options": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
@@ -1505,6 +1511,72 @@ func TestJiraCustomFieldResourceCRUDLifecycle(t *testing.T) {
 	r.Delete(ctx, resource.DeleteRequest{State: deleteState}, deleteResp)
 	if deleteResp.Diagnostics.HasError() {
 		t.Fatalf("Delete: %v", deleteResp.Diagnostics.Errors())
+	}
+}
+
+// TestJiraCustomFieldResourceSelectWithOptions tests creating a select field with options.
+func TestJiraCustomFieldResourceSelectWithOptions(t *testing.T) {
+	t.Parallel()
+	_, client := testMiscMockServer(t)
+	ctx := context.Background()
+	r := customfieldresource.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	optionValues := []tftypes.Value{
+		tftypes.NewValue(tftypes.String, "Option A"),
+		tftypes.NewValue(tftypes.String, "Option B"),
+		tftypes.NewValue(tftypes.String, "Option C"),
+	}
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Select Field"),
+		"description": tftypes.NewValue(tftypes.String, "A select field"), "type": tftypes.NewValue(tftypes.String, "select"),
+		"options": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, optionValues),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create select field: %v", createResp.Diagnostics.Errors())
+	}
+	id := getStringAttr(t, createResp.State, "id")
+	if id == "" {
+		t.Fatal("expected non-empty id")
+	}
+	if ft := getStringAttr(t, createResp.State, "type"); ft != "select" {
+		t.Errorf("expected type 'select', got %q", ft)
+	}
+
+	// Read it back
+	readState := tfsdk.State{Schema: s, Raw: createResp.State.Raw.Copy()}
+	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
+	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read select field: %v", readResp.Diagnostics.Errors())
+	}
+
+	// Update options
+	updatedOptions := []tftypes.Value{
+		tftypes.NewValue(tftypes.String, "Option X"),
+		tftypes.NewValue(tftypes.String, "Option Y"),
+	}
+	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "Select Field"),
+		"description": tftypes.NewValue(tftypes.String, "Updated select"), "type": tftypes.NewValue(tftypes.String, "select"),
+		"options": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, updatedOptions),
+	})}
+	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
+	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
+	if updateResp.Diagnostics.HasError() {
+		t.Fatalf("Update select field: %v", updateResp.Diagnostics.Errors())
+	}
+
+	// Delete
+	deleteState := tfsdk.State{Schema: s, Raw: updateResp.State.Raw.Copy()}
+	deleteResp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: deleteState.Raw.Copy()}}
+	r.Delete(ctx, resource.DeleteRequest{State: deleteState}, deleteResp)
+	if deleteResp.Diagnostics.HasError() {
+		t.Fatalf("Delete select field: %v", deleteResp.Diagnostics.Errors())
 	}
 }
 
@@ -1522,6 +1594,7 @@ func TestJiraCustomFieldResourceErrorPaths(t *testing.T) {
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Dup Field"),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "type": tftypes.NewValue(tftypes.String, "text"),
+		"options": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	resp1 := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp1)
@@ -1535,6 +1608,7 @@ func TestJiraCustomFieldResourceErrorPaths(t *testing.T) {
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "nonexistent"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""), "type": tftypes.NewValue(tftypes.String, "text"),
+		"options": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	uResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}, State: state}, uResp)
@@ -1601,6 +1675,7 @@ func TestJiraCustomFieldDataSource(t *testing.T) {
 	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "DS Field"),
 		"description": tftypes.NewValue(tftypes.String, "ds desc"), "type": tftypes.NewValue(tftypes.String, "select"),
+		"options": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1622,13 +1697,14 @@ func TestJiraCustomFieldDataSource(t *testing.T) {
 	// Schema
 	schemaResp := &datasource.SchemaResponse{}
 	ds.Schema(ctx, datasource.SchemaRequest{}, schemaResp)
-	if len(schemaResp.Schema.Attributes) != 4 {
-		t.Errorf("expected 4 attrs, got %d", len(schemaResp.Schema.Attributes))
+	if len(schemaResp.Schema.Attributes) != 5 {
+		t.Errorf("expected 5 attrs, got %d", len(schemaResp.Schema.Attributes))
 	}
 
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"options": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -1640,6 +1716,7 @@ func TestJiraCustomFieldDataSource(t *testing.T) {
 	config404 := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "nonexistent"), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"options": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue),
 	})}
 	resp404 := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config404}, resp404)
@@ -2821,6 +2898,7 @@ func TestJiraCustomFieldResourceUpdateServerError(t *testing.T) {
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "some-id"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""), "type": tftypes.NewValue(tftypes.String, "text"),
+		"options": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}, State: state}, resp)
@@ -2841,6 +2919,7 @@ func TestJiraCustomFieldResourceDeleteServerError(t *testing.T) {
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "some-id"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""), "type": tftypes.NewValue(tftypes.String, "text"),
+		"options": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -3219,6 +3298,7 @@ func TestJiraCustomFieldResourceUpdateBadPlan(t *testing.T) {
 	goodState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""), "type": tftypes.NewValue(tftypes.String, "text"),
+		"options": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: badPlan, State: goodState}, resp)
@@ -3239,6 +3319,7 @@ func TestJiraCustomFieldResourceUpdateBadState(t *testing.T) {
 	goodPlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""), "type": tftypes.NewValue(tftypes.String, "text"),
+		"options": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	badState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tftypes.String, "invalid")}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}

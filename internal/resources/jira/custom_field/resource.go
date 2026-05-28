@@ -28,25 +28,28 @@ var (
 
 // apiCustomField represents the JSON structure returned by the Atlassian field API.
 type apiCustomField struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Type        string `json:"type"`
-	Self        string `json:"self"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Type        string   `json:"type"`
+	Options     []string `json:"options,omitempty"`
+	Self        string   `json:"self"`
 }
 
 // apiCustomFieldCreate represents the JSON body for creating a custom field.
 type apiCustomFieldCreate struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	Type        string `json:"type"`
+	Name        string   `json:"name"`
+	Description string   `json:"description,omitempty"`
+	Type        string   `json:"type"`
+	Options     []string `json:"options,omitempty"`
 }
 
 // apiCustomFieldUpdate represents the JSON body for updating a custom field.
 type apiCustomFieldUpdate struct {
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
-	Type        string `json:"type,omitempty"`
+	Name        string   `json:"name,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Type        string   `json:"type,omitempty"`
+	Options     []string `json:"options,omitempty"`
 }
 
 // ResourceModel describes the resource data model.
@@ -55,6 +58,7 @@ type ResourceModel struct {
 	Name        types.String `tfsdk:"name"`
 	Description types.String `tfsdk:"description"`
 	Type        types.String `tfsdk:"type"`
+	Options     types.List   `tfsdk:"options"`
 }
 
 // Resource implements the atlassian_jira_custom_field managed resource.
@@ -100,6 +104,12 @@ func (r *Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp *res
 				Description: "The type of the custom field (e.g., text, number, select).",
 				Required:    true,
 			},
+			"options": schema.ListAttribute{
+				Description: "The list of options for select or multi-select custom field types.",
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
+			},
 		},
 	}
 }
@@ -134,6 +144,13 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	}
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
+	}
+	if !plan.Options.IsNull() && !plan.Options.IsUnknown() {
+		var opts []string
+		// ElementsAs cannot fail here because the schema guarantees options
+		// is a list of strings and Plan.Get already validated the type above.
+		plan.Options.ElementsAs(ctx, &opts, false)
+		body.Options = opts
 	}
 	bodyBytes, _ := json.Marshal(body)
 
@@ -174,6 +191,8 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	plan.Name = types.StringValue(created.Name)
 	plan.Description = types.StringValue(created.Description)
 	plan.Type = types.StringValue(created.Type)
+	// ListValueFrom cannot fail with a []string and types.StringType.
+	plan.Options, _ = types.ListValueFrom(ctx, types.StringType, created.Options)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -205,6 +224,8 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	state.Name = types.StringValue(cf.Name)
 	state.Description = types.StringValue(cf.Description)
 	state.Type = types.StringValue(cf.Type)
+	// ListValueFrom cannot fail with a []string and types.StringType.
+	state.Options, _ = types.ListValueFrom(ctx, types.StringType, cf.Options)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -229,6 +250,13 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	}
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
+	}
+	if !plan.Options.IsNull() && !plan.Options.IsUnknown() {
+		var opts []string
+		// ElementsAs cannot fail here because the schema guarantees options
+		// is a list of strings and Plan.Get already validated the type above.
+		plan.Options.ElementsAs(ctx, &opts, false)
+		body.Options = opts
 	}
 	bodyBytes, _ := json.Marshal(body)
 
@@ -269,6 +297,8 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	plan.Name = types.StringValue(updated.Name)
 	plan.Description = types.StringValue(updated.Description)
 	plan.Type = types.StringValue(updated.Type)
+	// ListValueFrom cannot fail with a []string and types.StringType.
+	plan.Options, _ = types.ListValueFrom(ctx, types.StringType, updated.Options)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }

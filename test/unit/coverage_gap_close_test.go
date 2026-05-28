@@ -324,6 +324,7 @@ func TestCustomFieldCreateBadRequest(t *testing.T) {
 		"name":        tftypes.NewValue(tftypes.String, "CF"),
 		"description": tftypes.NewValue(tftypes.String, ""),
 		"type":        tftypes.NewValue(tftypes.String, "text"),
+		"options":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -347,6 +348,7 @@ func TestCustomFieldUpdateBadRequest(t *testing.T) {
 		"name":        tftypes.NewValue(tftypes.String, "CF"),
 		"description": tftypes.NewValue(tftypes.String, ""),
 		"type":        tftypes.NewValue(tftypes.String, "text"),
+		"options":     tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}

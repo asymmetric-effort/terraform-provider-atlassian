@@ -19,11 +19,12 @@ var _ datasource.DataSource = &DataSource{}
 
 // apiCustomField represents the JSON structure returned by the Atlassian field API.
 type apiCustomField struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Type        string `json:"type"`
-	Self        string `json:"self"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Type        string   `json:"type"`
+	Options     []string `json:"options,omitempty"`
+	Self        string   `json:"self"`
 }
 
 // DataSourceModel describes the data source data model.
@@ -32,6 +33,7 @@ type DataSourceModel struct {
 	Name        types.String `tfsdk:"name"`
 	Description types.String `tfsdk:"description"`
 	Type        types.String `tfsdk:"type"`
+	Options     types.List   `tfsdk:"options"`
 }
 
 // DataSource implements the atlassian_jira_custom_field data source.
@@ -69,6 +71,11 @@ func (d *DataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp 
 			"type": schema.StringAttribute{
 				Description: "The type of the custom field.",
 				Computed:    true,
+			},
+			"options": schema.ListAttribute{
+				Description: "The list of options for select or multi-select custom field types.",
+				Computed:    true,
+				ElementType: types.StringType,
 			},
 		},
 	}
@@ -121,6 +128,8 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 	config.Name = types.StringValue(cf.Name)
 	config.Description = types.StringValue(cf.Description)
 	config.Type = types.StringValue(cf.Type)
+	// ListValueFrom cannot fail with a []string and types.StringType.
+	config.Options, _ = types.ListValueFrom(ctx, types.StringType, cf.Options)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }
