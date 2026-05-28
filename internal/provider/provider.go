@@ -7,7 +7,10 @@ import (
 	"time"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	confluencepagedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/confluence/page"
 	confluencespacedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/confluence/space"
+	confluencespacepermdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/confluence/space"
+	confluencetemplatedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/confluence/template"
 	groupdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/group"
 	roledatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/role"
 	userds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/user"
@@ -25,7 +28,10 @@ import (
 	securityschemeds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/security_scheme"
 	spacedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/space"
 	workflowdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/workflow"
+	confluencepageresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/confluence/page"
+	confluencespacepermresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/confluence/space"
 	confluencespaceresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/confluence/space"
+	confluencetemplateresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/confluence/template"
 	groupresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/group"
 	roleresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/role"
 	tokenresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/token"
@@ -272,6 +278,10 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		mailhandlerresource.NewOutgoingResource,
 		customdomainrs.NewEmailResource,
 		confluencespaceresource.NewResource,
+		confluencepageresource.NewResource,
+		confluencepageresource.NewRestrictionResource,
+		confluencetemplateresource.NewResource,
+		confluencespacepermresource.NewPermissionResource,
 	}
 }
 
@@ -303,5 +313,9 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 		mailhandlerdatasource.NewIncomingDataSource,
 		mailhandlerdatasource.NewOutgoingDataSource,
 		confluencespacedatasource.NewDataSource,
+		confluencepagedatasource.NewDataSource,
+		confluencepagedatasource.NewRestrictionDataSource,
+		confluencetemplatedatasource.NewDataSource,
+		confluencespacepermdatasource.NewPermissionDataSource,
 	}
 }
