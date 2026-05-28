@@ -3,10 +3,13 @@ package mock
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/asymmetric-effort/terraform-provider-atlassian/internal/mock/specs"
 )
 
 // idCounter is a global atomic counter for generating unique IDs.
@@ -18,8 +21,22 @@ func nextID(prefix string) string {
 	return fmt.Sprintf("%s-%d", prefix, n)
 }
 
-// RegisterIdentityEndpoints registers identity CRUD endpoints on the mock server.
+// RegisterIdentityEndpoints registers identity CRUD endpoints on the
+// mock server and adds OpenAPI request validation from the embedded
+// identity spec.
 func RegisterIdentityEndpoints(s *Server) {
+	specData, err := specs.SpecFS.ReadFile("identity.yaml")
+	if err != nil {
+		log.Printf("WARNING: could not load identity OpenAPI spec: %v", err)
+	} else {
+		v, err := NewRequestValidatorFromBytes(specData)
+		if err != nil {
+			log.Printf("WARNING: could not parse identity OpenAPI spec: %v", err)
+		} else {
+			s.AddValidator(v)
+		}
+	}
+
 	registerUserEndpoints(s)
 	registerGroupEndpoints(s)
 	registerGroupMembershipEndpoints(s)

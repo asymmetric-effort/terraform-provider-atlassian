@@ -454,7 +454,7 @@ func TestRoleCRUDLifecycle(t *testing.T) {
 	resp := postJSON(t, ts.URL+"/rest/api/3/role", map[string]interface{}{
 		"name":        "Administrators",
 		"description": "Admin role",
-		"scope":       "global",
+		"scope":       "org",
 	})
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create role: expected 201, got %d", resp.StatusCode)

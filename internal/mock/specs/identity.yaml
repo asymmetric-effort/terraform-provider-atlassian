@@ -1,0 +1,409 @@
+---
+openapi: "3.0.3"
+info:
+  title: Atlassian Mock API — Identity
+  version: "0.1.0"
+  description: >
+    OpenAPI spec for mock Atlassian identity endpoints covering
+    users, groups, group membership, roles, role assignments,
+    and API tokens.
+paths:
+  /rest/api/3/user:
+    post:
+      operationId: createUser
+      summary: Create a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: User created
+        "409":
+          description: Duplicate email
+    get:
+      operationId: getUser
+      summary: Read user by accountId query param
+      parameters:
+        - name: accountId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User details
+        "404":
+          description: User not found
+  /rest/api/3/user/{id}:
+    put:
+      operationId: updateUser
+      summary: Update user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteUser
+      summary: Delete user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/user/search:
+    get:
+      operationId: searchUsers
+      summary: Search users by query
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+  /rest/api/3/group:
+    post:
+      operationId: createGroup
+      summary: Create a new group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGroupRequest"
+      responses:
+        "201":
+          description: Group created
+    get:
+      operationId: getGroup
+      summary: Read group by groupId query param
+      parameters:
+        - name: groupId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Group details
+    delete:
+      operationId: deleteGroup
+      summary: Delete group by groupId query param
+      parameters:
+        - name: groupId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/group/bulk:
+    get:
+      operationId: listGroups
+      summary: List all groups
+      responses:
+        "200":
+          description: Group list
+  /rest/api/3/group/user:
+    post:
+      operationId: addGroupMember
+      summary: Add user to group
+      parameters:
+        - name: groupId
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddMemberRequest"
+      responses:
+        "201":
+          description: Member added
+    delete:
+      operationId: removeGroupMember
+      summary: Remove user from group
+      parameters:
+        - name: groupId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: accountId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Member removed
+  /rest/api/3/group/member:
+    get:
+      operationId: listGroupMembers
+      summary: List group members
+      parameters:
+        - name: groupId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Member list
+  /rest/api/3/role:
+    post:
+      operationId: createRole
+      summary: Create a new role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoleRequest"
+      responses:
+        "201":
+          description: Role created
+    get:
+      operationId: listRoles
+      summary: List all roles
+      responses:
+        "200":
+          description: Role list
+  /rest/api/3/role/{id}:
+    get:
+      operationId: getRole
+      summary: Read role by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Role details
+    put:
+      operationId: updateRole
+      summary: Update role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteRole
+      summary: Delete role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/role/assignment:
+    post:
+      operationId: createRoleAssignment
+      summary: Create role assignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoleAssignmentRequest"
+      responses:
+        "201":
+          description: Assignment created
+  /rest/api/3/role/assignment/{id}:
+    get:
+      operationId: getRoleAssignment
+      summary: Read role assignment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Assignment details
+    delete:
+      operationId: deleteRoleAssignment
+      summary: Delete role assignment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/user/{accountId}/token:
+    post:
+      operationId: createToken
+      summary: Create API token for user
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTokenRequest"
+      responses:
+        "201":
+          description: Token created
+  /rest/api/3/user/{accountId}/token/{tokenId}:
+    get:
+      operationId: getToken
+      summary: Read token metadata
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tokenId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Token metadata
+    delete:
+      operationId: deleteToken
+      summary: Revoke token
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tokenId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Token revoked
+components:
+  schemas:
+    CreateUserRequest:
+      type: object
+      required:
+        - emailAddress
+        - displayName
+      properties:
+        emailAddress:
+          type: string
+        displayName:
+          type: string
+    CreateGroupRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+    AddMemberRequest:
+      type: object
+      required:
+        - accountId
+      properties:
+        accountId:
+          type: string
+    CreateRoleRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        scope:
+          type: string
+          enum:
+            - org
+            - product
+    CreateRoleAssignmentRequest:
+      type: object
+      required:
+        - roleId
+        - principalType
+        - principalId
+        - scope
+      properties:
+        roleId:
+          type: string
+        principalType:
+          type: string
+          enum:
+            - user
+            - group
+        principalId:
+          type: string
+        scope:
+          type: string
+          enum:
+            - org
+            - product
+        productId:
+          type: string
+    CreateTokenRequest:
+      type: object
+      required:
+        - label
+      properties:
+        label:
+          type: string

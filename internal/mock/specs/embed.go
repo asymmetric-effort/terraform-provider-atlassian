@@ -1,0 +1,10 @@
+// Package specs provides embedded OpenAPI specifications and
+// generated types for the mock API server.
+package specs
+
+import "embed"
+
+// SpecFS contains the embedded OpenAPI YAML specification files.
+//
+//go:embed auth.yaml identity.yaml
+var SpecFS embed.FS

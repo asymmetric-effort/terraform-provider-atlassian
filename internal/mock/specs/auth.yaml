@@ -18,7 +18,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
+                $ref: "#/components/schemas/AuthUser"
         "401":
           description: Authentication required or invalid credentials
           content:
@@ -67,7 +67,7 @@ paths:
                 $ref: "#/components/schemas/HealthResponse"
 components:
   schemas:
-    User:
+    AuthUser:
       type: object
       required:
         - accountId
