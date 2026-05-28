@@ -181,6 +181,9 @@ func testSchemeMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
 			"description": description,
 			"self":        fmt.Sprintf("https://example.atlassian.net/rest/api/3/issuesecurityschemes/%s", id),
 		}
+		if levels, ok := req["security_levels"]; ok && levels != nil {
+			ss["security_levels"] = levels
+		}
 		secSchemes[id] = ss
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
@@ -1233,7 +1236,7 @@ func TestJiraSecuritySchemeResourceSchema(t *testing.T) {
 	if resp.Schema.Attributes == nil {
 		t.Fatal("expected schema to have attributes")
 	}
-	expectedAttrs := []string{"id", "name", "description"}
+	expectedAttrs := []string{"id", "name", "description", "security_levels"}
 	for _, attr := range expectedAttrs {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected schema to have attribute %q", attr)
@@ -1248,7 +1251,7 @@ func TestJiraSecuritySchemeResourceSchemaAttributeCount(t *testing.T) {
 	req := resource.SchemaRequest{}
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), req, resp)
-	expected := 3
+	expected := 4
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -1361,9 +1364,10 @@ func TestJiraSecuritySchemeResourceCRUDLifecycle(t *testing.T) {
 
 	// Create
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":        tftypes.NewValue(tftypes.String, "Test Security Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "A test security scheme"),
+		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":            tftypes.NewValue(tftypes.String, "Test Security Scheme"),
+		"description":     tftypes.NewValue(tftypes.String, "A test security scheme"),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1380,9 +1384,10 @@ func TestJiraSecuritySchemeResourceCRUDLifecycle(t *testing.T) {
 
 	// Read
 	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, ssID),
-		"name":        tftypes.NewValue(tftypes.String, "Test Security Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "A test security scheme"),
+		"id":              tftypes.NewValue(tftypes.String, ssID),
+		"name":            tftypes.NewValue(tftypes.String, "Test Security Scheme"),
+		"description":     tftypes.NewValue(tftypes.String, "A test security scheme"),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -1395,14 +1400,16 @@ func TestJiraSecuritySchemeResourceCRUDLifecycle(t *testing.T) {
 
 	// Update
 	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, ssID),
-		"name":        tftypes.NewValue(tftypes.String, "Updated Security Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "Updated desc"),
+		"id":              tftypes.NewValue(tftypes.String, ssID),
+		"name":            tftypes.NewValue(tftypes.String, "Updated Security Scheme"),
+		"description":     tftypes.NewValue(tftypes.String, "Updated desc"),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	updateState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, ssID),
-		"name":        tftypes.NewValue(tftypes.String, "Test Security Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "A test security scheme"),
+		"id":              tftypes.NewValue(tftypes.String, ssID),
+		"name":            tftypes.NewValue(tftypes.String, "Test Security Scheme"),
+		"description":     tftypes.NewValue(tftypes.String, "A test security scheme"),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: updateState}, updateResp)
@@ -1415,9 +1422,10 @@ func TestJiraSecuritySchemeResourceCRUDLifecycle(t *testing.T) {
 
 	// Delete
 	delState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, ssID),
-		"name":        tftypes.NewValue(tftypes.String, "Updated Security Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "Updated desc"),
+		"id":              tftypes.NewValue(tftypes.String, ssID),
+		"name":            tftypes.NewValue(tftypes.String, "Updated Security Scheme"),
+		"description":     tftypes.NewValue(tftypes.String, "Updated desc"),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	delResp := &resource.DeleteResponse{State: emptyState(ctx, s)}
 	r.Delete(ctx, resource.DeleteRequest{State: delState}, delResp)
@@ -1427,9 +1435,10 @@ func TestJiraSecuritySchemeResourceCRUDLifecycle(t *testing.T) {
 
 	// Read after delete should remove resource
 	readState2 := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, ssID),
-		"name":        tftypes.NewValue(tftypes.String, "Updated Security Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "Updated desc"),
+		"id":              tftypes.NewValue(tftypes.String, ssID),
+		"name":            tftypes.NewValue(tftypes.String, "Updated Security Scheme"),
+		"description":     tftypes.NewValue(tftypes.String, "Updated desc"),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	readResp2 := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState2.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState2}, readResp2)
@@ -1449,9 +1458,10 @@ func TestJiraSecuritySchemeResourceCreateConflict(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":        tftypes.NewValue(tftypes.String, "Dup SS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":            tftypes.NewValue(tftypes.String, "Dup SS"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -1477,9 +1487,10 @@ func TestJiraSecuritySchemeResourceCreateForbidden(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":        tftypes.NewValue(tftypes.String, "Forbidden SS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":            tftypes.NewValue(tftypes.String, "Forbidden SS"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -1499,9 +1510,10 @@ func TestJiraSecuritySchemeResourceCreateServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":        tftypes.NewValue(tftypes.String, "Error SS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":            tftypes.NewValue(tftypes.String, "Error SS"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -1521,9 +1533,10 @@ func TestJiraSecuritySchemeResourceReadServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, "SS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, "some-id"),
+		"name":            tftypes.NewValue(tftypes.String, "SS"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	resp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: state}, resp)
@@ -1543,14 +1556,16 @@ func TestJiraSecuritySchemeResourceUpdateNotFound(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
-		"name":        tftypes.NewValue(tftypes.String, "Updated"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, "nonexistent"),
+		"name":            tftypes.NewValue(tftypes.String, "Updated"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
-		"name":        tftypes.NewValue(tftypes.String, "Old"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, "nonexistent"),
+		"name":            tftypes.NewValue(tftypes.String, "Old"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, resp)
@@ -1570,14 +1585,16 @@ func TestJiraSecuritySchemeResourceUpdateForbidden(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, "Updated"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, "some-id"),
+		"name":            tftypes.NewValue(tftypes.String, "Updated"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, "Old"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, "some-id"),
+		"name":            tftypes.NewValue(tftypes.String, "Old"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, resp)
@@ -1597,14 +1614,16 @@ func TestJiraSecuritySchemeResourceUpdateServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, "Updated"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, "some-id"),
+		"name":            tftypes.NewValue(tftypes.String, "Updated"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, "Old"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, "some-id"),
+		"name":            tftypes.NewValue(tftypes.String, "Old"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, resp)
@@ -1624,9 +1643,10 @@ func TestJiraSecuritySchemeResourceDeleteForbidden(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, "SS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, "some-id"),
+		"name":            tftypes.NewValue(tftypes.String, "SS"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	resp := &resource.DeleteResponse{State: emptyState(ctx, s)}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -1646,9 +1666,10 @@ func TestJiraSecuritySchemeResourceDeleteServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, "SS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, "some-id"),
+		"name":            tftypes.NewValue(tftypes.String, "SS"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	resp := &resource.DeleteResponse{State: emptyState(ctx, s)}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -1668,9 +1689,10 @@ func TestJiraSecuritySchemeResourceDeleteNotFound(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
-		"name":        tftypes.NewValue(tftypes.String, "SS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, "nonexistent"),
+		"name":            tftypes.NewValue(tftypes.String, "SS"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	resp := &resource.DeleteResponse{State: emptyState(ctx, s)}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -1758,9 +1780,10 @@ func TestJiraSecuritySchemeResourceUpdateStateGetError(t *testing.T) {
 	ctx := context.Background()
 	tfType := s.Type().TerraformType(ctx)
 	validPlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "id"),
-		"name":        tftypes.NewValue(tftypes.String, "n"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, "id"),
+		"name":            tftypes.NewValue(tftypes.String, "n"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{
@@ -1811,7 +1834,7 @@ func TestJiraSecuritySchemeDataSourceSchema(t *testing.T) {
 	if resp.Schema.Attributes == nil {
 		t.Fatal("expected schema to have attributes")
 	}
-	expectedAttrs := []string{"id", "name", "description"}
+	expectedAttrs := []string{"id", "name", "description", "security_levels"}
 	for _, attr := range expectedAttrs {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected schema to have attribute %q", attr)
@@ -1826,7 +1849,7 @@ func TestJiraSecuritySchemeDataSourceSchemaAttributeCount(t *testing.T) {
 	req := datasource.SchemaRequest{}
 	resp := &datasource.SchemaResponse{}
 	ds.Schema(context.Background(), req, resp)
-	expected := 3
+	expected := 4
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -1854,9 +1877,10 @@ func TestJiraSecuritySchemeDataSourceByID(t *testing.T) {
 	rsTfType := rs.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":        tftypes.NewValue(tftypes.String, "DS Sec Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "ds desc"),
+		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":            tftypes.NewValue(tftypes.String, "DS Sec Scheme"),
+		"description":     tftypes.NewValue(tftypes.String, "ds desc"),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -1871,9 +1895,10 @@ func TestJiraSecuritySchemeDataSourceByID(t *testing.T) {
 	dsType := dss.Type().TerraformType(ctx)
 
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, ssID),
-		"name":        tftypes.NewValue(tftypes.String, nil),
-		"description": tftypes.NewValue(tftypes.String, nil),
+		"id":              tftypes.NewValue(tftypes.String, ssID),
+		"name":            tftypes.NewValue(tftypes.String, nil),
+		"description":     tftypes.NewValue(tftypes.String, nil),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1896,9 +1921,10 @@ func TestJiraSecuritySchemeDataSourceNotFound(t *testing.T) {
 	dsType := dss.Type().TerraformType(ctx)
 
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
-		"name":        tftypes.NewValue(tftypes.String, nil),
-		"description": tftypes.NewValue(tftypes.String, nil),
+		"id":              tftypes.NewValue(tftypes.String, "nonexistent"),
+		"name":            tftypes.NewValue(tftypes.String, nil),
+		"description":     tftypes.NewValue(tftypes.String, nil),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1942,9 +1968,10 @@ func TestJiraSecuritySchemeDataSourceReadServerError(t *testing.T) {
 	dsType := dss.Type().TerraformType(ctx)
 
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "some-id"),
-		"name":        tftypes.NewValue(tftypes.String, nil),
-		"description": tftypes.NewValue(tftypes.String, nil),
+		"id":              tftypes.NewValue(tftypes.String, "some-id"),
+		"name":            tftypes.NewValue(tftypes.String, nil),
+		"description":     tftypes.NewValue(tftypes.String, nil),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1967,6 +1994,116 @@ func TestJiraSecuritySchemeDataSourceReadBadConfig(t *testing.T) {
 	ds.Read(ctx, datasource.ReadRequest{Config: badConfig}, resp)
 	if !resp.Diagnostics.HasError() {
 		t.Fatal("Expected error from bad config on data source read")
+	}
+}
+
+// ==================== SECURITY SCHEME SECURITY LEVELS TESTS ====================
+
+// securityLevelListType is the tftypes type for the security_levels attribute.
+var securityLevelListType = tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}
+
+// TestJiraSecuritySchemeResourceCreateWithLevels tests creating a scheme with non-empty security levels.
+func TestJiraSecuritySchemeResourceCreateWithLevels(t *testing.T) {
+	t.Parallel()
+	_, client := testSchemeMockServer(t)
+	ctx := context.Background()
+	r := securityschemers.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":        tftypes.NewValue(tftypes.String, "Scheme With Levels"),
+		"description": tftypes.NewValue(tftypes.String, "Has levels"),
+		"security_levels": tftypes.NewValue(securityLevelListType, []tftypes.Value{
+			tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}, map[string]tftypes.Value{
+				"name":        tftypes.NewValue(tftypes.String, "Level One"),
+				"description": tftypes.NewValue(tftypes.String, "First level"),
+			}),
+			tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}, map[string]tftypes.Value{
+				"name":        tftypes.NewValue(tftypes.String, "Level Two"),
+				"description": tftypes.NewValue(tftypes.String, ""),
+			}),
+		}),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create with levels: %v", createResp.Diagnostics.Errors())
+	}
+	ssID := getStringAttr(t, createResp.State, "id")
+	if ssID == "" {
+		t.Fatal("expected non-empty ID after create")
+	}
+
+	// Read back and verify levels are present
+	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":              tftypes.NewValue(tftypes.String, ssID),
+		"name":            tftypes.NewValue(tftypes.String, "Scheme With Levels"),
+		"description":     tftypes.NewValue(tftypes.String, "Has levels"),
+		"security_levels": tftypes.NewValue(securityLevelListType, nil),
+	})}
+	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
+	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read with levels: %v", readResp.Diagnostics.Errors())
+	}
+}
+
+// TestJiraSecuritySchemeDataSourceReadWithLevels tests reading a scheme with non-empty security levels.
+func TestJiraSecuritySchemeDataSourceReadWithLevels(t *testing.T) {
+	t.Parallel()
+
+	// Custom mock server that returns security_levels in the response.
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /rest/api/3/issuesecurityschemes/{id}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":          r.PathValue("id"),
+			"name":        "Sec Scheme With Levels",
+			"description": "Has security levels",
+			"self":        "https://example.atlassian.net/rest/api/3/issuesecurityschemes/sl-1",
+			"security_levels": []map[string]interface{}{
+				{"name": "Confidential", "description": "Restricted access"},
+				{"name": "Internal", "description": ""},
+			},
+		})
+	})
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+
+	cfg := atlassian.Config{
+		BaseURL:        ts.URL,
+		RequestTimeout: 5000000000,
+		MaxRetries:     0,
+		RetryWaitMin:   1000000000,
+		RetryWaitMax:   1000000000,
+	}
+	client, err := atlassian.NewClient(cfg, &testNoopAuth{})
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+
+	ctx := context.Background()
+	ds := securityschemeds.NewDataSource()
+	configureDatasource(t, ds, client)
+	dss := getDatasourceSchema(t, ds)
+	dsType := dss.Type().TerraformType(ctx)
+
+	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
+		"id":              tftypes.NewValue(tftypes.String, "sl-1"),
+		"name":            tftypes.NewValue(tftypes.String, nil),
+		"description":     tftypes.NewValue(tftypes.String, nil),
+		"security_levels": tftypes.NewValue(securityLevelListType, nil),
+	})}
+	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
+	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
+	if dsResp.Diagnostics.HasError() {
+		t.Fatalf("DS Read with levels: %v", dsResp.Diagnostics.Errors())
+	}
+	if name := getStringAttr(t, dsResp.State, "name"); name != "Sec Scheme With Levels" {
+		t.Errorf("expected name 'Sec Scheme With Levels', got %q", name)
 	}
 }
 

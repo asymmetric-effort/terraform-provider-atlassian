@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -26,31 +27,47 @@ var (
 	_ resource.ResourceWithImportState = &Resource{}
 )
 
+// apiSecurityLevel represents a single security level in a scheme.
+type apiSecurityLevel struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+}
+
 // apiSecurityScheme represents the JSON structure returned by the Atlassian issue security scheme API.
 type apiSecurityScheme struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Self        string `json:"self"`
+	ID             string             `json:"id"`
+	Name           string             `json:"name"`
+	Description    string             `json:"description"`
+	Self           string             `json:"self"`
+	SecurityLevels []apiSecurityLevel `json:"security_levels,omitempty"`
 }
 
 // apiSecuritySchemeCreate represents the JSON body for creating a security scheme.
 type apiSecuritySchemeCreate struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
+	Name           string             `json:"name"`
+	Description    string             `json:"description,omitempty"`
+	SecurityLevels []apiSecurityLevel `json:"security_levels,omitempty"`
 }
 
 // apiSecuritySchemeUpdate represents the JSON body for updating a security scheme.
 type apiSecuritySchemeUpdate struct {
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
+	Name           string             `json:"name,omitempty"`
+	Description    string             `json:"description,omitempty"`
+	SecurityLevels []apiSecurityLevel `json:"security_levels,omitempty"`
+}
+
+// SecurityLevel describes a single security level in the Terraform model.
+type SecurityLevel struct {
+	Name        string `tfsdk:"name"`
+	Description string `tfsdk:"description"`
 }
 
 // ResourceModel describes the resource data model.
 type ResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
+	ID             types.String `tfsdk:"id"`
+	Name           types.String `tfsdk:"name"`
+	Description    types.String `tfsdk:"description"`
+	SecurityLevels types.List   `tfsdk:"security_levels"`
 }
 
 // Resource implements the atlassian_jira_security_scheme managed resource.
@@ -92,6 +109,23 @@ func (r *Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp *res
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"security_levels": schema.ListNestedAttribute{
+				Description: "Security levels within the scheme.",
+				Optional:    true,
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Description: "The name of the security level.",
+							Required:    true,
+						},
+						"description": schema.StringAttribute{
+							Description: "A description of the security level.",
+							Optional:    true,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -126,6 +160,7 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
 	}
+	body.SecurityLevels = levelsFromPlan(ctx, plan.SecurityLevels)
 	bodyBytes, _ := json.Marshal(body)
 
 	var created apiSecurityScheme
@@ -164,6 +199,7 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	plan.ID = types.StringValue(created.ID)
 	plan.Name = types.StringValue(created.Name)
 	plan.Description = types.StringValue(created.Description)
+	plan.SecurityLevels = levelsToState(ctx, created.SecurityLevels)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -194,6 +230,7 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	state.ID = types.StringValue(ss.ID)
 	state.Name = types.StringValue(ss.Name)
 	state.Description = types.StringValue(ss.Description)
+	state.SecurityLevels = levelsToState(ctx, ss.SecurityLevels)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -218,6 +255,7 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
 	}
+	body.SecurityLevels = levelsFromPlan(ctx, plan.SecurityLevels)
 	bodyBytes, _ := json.Marshal(body)
 
 	var updated apiSecurityScheme
@@ -256,6 +294,7 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	plan.ID = types.StringValue(updated.ID)
 	plan.Name = types.StringValue(updated.Name)
 	plan.Description = types.StringValue(updated.Description)
+	plan.SecurityLevels = levelsToState(ctx, updated.SecurityLevels)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -295,4 +334,52 @@ func (r *Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 // ImportState imports an existing security scheme by ID.
 func (r *Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// securityLevelObjectType is the attr.Type for the security level nested object.
+var securityLevelObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"name":        types.StringType,
+		"description": types.StringType,
+	},
+}
+
+// levelsFromPlan converts the Terraform security_levels list to API format.
+func levelsFromPlan(ctx context.Context, levels types.List) []apiSecurityLevel {
+	if levels.IsNull() || levels.IsUnknown() {
+		return nil
+	}
+	var levelModels []SecurityLevel
+	levels.ElementsAs(ctx, &levelModels, false)
+	var result []apiSecurityLevel
+	for _, l := range levelModels {
+		result = append(result, apiSecurityLevel{
+			Name:        l.Name,
+			Description: l.Description,
+		})
+	}
+	return result
+}
+
+// levelsToState converts API security levels to the Terraform state list.
+func levelsToState(ctx context.Context, levels []apiSecurityLevel) types.List {
+	if len(levels) == 0 {
+		return types.ListNull(securityLevelObjectType)
+	}
+	var elems []attr.Value
+	for _, l := range levels {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"name":        types.StringType,
+				"description": types.StringType,
+			},
+			map[string]attr.Value{
+				"name":        types.StringValue(l.Name),
+				"description": types.StringValue(l.Description),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(securityLevelObjectType, elems)
+	return list
 }

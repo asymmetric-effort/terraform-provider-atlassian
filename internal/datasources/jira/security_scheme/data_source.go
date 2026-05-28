@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -17,19 +18,27 @@ import (
 // Ensure the DataSource type satisfies the datasource.DataSource interface.
 var _ datasource.DataSource = &DataSource{}
 
+// apiSecurityLevel represents a single security level in a scheme.
+type apiSecurityLevel struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+}
+
 // apiSecurityScheme represents the JSON structure returned by the Atlassian issue security scheme API.
 type apiSecurityScheme struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Self        string `json:"self"`
+	ID             string             `json:"id"`
+	Name           string             `json:"name"`
+	Description    string             `json:"description"`
+	Self           string             `json:"self"`
+	SecurityLevels []apiSecurityLevel `json:"security_levels,omitempty"`
 }
 
 // DataSourceModel describes the data source data model.
 type DataSourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
+	ID             types.String `tfsdk:"id"`
+	Name           types.String `tfsdk:"name"`
+	Description    types.String `tfsdk:"description"`
+	SecurityLevels types.List   `tfsdk:"security_levels"`
 }
 
 // DataSource implements the atlassian_jira_security_scheme data source.
@@ -63,6 +72,22 @@ func (d *DataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp 
 			"description": schema.StringAttribute{
 				Description: "A description of the security scheme.",
 				Computed:    true,
+			},
+			"security_levels": schema.ListNestedAttribute{
+				Description: "Security levels within the scheme.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Description: "The name of the security level.",
+							Computed:    true,
+						},
+						"description": schema.StringAttribute{
+							Description: "A description of the security level.",
+							Computed:    true,
+						},
+					},
+				},
 			},
 		},
 	}
@@ -114,6 +139,38 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 	config.ID = types.StringValue(ss.ID)
 	config.Name = types.StringValue(ss.Name)
 	config.Description = types.StringValue(ss.Description)
+	config.SecurityLevels = levelsToState(ctx, ss.SecurityLevels)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
+}
+
+// securityLevelObjectType is the attr.Type for security level nested objects.
+var securityLevelObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"name":        types.StringType,
+		"description": types.StringType,
+	},
+}
+
+// levelsToState converts API security levels to the Terraform state list.
+func levelsToState(ctx context.Context, levels []apiSecurityLevel) types.List {
+	if len(levels) == 0 {
+		return types.ListNull(securityLevelObjectType)
+	}
+	var elems []attr.Value
+	for _, l := range levels {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"name":        types.StringType,
+				"description": types.StringType,
+			},
+			map[string]attr.Value{
+				"name":        types.StringValue(l.Name),
+				"description": types.StringValue(l.Description),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(securityLevelObjectType, elems)
+	return list
 }

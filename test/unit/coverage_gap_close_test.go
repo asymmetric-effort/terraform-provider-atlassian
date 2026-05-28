@@ -653,9 +653,10 @@ func TestSecuritySchemeCreateBadRequest(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":        tftypes.NewValue(tftypes.String, "SS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":            tftypes.NewValue(tftypes.String, "SS"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -675,9 +676,10 @@ func TestSecuritySchemeUpdateBadRequest(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "ss-1"),
-		"name":        tftypes.NewValue(tftypes.String, "SS"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":              tftypes.NewValue(tftypes.String, "ss-1"),
+		"name":            tftypes.NewValue(tftypes.String, "SS"),
+		"description":     tftypes.NewValue(tftypes.String, ""),
+		"security_levels": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "description": tftypes.String}}}, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
