@@ -176,27 +176,36 @@ func (r *PermissionResource) Create(ctx context.Context, req resource.CreateRequ
 			switch apiErr.StatusCode {
 			case http.StatusConflict:
 				resp.Diagnostics.AddError(
-					"Duplicate permission",
-					fmt.Sprintf("Permission already exists for principal %q on space %q.", plan.PrincipalID.ValueString(), plan.SpaceID.ValueString()),
+					"Duplicate Confluence space permission",
+					fmt.Sprintf("A permission for principal %q with operation %q already exists on Confluence space %q. Remove the existing permission first or import it into Terraform.",
+						plan.PrincipalID.ValueString(), plan.Operation.ValueString(), plan.SpaceID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
-					"The authenticated user does not have permission to manage space permissions.",
+					fmt.Sprintf("The authenticated user does not have permission to manage permissions on Confluence space %q. Ensure the service account has Confluence admin privileges.",
+						plan.SpaceID.ValueString()),
 				)
 				return
 			case http.StatusNotFound:
 				resp.Diagnostics.AddError(
-					"Space not found",
-					fmt.Sprintf("Space %q not found.", plan.SpaceID.ValueString()),
+					"Confluence space not found",
+					fmt.Sprintf("Confluence space with ID %q not found. Verify the space exists and has not been deleted.", plan.SpaceID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid Confluence space permission",
+					fmt.Sprintf("The space permission configuration is invalid for Confluence space %q. Verify that principal_type is \"user\" or \"group\" and operation is \"read\", \"write\", or \"admin\".",
+						plan.SpaceID.ValueString()),
 				)
 				return
 			}
 		}
 		resp.Diagnostics.AddError(
-			"Failed to create space permission",
-			fmt.Sprintf("Could not create permission on space %q: %s", plan.SpaceID.ValueString(), err.Error()),
+			"Failed to create Confluence space permission",
+			fmt.Sprintf("Could not create permission on Confluence space %q: %s", plan.SpaceID.ValueString(), err.Error()),
 		)
 		return
 	}
@@ -224,8 +233,8 @@ func (r *PermissionResource) Read(ctx context.Context, req resource.ReadRequest,
 			return
 		}
 		resp.Diagnostics.AddError(
-			"Failed to read space permissions",
-			fmt.Sprintf("Could not read permissions for space %q: %s", spaceID, err.Error()),
+			"Failed to read Confluence space permissions",
+			fmt.Sprintf("Could not read permissions for Confluence space %q: %s. Verify the space exists and has not been deleted.", spaceID, err.Error()),
 		)
 		return
 	}
@@ -284,14 +293,14 @@ func (r *PermissionResource) Delete(ctx context.Context, req resource.DeleteRequ
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
-					fmt.Sprintf("The authenticated user does not have permission to delete permissions on space %q.", state.SpaceID.ValueString()),
+					fmt.Sprintf("The authenticated user does not have permission to delete permissions on Confluence space %q. Ensure the service account has Confluence admin privileges.", state.SpaceID.ValueString()),
 				)
 				return
 			}
 		}
 		resp.Diagnostics.AddError(
-			"Failed to delete space permission",
-			fmt.Sprintf("Could not delete permission on space %q: %s", state.SpaceID.ValueString(), err.Error()),
+			"Failed to delete Confluence space permission",
+			fmt.Sprintf("Could not delete permission on Confluence space %q: %s", state.SpaceID.ValueString(), err.Error()),
 		)
 		return
 	}

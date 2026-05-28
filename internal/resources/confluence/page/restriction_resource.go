@@ -197,20 +197,28 @@ func (r *RestrictionResource) Create(ctx context.Context, req resource.CreateReq
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
-					"The authenticated user does not have permission to manage content restrictions.",
+					fmt.Sprintf("The authenticated user does not have permission to manage content restrictions on Confluence page %q. Ensure the service account has Confluence admin privileges.",
+						plan.ContentID.ValueString()),
 				)
 				return
 			case http.StatusNotFound:
 				resp.Diagnostics.AddError(
-					"Content not found",
-					fmt.Sprintf("Content %q not found.", plan.ContentID.ValueString()),
+					"Confluence page not found",
+					fmt.Sprintf("Confluence page with ID %q not found. Verify the page exists and has not been deleted.", plan.ContentID.ValueString()),
+				)
+				return
+			case http.StatusConflict:
+				resp.Diagnostics.AddError(
+					"Confluence content restriction conflict",
+					fmt.Sprintf("A conflicting restriction already exists on Confluence page %q for operation %q. Remove the existing restriction first or import it into Terraform.",
+						plan.ContentID.ValueString(), plan.Operation.ValueString()),
 				)
 				return
 			}
 		}
 		resp.Diagnostics.AddError(
-			"Failed to create content restriction",
-			fmt.Sprintf("Could not create restriction on content %q: %s", plan.ContentID.ValueString(), err.Error()),
+			"Failed to create Confluence content restriction",
+			fmt.Sprintf("Could not create restriction on Confluence page %q: %s", plan.ContentID.ValueString(), err.Error()),
 		)
 		return
 	}
@@ -241,8 +249,8 @@ func (r *RestrictionResource) Read(ctx context.Context, req resource.ReadRequest
 			return
 		}
 		resp.Diagnostics.AddError(
-			"Failed to read content restrictions",
-			fmt.Sprintf("Could not read restrictions for content %q: %s", state.ContentID.ValueString(), err.Error()),
+			"Failed to read Confluence content restrictions",
+			fmt.Sprintf("Could not read restrictions for Confluence page %q: %s. Verify the page exists and has not been deleted.", state.ContentID.ValueString(), err.Error()),
 		)
 		return
 	}
@@ -307,14 +315,14 @@ func (r *RestrictionResource) Delete(ctx context.Context, req resource.DeleteReq
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
-					fmt.Sprintf("The authenticated user does not have permission to delete restriction on content %q.", state.ContentID.ValueString()),
+					fmt.Sprintf("The authenticated user does not have permission to delete restriction on Confluence page %q. Ensure the service account has Confluence admin privileges.", state.ContentID.ValueString()),
 				)
 				return
 			}
 		}
 		resp.Diagnostics.AddError(
-			"Failed to delete content restriction",
-			fmt.Sprintf("Could not delete restriction on content %q: %s", state.ContentID.ValueString(), err.Error()),
+			"Failed to delete Confluence content restriction",
+			fmt.Sprintf("Could not delete restriction on Confluence page %q: %s", state.ContentID.ValueString(), err.Error()),
 		)
 		return
 	}

@@ -202,21 +202,21 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 			switch apiErr.StatusCode {
 			case http.StatusConflict:
 				resp.Diagnostics.AddError(
-					"Duplicate page",
-					fmt.Sprintf("A page with title %q already exists in space %q.", plan.Title.ValueString(), plan.SpaceID.ValueString()),
+					"Duplicate Confluence page",
+					fmt.Sprintf("A Confluence page with title %q already exists in space %q. Use a unique title or import the existing page.", plan.Title.ValueString(), plan.SpaceID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
-					"The authenticated user does not have permission to create pages.",
+					"The authenticated user does not have permission to create Confluence pages. Ensure the service account has Confluence admin privileges.",
 				)
 				return
 			}
 		}
 		resp.Diagnostics.AddError(
-			"Failed to create page",
-			fmt.Sprintf("Could not create page %q: %s", plan.Title.ValueString(), err.Error()),
+			"Failed to create Confluence page",
+			fmt.Sprintf("Could not create Confluence page %q in space %q: %s", plan.Title.ValueString(), plan.SpaceID.ValueString(), err.Error()),
 		)
 		return
 	}
@@ -248,8 +248,8 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 			return
 		}
 		resp.Diagnostics.AddError(
-			"Failed to read page",
-			fmt.Sprintf("Could not read page %q: %s", state.ID.ValueString(), err.Error()),
+			"Failed to read Confluence page",
+			fmt.Sprintf("Could not read Confluence page with ID %q: %s. Verify the page exists and has not been deleted.", state.ID.ValueString(), err.Error()),
 		)
 		return
 	}
@@ -303,21 +303,21 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 			switch apiErr.StatusCode {
 			case http.StatusNotFound:
 				resp.Diagnostics.AddError(
-					"Page not found",
-					fmt.Sprintf("Page %q not found. It may have been deleted outside of Terraform.", state.ID.ValueString()),
+					"Confluence page not found",
+					fmt.Sprintf("Confluence page with ID %q not found. The page may have been deleted outside of Terraform.", state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
-					"The authenticated user does not have permission to update pages.",
+					fmt.Sprintf("The authenticated user does not have permission to update Confluence page %q. Ensure the service account has Confluence admin privileges.", state.ID.ValueString()),
 				)
 				return
 			}
 		}
 		resp.Diagnostics.AddError(
-			"Failed to update page",
-			fmt.Sprintf("Could not update page %q: %s", state.ID.ValueString(), err.Error()),
+			"Failed to update Confluence page",
+			fmt.Sprintf("Could not update Confluence page with ID %q: %s", state.ID.ValueString(), err.Error()),
 		)
 		return
 	}
@@ -350,14 +350,14 @@ func (r *Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
-					fmt.Sprintf("The authenticated user does not have permission to delete page %q.", state.ID.ValueString()),
+					fmt.Sprintf("The authenticated user does not have permission to delete Confluence page %q. Ensure the service account has Confluence admin privileges.", state.ID.ValueString()),
 				)
 				return
 			}
 		}
 		resp.Diagnostics.AddError(
-			"Failed to delete page",
-			fmt.Sprintf("Could not delete page %q: %s", state.ID.ValueString(), err.Error()),
+			"Failed to delete Confluence page",
+			fmt.Sprintf("Could not delete Confluence page with ID %q: %s", state.ID.ValueString(), err.Error()),
 		)
 		return
 	}

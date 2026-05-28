@@ -179,21 +179,21 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 			switch apiErr.StatusCode {
 			case http.StatusConflict:
 				resp.Diagnostics.AddError(
-					"Duplicate template",
-					fmt.Sprintf("A template with name %q already exists.", plan.Name.ValueString()),
+					"Duplicate Confluence template",
+					fmt.Sprintf("A Confluence template with name %q already exists. Use a unique name or import the existing template.", plan.Name.ValueString()),
 				)
 				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
-					"The authenticated user does not have permission to create templates.",
+					"The authenticated user does not have permission to create Confluence templates. Ensure the service account has Confluence admin privileges.",
 				)
 				return
 			}
 		}
 		resp.Diagnostics.AddError(
-			"Failed to create template",
-			fmt.Sprintf("Could not create template %q: %s", plan.Name.ValueString(), err.Error()),
+			"Failed to create Confluence template",
+			fmt.Sprintf("Could not create Confluence template %q: %s", plan.Name.ValueString(), err.Error()),
 		)
 		return
 	}
@@ -224,8 +224,8 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 			return
 		}
 		resp.Diagnostics.AddError(
-			"Failed to read template",
-			fmt.Sprintf("Could not read template %q: %s", state.ID.ValueString(), err.Error()),
+			"Failed to read Confluence template",
+			fmt.Sprintf("Could not read Confluence template with ID %q: %s. Verify the template exists and has not been deleted.", state.ID.ValueString(), err.Error()),
 		)
 		return
 	}
@@ -278,21 +278,21 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 			switch apiErr.StatusCode {
 			case http.StatusNotFound:
 				resp.Diagnostics.AddError(
-					"Template not found",
-					fmt.Sprintf("Template %q not found. It may have been deleted outside of Terraform.", state.ID.ValueString()),
+					"Confluence template not found",
+					fmt.Sprintf("Confluence template with ID %q not found. The template may have been deleted outside of Terraform.", state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
-					"The authenticated user does not have permission to update templates.",
+					fmt.Sprintf("The authenticated user does not have permission to update Confluence template %q. Ensure the service account has Confluence admin privileges.", state.ID.ValueString()),
 				)
 				return
 			}
 		}
 		resp.Diagnostics.AddError(
-			"Failed to update template",
-			fmt.Sprintf("Could not update template %q: %s", state.ID.ValueString(), err.Error()),
+			"Failed to update Confluence template",
+			fmt.Sprintf("Could not update Confluence template with ID %q: %s", state.ID.ValueString(), err.Error()),
 		)
 		return
 	}
@@ -324,14 +324,14 @@ func (r *Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
-					fmt.Sprintf("The authenticated user does not have permission to delete template %q.", state.ID.ValueString()),
+					fmt.Sprintf("The authenticated user does not have permission to delete Confluence template %q. Ensure the service account has Confluence admin privileges.", state.ID.ValueString()),
 				)
 				return
 			}
 		}
 		resp.Diagnostics.AddError(
-			"Failed to delete template",
-			fmt.Sprintf("Could not delete template %q: %s", state.ID.ValueString(), err.Error()),
+			"Failed to delete Confluence template",
+			fmt.Sprintf("Could not delete Confluence template with ID %q: %s", state.ID.ValueString(), err.Error()),
 		)
 		return
 	}
