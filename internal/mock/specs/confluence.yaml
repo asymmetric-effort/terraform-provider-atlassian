@@ -1,0 +1,334 @@
+---
+openapi: "3.0.3"
+info:
+  title: Atlassian Mock API — Confluence
+  version: "0.1.0"
+  description: >
+    OpenAPI spec for mock Atlassian Confluence endpoints covering
+    spaces, pages, templates, space permissions, and content
+    restrictions.
+paths:
+  /wiki/api/v2/spaces:
+    post:
+      operationId: createSpace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSpaceRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listSpaces
+      responses:
+        "200":
+          description: Space list
+  /wiki/api/v2/spaces/{id}:
+    get:
+      operationId: getSpace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Space details
+    put:
+      operationId: updateSpace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteSpace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /wiki/api/v2/spaces/{id}/permissions:
+    post:
+      operationId: createSpacePermission
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePermissionRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listSpacePermissions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Permission list
+  /wiki/api/v2/spaces/{id}/permissions/{permId}:
+    delete:
+      operationId: deleteSpacePermission
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: permId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /wiki/api/v2/pages:
+    post:
+      operationId: createPage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePageRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listPages
+      responses:
+        "200":
+          description: Page list
+  /wiki/api/v2/pages/{id}:
+    get:
+      operationId: getPage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Page details
+    put:
+      operationId: updatePage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deletePage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /wiki/api/v2/templates:
+    post:
+      operationId: createTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfluenceNameRequired"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listTemplates
+      responses:
+        "200":
+          description: Template list
+  /wiki/api/v2/templates/{id}:
+    get:
+      operationId: getTemplate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateTemplate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteTemplate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /wiki/api/v2/content/{id}/restrictions:
+    post:
+      operationId: createContentRestriction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRestrictionRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listContentRestrictions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Restriction list
+  /wiki/api/v2/content/{id}/restrictions/{restrictionId}:
+    delete:
+      operationId: deleteContentRestriction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: restrictionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+components:
+  schemas:
+    CreateSpaceRequest:
+      type: object
+      required:
+        - key
+        - name
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+    CreatePageRequest:
+      type: object
+      required:
+        - title
+        - spaceId
+      properties:
+        title:
+          type: string
+        spaceId:
+          type: string
+        body:
+          type: string
+        parentId:
+          type: string
+    CreatePermissionRequest:
+      type: object
+      required:
+        - principalType
+      properties:
+        principalType:
+          type: string
+        principalId:
+          type: string
+        operation:
+          type: string
+    CreateRestrictionRequest:
+      type: object
+      required:
+        - operation
+      properties:
+        operation:
+          type: string
+        principalType:
+          type: string
+        principalId:
+          type: string
+    ConfluenceNameRequired:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        description:
+          type: string

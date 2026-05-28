@@ -3,11 +3,26 @@ package mock
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+
+	"github.com/asymmetric-effort/terraform-provider-atlassian/internal/mock/specs"
 )
 
-// RegisterConfluenceEndpoints registers all Confluence CRUD endpoints on the mock server.
+// RegisterConfluenceEndpoints registers all Confluence CRUD endpoints
+// on the mock server and adds OpenAPI request validation.
 func RegisterConfluenceEndpoints(s *Server) {
+	specData, err := specs.SpecFS.ReadFile("confluence.yaml")
+	if err != nil {
+		log.Printf("WARNING: could not load Confluence OpenAPI spec: %v", err)
+	} else {
+		v, err := NewRequestValidatorFromBytes(specData)
+		if err != nil {
+			log.Printf("WARNING: could not parse Confluence OpenAPI spec: %v", err)
+		} else {
+			s.AddValidator(v)
+		}
+	}
 	registerConfluenceSpaceEndpoints(s)
 	registerConfluencePageEndpoints(s)
 	registerConfluenceTemplateEndpoints(s)
