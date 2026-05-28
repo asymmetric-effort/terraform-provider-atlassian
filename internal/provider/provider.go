@@ -268,6 +268,7 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		automationresource.NewResource,
 		mailhandlerresource.NewIncomingResource,
 		mailhandlerresource.NewOutgoingResource,
+		customdomainrs.NewEmailResource,
 	}
 }
 
@@ -279,6 +280,7 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 		roledatasource.NewDataSource,
 		spacedatasource.NewDataSource,
 		customdomainds.NewDataSource,
+		customdomainds.NewEmailDataSource,
 		issuetypedatasource.NewDataSource,
 		issuetypedatasource.NewSchemeDataSource,
 		workflowdatasource.NewDataSource,
