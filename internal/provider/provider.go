@@ -13,6 +13,7 @@ import (
 	customdomainds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/custom_domain"
 	issuetypedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/issue_type"
 	spacedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/space"
+	workflowdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/workflow"
 	groupresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/group"
 	roleresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/role"
 	tokenresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/token"
@@ -20,6 +21,7 @@ import (
 	customdomainrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/custom_domain"
 	issuetyperesource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/issue_type"
 	spaceresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/space"
+	workflowresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/workflow"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
@@ -229,6 +231,8 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		customdomainrs.NewResource,
 		issuetyperesource.NewResource,
 		issuetyperesource.NewSchemeResource,
+		workflowresource.NewResource,
+		workflowresource.NewSchemeResource,
 	}
 }
 
@@ -242,5 +246,7 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 		customdomainds.NewDataSource,
 		issuetypedatasource.NewDataSource,
 		issuetypedatasource.NewSchemeDataSource,
+		workflowdatasource.NewDataSource,
+		workflowdatasource.NewSchemeDataSource,
 	}
 }
