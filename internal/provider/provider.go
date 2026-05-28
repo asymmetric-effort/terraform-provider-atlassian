@@ -12,7 +12,10 @@ import (
 	userds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/user"
 	customdomainds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/custom_domain"
 	issuetypedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/issue_type"
+	notificationschemeds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/notification_scheme"
+	permissionschemeds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/permission_scheme"
 	screendatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/screen"
+	securityschemeds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/security_scheme"
 	spacedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/space"
 	workflowdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/workflow"
 	groupresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/group"
@@ -21,7 +24,10 @@ import (
 	userrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/user"
 	customdomainrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/custom_domain"
 	issuetyperesource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/issue_type"
+	notificationschemers "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/notification_scheme"
+	permissionschemers "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/permission_scheme"
 	screenresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/screen"
+	securityschemers "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/security_scheme"
 	spaceresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/space"
 	workflowresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/workflow"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -238,6 +244,9 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		screenresource.NewResource,
 		screenresource.NewSchemeResource,
 		screenresource.NewTabFieldResource,
+		permissionschemers.NewResource,
+		securityschemers.NewResource,
+		notificationschemers.NewResource,
 	}
 }
 
@@ -255,5 +264,8 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 		workflowdatasource.NewSchemeDataSource,
 		screendatasource.NewDataSource,
 		screendatasource.NewSchemeDataSource,
+		permissionschemeds.NewDataSource,
+		securityschemeds.NewDataSource,
+		notificationschemeds.NewDataSource,
 	}
 }
