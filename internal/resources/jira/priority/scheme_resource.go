@@ -139,6 +139,13 @@ func (r *SchemeResource) Create(ctx context.Context, req resource.CreateRequest,
 					fmt.Sprintf("A priority scheme with name %q already exists. Each priority scheme name must be unique.", plan.Name.ValueString()),
 				)
 				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid priority scheme configuration",
+					fmt.Sprintf("The priority scheme configuration for %q is invalid. Verify the scheme name and priority mappings are correct.",
+						plan.Name.ValueString()),
+				)
+				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
@@ -222,6 +229,13 @@ func (r *SchemeResource) Update(ctx context.Context, req resource.UpdateRequest,
 				resp.Diagnostics.AddError(
 					"Priority scheme not found",
 					fmt.Sprintf("Priority scheme with ID %q not found. The priority scheme may have been deleted outside of Terraform.", state.ID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid priority scheme configuration",
+					fmt.Sprintf("The priority scheme update for ID %q is invalid. Verify the scheme name and priority mappings are correct.",
+						state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:

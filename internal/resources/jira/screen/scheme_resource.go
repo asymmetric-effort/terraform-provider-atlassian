@@ -132,6 +132,19 @@ func (r *SchemeResource) Create(ctx context.Context, req resource.CreateRequest,
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok {
 			switch apiErr.StatusCode {
+			case http.StatusConflict:
+				resp.Diagnostics.AddError(
+					"Duplicate screen scheme name",
+					fmt.Sprintf("A screen scheme with name %q already exists. Each screen scheme name must be unique.", plan.Name.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid screen scheme configuration",
+					fmt.Sprintf("The screen scheme configuration for %q is invalid. Verify the screen scheme name and description are valid.",
+						plan.Name.ValueString()),
+				)
+				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
@@ -215,6 +228,13 @@ func (r *SchemeResource) Update(ctx context.Context, req resource.UpdateRequest,
 				resp.Diagnostics.AddError(
 					"Screen scheme not found",
 					fmt.Sprintf("Screen scheme with ID %q not found. The screen scheme may have been deleted outside of Terraform.", state.ID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid screen scheme configuration",
+					fmt.Sprintf("The screen scheme update for ID %q is invalid. Verify the screen scheme name and description are valid.",
+						state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:

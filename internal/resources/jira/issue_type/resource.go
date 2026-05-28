@@ -176,6 +176,13 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 					fmt.Sprintf("An issue type with name %q already exists. Each issue type name must be unique.", plan.Name.ValueString()),
 				)
 				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid issue type configuration",
+					fmt.Sprintf("The issue type configuration for %q is invalid. Verify the name and hierarchy level are correct.",
+						plan.Name.ValueString()),
+				)
+				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
@@ -265,6 +272,13 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 				resp.Diagnostics.AddError(
 					"Issue type not found",
 					fmt.Sprintf("Issue type with ID %q not found. The issue type may have been deleted outside of Terraform.", state.ID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid issue type configuration",
+					fmt.Sprintf("The issue type update for ID %q is invalid. Verify the name and hierarchy level are correct.",
+						state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:

@@ -139,6 +139,13 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 					fmt.Sprintf("A notification scheme with name %q already exists. Each notification scheme name must be unique.", plan.Name.ValueString()),
 				)
 				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid notification scheme configuration",
+					fmt.Sprintf("The notification scheme configuration for %q is invalid. Verify the scheme name and notification events are correct.",
+						plan.Name.ValueString()),
+				)
+				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
@@ -222,6 +229,13 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 				resp.Diagnostics.AddError(
 					"Notification scheme not found",
 					fmt.Sprintf("Notification scheme with ID %q not found. The notification scheme may have been deleted outside of Terraform.", state.ID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid notification scheme configuration",
+					fmt.Sprintf("The notification scheme update for ID %q is invalid. Verify the scheme name and notification events are correct.",
+						state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:

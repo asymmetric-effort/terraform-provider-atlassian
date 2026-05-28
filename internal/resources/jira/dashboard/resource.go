@@ -139,6 +139,13 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 					fmt.Sprintf("A dashboard with name %q already exists. Each dashboard name must be unique.", plan.Name.ValueString()),
 				)
 				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid dashboard configuration",
+					fmt.Sprintf("The dashboard configuration for %q is invalid. Verify the dashboard name and description are valid.",
+						plan.Name.ValueString()),
+				)
+				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
@@ -222,6 +229,13 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 				resp.Diagnostics.AddError(
 					"Dashboard not found",
 					fmt.Sprintf("Dashboard with ID %q not found. The dashboard may have been deleted outside of Terraform.", state.ID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid dashboard configuration",
+					fmt.Sprintf("The dashboard update for ID %q is invalid. Verify the dashboard name and description are valid.",
+						state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:

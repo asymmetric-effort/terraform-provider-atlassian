@@ -154,6 +154,13 @@ func (r *SchemeResource) Create(ctx context.Context, req resource.CreateRequest,
 					fmt.Sprintf("A workflow scheme with name %q already exists. Each workflow scheme name must be unique.", plan.Name.ValueString()),
 				)
 				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid workflow scheme configuration",
+					fmt.Sprintf("The workflow scheme configuration for %q is invalid. Verify the default workflow ID and workflow mappings are correct.",
+						plan.Name.ValueString()),
+				)
+				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
@@ -242,6 +249,13 @@ func (r *SchemeResource) Update(ctx context.Context, req resource.UpdateRequest,
 				resp.Diagnostics.AddError(
 					"Workflow scheme not found",
 					fmt.Sprintf("Workflow scheme with ID %q not found. The workflow scheme may have been deleted outside of Terraform.", state.ID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid workflow scheme configuration",
+					fmt.Sprintf("The workflow scheme update for ID %q is invalid. Verify the default workflow ID and workflow mappings are correct.",
+						state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:
