@@ -1,0 +1,590 @@
+---
+openapi: "3.0.3"
+info:
+  title: Atlassian Mock API — Bitbucket
+  version: "0.1.0"
+  description: >
+    OpenAPI spec for mock Atlassian Bitbucket endpoints covering
+    repositories, branch restrictions, pipeline configurations,
+    deployment environments, and repository permissions (user/group).
+paths:
+  /2.0/repositories/{workspace}/{slug}:
+    put:
+      operationId: createOrUpdateRepository
+      summary: Create or update a Bitbucket repository
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Created or updated
+    get:
+      operationId: getRepository
+      summary: Read a repository
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Repository details
+    delete:
+      operationId: deleteRepository
+      summary: Delete a repository
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /2.0/repositories/{workspace}:
+    get:
+      operationId: listRepositories
+      summary: List repositories in a workspace
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Repository list
+  /2.0/repositories/{workspace}/{slug}/branch-restrictions:
+    post:
+      operationId: createBranchRestriction
+      summary: Create a branch restriction
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BitbucketBranchRestrictionRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listBranchRestrictions
+      summary: List branch restrictions
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Branch restriction list
+  /2.0/repositories/{workspace}/{slug}/branch-restrictions/{id}:
+    get:
+      operationId: getBranchRestriction
+      summary: Read a branch restriction
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Branch restriction details
+    put:
+      operationId: updateBranchRestriction
+      summary: Update a branch restriction
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteBranchRestriction
+      summary: Delete a branch restriction
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /2.0/repositories/{workspace}/{slug}/pipelines_config:
+    put:
+      operationId: createOrUpdatePipelineConfig
+      summary: Create or update pipeline configuration
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Created or updated
+    get:
+      operationId: getPipelineConfig
+      summary: Read pipeline configuration
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pipeline configuration details
+    delete:
+      operationId: deletePipelineConfig
+      summary: Delete pipeline configuration
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /2.0/repositories/{workspace}/{slug}/environments:
+    post:
+      operationId: createDeploymentEnvironment
+      summary: Create a deployment environment
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BitbucketEnvironmentRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listDeploymentEnvironments
+      summary: List deployment environments
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Environment list
+  /2.0/repositories/{workspace}/{slug}/environments/{id}:
+    get:
+      operationId: getDeploymentEnvironment
+      summary: Read a deployment environment
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Environment details
+    put:
+      operationId: updateDeploymentEnvironment
+      summary: Update a deployment environment
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteDeploymentEnvironment
+      summary: Delete a deployment environment
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /2.0/repositories/{workspace}/{slug}/permissions-config/users/{user_id}:
+    put:
+      operationId: createOrUpdateUserPermission
+      summary: Create or update a user permission
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Created or updated
+    get:
+      operationId: getUserPermission
+      summary: Read a user permission
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User permission details
+    delete:
+      operationId: deleteUserPermission
+      summary: Delete a user permission
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /2.0/repositories/{workspace}/{slug}/permissions-config/users:
+    get:
+      operationId: listUserPermissions
+      summary: List user permissions
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User permission list
+  /2.0/repositories/{workspace}/{slug}/permissions-config/groups/{group_slug}:
+    put:
+      operationId: createOrUpdateGroupPermission
+      summary: Create or update a group permission
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: group_slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Created or updated
+    get:
+      operationId: getGroupPermission
+      summary: Read a group permission
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: group_slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Group permission details
+    delete:
+      operationId: deleteGroupPermission
+      summary: Delete a group permission
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: group_slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /2.0/repositories/{workspace}/{slug}/permissions-config/groups:
+    get:
+      operationId: listGroupPermissions
+      summary: List group permissions
+      parameters:
+        - name: workspace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Group permission list
+components:
+  schemas:
+    BitbucketBranchRestrictionRequest:
+      type: object
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+        pattern:
+          type: string
+        branch_match_kind:
+          type: string
+        branch_type:
+          type: string
+        users:
+          type: array
+          items:
+            type: object
+        groups:
+          type: array
+          items:
+            type: object
+        value:
+          type: integer
+    BitbucketEnvironmentRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        environment_type:
+          type: object
+          properties:
+            name:
+              type: string
+            type:
+              type: string
+        rank:
+          type: integer

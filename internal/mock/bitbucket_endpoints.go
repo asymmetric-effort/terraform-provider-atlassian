@@ -3,11 +3,26 @@ package mock
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+
+	"github.com/asymmetric-effort/terraform-provider-atlassian/internal/mock/specs"
 )
 
-// RegisterBitbucketEndpoints registers all Bitbucket CRUD endpoints on the mock server.
+// RegisterBitbucketEndpoints registers all Bitbucket CRUD endpoints
+// on the mock server and adds OpenAPI request validation.
 func RegisterBitbucketEndpoints(s *Server) {
+	specData, err := specs.SpecFS.ReadFile("bitbucket.yaml")
+	if err != nil {
+		log.Printf("WARNING: could not load Bitbucket OpenAPI spec: %v", err)
+	} else {
+		v, err := NewRequestValidatorFromBytes(specData)
+		if err != nil {
+			log.Printf("WARNING: could not parse Bitbucket OpenAPI spec: %v", err)
+		} else {
+			s.AddValidator(v)
+		}
+	}
 	registerRepositoryEndpoints(s)
 	registerBranchRestrictionEndpoints(s)
 	registerPipelineConfigEndpoints(s)
