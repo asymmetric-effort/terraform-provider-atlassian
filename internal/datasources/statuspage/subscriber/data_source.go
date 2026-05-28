@@ -125,9 +125,6 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 	config.Endpoint = types.StringValue(sub.Endpoint)
 	compIDs, diags := types.ListValueFrom(ctx, types.StringType, sub.ComponentIDs)
 	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 	config.ComponentIDs = compIDs
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)

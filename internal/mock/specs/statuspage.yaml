@@ -1,0 +1,722 @@
+---
+openapi: "3.0.3"
+info:
+  title: Atlassian Mock API — Statuspage
+  version: "0.1.0"
+  description: >
+    OpenAPI spec for mock Atlassian Statuspage endpoints covering
+    pages, components, component groups, subscribers, incident
+    templates, maintenance templates, and permissions.
+paths:
+  /v1/pages:
+    post:
+      operationId: createStatuspagePage
+      summary: Create a Statuspage page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatuspagePageRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listStatuspagePages
+      summary: List Statuspage pages
+      responses:
+        "200":
+          description: Page list
+  /v1/pages/{page_id}:
+    get:
+      operationId: getStatuspagePage
+      summary: Read a Statuspage page
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Page details
+    put:
+      operationId: updateStatuspagePage
+      summary: Update a Statuspage page
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteStatuspagePage
+      summary: Delete a Statuspage page
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /v1/pages/{page_id}/components:
+    post:
+      operationId: createStatuspageComponent
+      summary: Create a Statuspage component
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatuspageComponentRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listStatuspageComponents
+      summary: List Statuspage components
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Component list
+  /v1/pages/{page_id}/components/{component_id}:
+    get:
+      operationId: getStatuspageComponent
+      summary: Read a Statuspage component
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: component_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Component details
+    put:
+      operationId: updateStatuspageComponent
+      summary: Update a Statuspage component
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: component_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteStatuspageComponent
+      summary: Delete a Statuspage component
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: component_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /v1/pages/{page_id}/component-groups:
+    post:
+      operationId: createStatuspageComponentGroup
+      summary: Create a component group
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatuspageComponentGroupRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listStatuspageComponentGroups
+      summary: List component groups
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Component group list
+  /v1/pages/{page_id}/component-groups/{group_id}:
+    get:
+      operationId: getStatuspageComponentGroup
+      summary: Read a component group
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: group_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Component group details
+    put:
+      operationId: updateStatuspageComponentGroup
+      summary: Update a component group
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: group_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteStatuspageComponentGroup
+      summary: Delete a component group
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: group_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /v1/pages/{page_id}/subscribers:
+    post:
+      operationId: createStatuspageSubscriber
+      summary: Create a subscriber
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatuspageSubscriberRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listStatuspageSubscribers
+      summary: List subscribers
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Subscriber list
+  /v1/pages/{page_id}/subscribers/{subscriber_id}:
+    get:
+      operationId: getStatuspageSubscriber
+      summary: Read a subscriber
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: subscriber_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Subscriber details
+    put:
+      operationId: updateStatuspageSubscriber
+      summary: Update a subscriber
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: subscriber_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteStatuspageSubscriber
+      summary: Delete a subscriber
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: subscriber_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /v1/pages/{page_id}/incident_templates:
+    post:
+      operationId: createStatuspageIncidentTemplate
+      summary: Create an incident template
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatuspageIncidentTemplateRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listStatuspageIncidentTemplates
+      summary: List incident templates
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Incident template list
+  /v1/pages/{page_id}/incident_templates/{template_id}:
+    get:
+      operationId: getStatuspageIncidentTemplate
+      summary: Read an incident template
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Incident template details
+    put:
+      operationId: updateStatuspageIncidentTemplate
+      summary: Update an incident template
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteStatuspageIncidentTemplate
+      summary: Delete an incident template
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /v1/pages/{page_id}/maintenance_templates:
+    post:
+      operationId: createStatuspageMaintenanceTemplate
+      summary: Create a maintenance template
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatuspageMaintenanceTemplateRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listStatuspageMaintenanceTemplates
+      summary: List maintenance templates
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Maintenance template list
+  /v1/pages/{page_id}/maintenance_templates/{template_id}:
+    get:
+      operationId: getStatuspageMaintenanceTemplate
+      summary: Read a maintenance template
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Maintenance template details
+    put:
+      operationId: updateStatuspageMaintenanceTemplate
+      summary: Update a maintenance template
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteStatuspageMaintenanceTemplate
+      summary: Delete a maintenance template
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /v1/pages/{page_id}/permissions:
+    post:
+      operationId: createStatuspagePermission
+      summary: Create a Statuspage permission
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatuspagePermissionRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listStatuspagePermissions
+      summary: List Statuspage permissions
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Permission list
+  /v1/pages/{page_id}/permissions/{permission_id}:
+    get:
+      operationId: getStatuspagePermission
+      summary: Read a Statuspage permission
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: permission_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Permission details
+    put:
+      operationId: updateStatuspagePermission
+      summary: Update a Statuspage permission
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: permission_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteStatuspagePermission
+      summary: Delete a Statuspage permission
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: permission_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+components:
+  schemas:
+    StatuspagePageRequest:
+      type: object
+      required:
+        - page
+      properties:
+        page:
+          type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+            page_description:
+              type: string
+            subdomain:
+              type: string
+    StatuspageComponentRequest:
+      type: object
+      required:
+        - component
+      properties:
+        component:
+          type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+            status:
+              type: string
+            group_id:
+              type: string
+    StatuspageComponentGroupRequest:
+      type: object
+      required:
+        - component_group
+      properties:
+        component_group:
+          type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+    StatuspageSubscriberRequest:
+      type: object
+      required:
+        - subscriber
+      properties:
+        subscriber:
+          type: object
+          properties:
+            email:
+              type: string
+            endpoint:
+              type: string
+            component_ids:
+              type: array
+              items:
+                type: string
+    StatuspageIncidentTemplateRequest:
+      type: object
+      required:
+        - template
+      properties:
+        template:
+          type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+            title:
+              type: string
+            body:
+              type: string
+    StatuspageMaintenanceTemplateRequest:
+      type: object
+      required:
+        - template
+      properties:
+        template:
+          type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+            title:
+              type: string
+            body:
+              type: string
+    StatuspagePermissionRequest:
+      type: object
+      required:
+        - permission
+      properties:
+        permission:
+          type: object
+          required:
+            - principal_type
+            - principal_id
+            - role
+          properties:
+            principal_type:
+              type: string
+            principal_id:
+              type: string
+            role:
+              type: string

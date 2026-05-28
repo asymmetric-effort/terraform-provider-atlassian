@@ -3,11 +3,26 @@ package mock
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+
+	"github.com/asymmetric-effort/terraform-provider-atlassian/internal/mock/specs"
 )
 
-// RegisterStatuspageEndpoints registers all Statuspage CRUD endpoints on the mock server.
+// RegisterStatuspageEndpoints registers all Statuspage CRUD endpoints
+// on the mock server and adds OpenAPI request validation.
 func RegisterStatuspageEndpoints(s *Server) {
+	specData, err := specs.SpecFS.ReadFile("statuspage.yaml")
+	if err != nil {
+		log.Printf("WARNING: could not load Statuspage OpenAPI spec: %v", err)
+	} else {
+		v, err := NewRequestValidatorFromBytes(specData)
+		if err != nil {
+			log.Printf("WARNING: could not parse Statuspage OpenAPI spec: %v", err)
+		} else {
+			s.AddValidator(v)
+		}
+	}
 	registerPageEndpoints(s)
 	registerComponentEndpoints(s)
 	registerComponentGroupEndpoints(s)

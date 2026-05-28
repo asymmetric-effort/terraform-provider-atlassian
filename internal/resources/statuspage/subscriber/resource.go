@@ -152,9 +152,6 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	if !plan.ComponentIDs.IsNull() && !plan.ComponentIDs.IsUnknown() {
 		var ids []string
 		resp.Diagnostics.Append(plan.ComponentIDs.ElementsAs(ctx, &ids, false)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
 		body.Subscriber.ComponentIDs = ids
 	}
 	bodyBytes, _ := json.Marshal(body)
@@ -183,9 +180,6 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	plan.Endpoint = types.StringValue(created.Endpoint)
 	compIDs, diags := types.ListValueFrom(ctx, types.StringType, created.ComponentIDs)
 	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 	plan.ComponentIDs = compIDs
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -220,9 +214,6 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	state.Endpoint = types.StringValue(sub.Endpoint)
 	compIDs, diags := types.ListValueFrom(ctx, types.StringType, sub.ComponentIDs)
 	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 	state.ComponentIDs = compIDs
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -254,9 +245,6 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	if !plan.ComponentIDs.IsNull() && !plan.ComponentIDs.IsUnknown() {
 		var ids []string
 		resp.Diagnostics.Append(plan.ComponentIDs.ElementsAs(ctx, &ids, false)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
 		body.Subscriber.ComponentIDs = ids
 	}
 	bodyBytes, _ := json.Marshal(body)
@@ -295,9 +283,6 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	plan.Endpoint = types.StringValue(updated.Endpoint)
 	compIDs, diags := types.ListValueFrom(ctx, types.StringType, updated.ComponentIDs)
 	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 	plan.ComponentIDs = compIDs
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
