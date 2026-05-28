@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	confluencespaceresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/confluence/space"
 	groupresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/group"
 	roleresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/role"
 	tokenresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/token"
@@ -531,3 +532,81 @@ func TestStateVerification_ImportState(t *testing.T) {
 
 // Ensure strings package is used.
 var _ = strings.TrimSpace
+
+// TestStateVerification_ConfluenceSpace_CreateReadUpdateDelete verifies
+// state format after every action on the Confluence space resource.
+func TestStateVerification_ConfluenceSpace_CreateReadUpdateDelete(t *testing.T) {
+	t.Parallel()
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /wiki/api/v2/spaces", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "sp-1", "key": "STVER", "name": "State Verify",
+			"type": "global", "status": "current",
+			"_links": map[string]string{"webui": "/wiki/spaces/STVER"},
+		})
+	})
+	mux.HandleFunc("GET /wiki/api/v2/spaces/sp-1", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "sp-1", "key": "STVER", "name": "State Verify",
+			"type": "global", "status": "current",
+			"_links": map[string]string{"webui": "/wiki/spaces/STVER"},
+		})
+	})
+	mux.HandleFunc("PUT /wiki/api/v2/spaces/sp-1", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "sp-1", "key": "STVER", "name": "Updated",
+			"type": "global", "status": "current",
+			"_links": map[string]string{"webui": "/wiki/spaces/STVER"},
+		})
+	})
+	mux.HandleFunc("DELETE /wiki/api/v2/spaces/sp-1", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+
+	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 5e9, MaxRetries: 0, RetryWaitMin: 1e9, RetryWaitMax: 1e9}
+	client, _ := atlassian.NewClient(cfg, &testNoopAuth{})
+
+	r := confluencespaceresource.NewResource()
+	r.(fwresource.ResourceWithConfigure).Configure(context.Background(),
+		fwresource.ConfigureRequest{ProviderData: client},
+		&fwresource.ConfigureResponse{})
+
+	schemaResp := &fwresource.SchemaResponse{}
+	r.Schema(context.Background(), fwresource.SchemaRequest{}, schemaResp)
+	tfType := schemaResp.Schema.Type().TerraformType(context.Background())
+
+	// CREATE
+	createResp := &fwresource.CreateResponse{State: tfsdk.State{Schema: schemaResp.Schema, Raw: tftypes.NewValue(tfType, nil)}}
+	r.Create(context.Background(), fwresource.CreateRequest{
+		Plan: tfsdk.Plan{Schema: schemaResp.Schema, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+			"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"key":         tftypes.NewValue(tftypes.String, "STVER"),
+			"name":        tftypes.NewValue(tftypes.String, "State Verify"),
+			"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"type":        tftypes.NewValue(tftypes.String, "global"),
+			"homepage_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"status":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"url":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		})},
+	}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create failed: %s", createResp.Diagnostics.Errors()[0].Detail())
+	}
+	verifyStateNotEmpty(t, createResp.State, "create", "atlassian_confluence_space")
+	verifyStateIsValidJSON(t, createResp.State, "create", "atlassian_confluence_space")
+
+	// READ
+	readResp := &fwresource.ReadResponse{State: createResp.State}
+	r.Read(context.Background(), fwresource.ReadRequest{State: createResp.State}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read failed: %s", readResp.Diagnostics.Errors()[0].Detail())
+	}
+	verifyStateNotEmpty(t, readResp.State, "read", "atlassian_confluence_space")
+	verifyStateIsValidJSON(t, readResp.State, "read", "atlassian_confluence_space")
+}
