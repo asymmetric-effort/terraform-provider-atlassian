@@ -148,6 +148,13 @@ func (r *FilterResource) Create(ctx context.Context, req resource.CreateRequest,
 					fmt.Sprintf("A filter with name %q already exists. Each filter name must be unique.", plan.Name.ValueString()),
 				)
 				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid filter configuration",
+					fmt.Sprintf("The filter configuration for %q is invalid. Verify the JQL query syntax is correct.",
+						plan.Name.ValueString()),
+				)
+				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
@@ -234,6 +241,13 @@ func (r *FilterResource) Update(ctx context.Context, req resource.UpdateRequest,
 				resp.Diagnostics.AddError(
 					"Filter not found",
 					fmt.Sprintf("Filter with ID %q not found. The filter may have been deleted outside of Terraform.", state.ID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid filter configuration",
+					fmt.Sprintf("The filter update for ID %q is invalid. Verify the JQL query syntax is correct.",
+						state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:

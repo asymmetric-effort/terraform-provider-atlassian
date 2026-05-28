@@ -142,6 +142,13 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 					fmt.Sprintf("A board with name %q already exists. Each board name must be unique.", plan.Name.ValueString()),
 				)
 				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid board configuration",
+					fmt.Sprintf("The board configuration for %q is invalid. Verify that the board type is \"scrum\" or \"kanban\" and the space_id references an existing space.",
+						plan.Name.ValueString()),
+				)
+				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
@@ -226,6 +233,13 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 				resp.Diagnostics.AddError(
 					"Board not found",
 					fmt.Sprintf("Board with ID %q not found. The board may have been deleted outside of Terraform.", state.ID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid board configuration",
+					fmt.Sprintf("The board update for ID %q is invalid. Verify that the board type is \"scrum\" or \"kanban\" and the space_id references an existing space.",
+						state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:

@@ -139,6 +139,13 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 					fmt.Sprintf("A permission scheme with name %q already exists. Each permission scheme name must be unique.", plan.Name.ValueString()),
 				)
 				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid permission scheme configuration",
+					fmt.Sprintf("The permission scheme configuration for %q is invalid. Verify the scheme name and permissions are correct.",
+						plan.Name.ValueString()),
+				)
+				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
@@ -222,6 +229,13 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 				resp.Diagnostics.AddError(
 					"Permission scheme not found",
 					fmt.Sprintf("Permission scheme with ID %q not found. The permission scheme may have been deleted outside of Terraform.", state.ID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid permission scheme configuration",
+					fmt.Sprintf("The permission scheme update for ID %q is invalid. Verify the scheme name and permissions are correct.",
+						state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:

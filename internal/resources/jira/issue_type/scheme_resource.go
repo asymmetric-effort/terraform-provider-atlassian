@@ -181,6 +181,13 @@ func (r *SchemeResource) Create(ctx context.Context, req resource.CreateRequest,
 					fmt.Sprintf("An issue type scheme with name %q already exists. Each issue type scheme name must be unique.", plan.Name.ValueString()),
 				)
 				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid issue type scheme configuration",
+					fmt.Sprintf("The issue type scheme configuration for %q is invalid. Verify the issue type IDs and default issue type ID are correct.",
+						plan.Name.ValueString()),
+				)
+				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
@@ -273,6 +280,13 @@ func (r *SchemeResource) Update(ctx context.Context, req resource.UpdateRequest,
 				resp.Diagnostics.AddError(
 					"Issue type scheme not found",
 					fmt.Sprintf("Issue type scheme with ID %q not found. The scheme may have been deleted outside of Terraform.", state.ID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid issue type scheme configuration",
+					fmt.Sprintf("The issue type scheme update for ID %q is invalid. Verify the issue type IDs and default issue type ID are correct.",
+						state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:

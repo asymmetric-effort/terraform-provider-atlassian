@@ -135,6 +135,20 @@ func (r *TabFieldResource) Create(ctx context.Context, req resource.CreateReques
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok {
 			switch apiErr.StatusCode {
+			case http.StatusNotFound:
+				resp.Diagnostics.AddError(
+					"Screen or tab not found",
+					fmt.Sprintf("Screen %q or tab %q not found. Verify the screen and tab IDs are correct and the resources exist.",
+						plan.ScreenID.ValueString(), plan.TabID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid screen tab field configuration",
+					fmt.Sprintf("Could not add field %q to screen %s tab %s. Verify the field ID is valid and not already present on the tab.",
+						plan.FieldID.ValueString(), plan.ScreenID.ValueString(), plan.TabID.ValueString()),
+				)
+				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",

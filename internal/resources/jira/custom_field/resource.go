@@ -148,6 +148,13 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 					fmt.Sprintf("A custom field with name %q already exists. Each custom field name must be unique.", plan.Name.ValueString()),
 				)
 				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid custom field configuration",
+					fmt.Sprintf("The custom field configuration for %q is invalid. Verify the field type is a supported Jira custom field type.",
+						plan.Name.ValueString()),
+				)
+				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
@@ -234,6 +241,13 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 				resp.Diagnostics.AddError(
 					"Custom field not found",
 					fmt.Sprintf("Custom field with ID %q not found. The custom field may have been deleted outside of Terraform.", state.ID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid custom field configuration",
+					fmt.Sprintf("The custom field update for ID %q is invalid. Verify the field type is a supported Jira custom field type.",
+						state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:

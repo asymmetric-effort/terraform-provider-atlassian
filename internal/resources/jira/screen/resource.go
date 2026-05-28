@@ -132,6 +132,19 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok {
 			switch apiErr.StatusCode {
+			case http.StatusConflict:
+				resp.Diagnostics.AddError(
+					"Duplicate screen name",
+					fmt.Sprintf("A screen with name %q already exists. Each screen name must be unique.", plan.Name.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid screen configuration",
+					fmt.Sprintf("The screen configuration for %q is invalid. Verify the screen name and description are valid.",
+						plan.Name.ValueString()),
+				)
+				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
@@ -215,6 +228,13 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 				resp.Diagnostics.AddError(
 					"Screen not found",
 					fmt.Sprintf("Screen with ID %q not found. The screen may have been deleted outside of Terraform.", state.ID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid screen configuration",
+					fmt.Sprintf("The screen update for ID %q is invalid. Verify the screen name and description are valid.",
+						state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:

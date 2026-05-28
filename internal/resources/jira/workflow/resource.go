@@ -139,6 +139,13 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 					fmt.Sprintf("A workflow with name %q already exists. Each workflow name must be unique.", plan.Name.ValueString()),
 				)
 				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid workflow configuration",
+					fmt.Sprintf("The workflow configuration for %q is invalid. Verify that all transitions, statuses, and conditions are correctly defined.",
+						plan.Name.ValueString()),
+				)
+				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
@@ -222,6 +229,13 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 				resp.Diagnostics.AddError(
 					"Workflow not found",
 					fmt.Sprintf("Workflow with ID %q not found. The workflow may have been deleted outside of Terraform.", state.ID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid workflow configuration",
+					fmt.Sprintf("The workflow update for ID %q is invalid. Verify that all transitions, statuses, and conditions are correctly defined.",
+						state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:

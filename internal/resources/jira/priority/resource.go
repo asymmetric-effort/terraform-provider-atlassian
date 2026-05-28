@@ -154,6 +154,13 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 					fmt.Sprintf("A priority with name %q already exists. Each priority name must be unique.", plan.Name.ValueString()),
 				)
 				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid priority configuration",
+					fmt.Sprintf("The priority configuration for %q is invalid. Verify the priority name and icon URL are correct.",
+						plan.Name.ValueString()),
+				)
+				return
 			case http.StatusForbidden:
 				resp.Diagnostics.AddError(
 					"Permission denied",
@@ -242,6 +249,13 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 				resp.Diagnostics.AddError(
 					"Priority not found",
 					fmt.Sprintf("Priority with ID %q not found. The priority may have been deleted outside of Terraform.", state.ID.ValueString()),
+				)
+				return
+			case http.StatusBadRequest:
+				resp.Diagnostics.AddError(
+					"Invalid priority configuration",
+					fmt.Sprintf("The priority update for ID %q is invalid. Verify the priority name and icon URL are correct.",
+						state.ID.ValueString()),
 				)
 				return
 			case http.StatusForbidden:
