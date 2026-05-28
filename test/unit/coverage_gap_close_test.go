@@ -609,6 +609,7 @@ func TestPermissionSchemeCreateBadRequest(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "PS"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -631,6 +632,7 @@ func TestPermissionSchemeUpdateBadRequest(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "ps-1"),
 		"name":        tftypes.NewValue(tftypes.String, "PS"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}

@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -17,12 +18,25 @@ import (
 // Ensure the DataSource type satisfies the datasource.DataSource interface.
 var _ datasource.DataSource = &DataSource{}
 
+// apiPermissionGrant represents a single permission grant.
+type apiPermissionGrant struct {
+	Permission string              `json:"permission"`
+	Holder     apiPermissionHolder `json:"holder"`
+}
+
+// apiPermissionHolder represents who holds a permission.
+type apiPermissionHolder struct {
+	Type      string `json:"type"`
+	Parameter string `json:"parameter,omitempty"`
+}
+
 // apiPermissionScheme represents the JSON structure returned by the Atlassian permission scheme API.
 type apiPermissionScheme struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Self        string `json:"self"`
+	ID          string               `json:"id"`
+	Name        string               `json:"name"`
+	Description string               `json:"description"`
+	Self        string               `json:"self"`
+	Permissions []apiPermissionGrant `json:"permissions,omitempty"`
 }
 
 // DataSourceModel describes the data source data model.
@@ -30,6 +44,7 @@ type DataSourceModel struct {
 	ID          types.String `tfsdk:"id"`
 	Name        types.String `tfsdk:"name"`
 	Description types.String `tfsdk:"description"`
+	Grants      types.List   `tfsdk:"grants"`
 }
 
 // DataSource implements the atlassian_jira_permission_scheme data source.
@@ -63,6 +78,26 @@ func (d *DataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp 
 			"description": schema.StringAttribute{
 				Description: "A description of the permission scheme.",
 				Computed:    true,
+			},
+			"grants": schema.ListNestedAttribute{
+				Description: "Permission grants.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"permission": schema.StringAttribute{
+							Description: "The permission key.",
+							Computed:    true,
+						},
+						"holder_type": schema.StringAttribute{
+							Description: "The holder type.",
+							Computed:    true,
+						},
+						"holder_id": schema.StringAttribute{
+							Description: "The holder ID.",
+							Computed:    true,
+						},
+					},
+				},
 			},
 		},
 	}
@@ -114,6 +149,41 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 	config.ID = types.StringValue(ps.ID)
 	config.Name = types.StringValue(ps.Name)
 	config.Description = types.StringValue(ps.Description)
+	config.Grants = grantsToState(ctx, ps.Permissions)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
+}
+
+// grantObjectType is the attr.Type for grant nested objects.
+var grantObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"permission":  types.StringType,
+		"holder_type": types.StringType,
+		"holder_id":   types.StringType,
+	},
+}
+
+// grantsToState converts API grants to the Terraform state list.
+func grantsToState(ctx context.Context, perms []apiPermissionGrant) types.List {
+	if len(perms) == 0 {
+		return types.ListNull(grantObjectType)
+	}
+	var elems []attr.Value
+	for _, p := range perms {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"permission":  types.StringType,
+				"holder_type": types.StringType,
+				"holder_id":   types.StringType,
+			},
+			map[string]attr.Value{
+				"permission":  types.StringValue(p.Permission),
+				"holder_type": types.StringValue(p.Holder.Type),
+				"holder_id":   types.StringValue(p.Holder.Parameter),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(grantObjectType, elems)
+	return list
 }

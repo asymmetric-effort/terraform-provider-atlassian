@@ -448,7 +448,7 @@ func TestJiraPermissionSchemeResourceSchema(t *testing.T) {
 	if resp.Schema.Attributes == nil {
 		t.Fatal("expected schema to have attributes")
 	}
-	expectedAttrs := []string{"id", "name", "description"}
+	expectedAttrs := []string{"id", "name", "description", "grants"}
 	for _, attr := range expectedAttrs {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected schema to have attribute %q", attr)
@@ -463,7 +463,7 @@ func TestJiraPermissionSchemeResourceSchemaAttributeCount(t *testing.T) {
 	req := resource.SchemaRequest{}
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), req, resp)
-	expected := 3
+	expected := 4
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -579,6 +579,7 @@ func TestJiraPermissionSchemeResourceCRUDLifecycle(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "Test Permission Scheme"),
 		"description": tftypes.NewValue(tftypes.String, "A test permission scheme"),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -598,6 +599,7 @@ func TestJiraPermissionSchemeResourceCRUDLifecycle(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, psID),
 		"name":        tftypes.NewValue(tftypes.String, "Test Permission Scheme"),
 		"description": tftypes.NewValue(tftypes.String, "A test permission scheme"),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -613,11 +615,13 @@ func TestJiraPermissionSchemeResourceCRUDLifecycle(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, psID),
 		"name":        tftypes.NewValue(tftypes.String, "Updated Permission Scheme"),
 		"description": tftypes.NewValue(tftypes.String, "Updated desc"),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	updateState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":          tftypes.NewValue(tftypes.String, psID),
 		"name":        tftypes.NewValue(tftypes.String, "Test Permission Scheme"),
 		"description": tftypes.NewValue(tftypes.String, "A test permission scheme"),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: updateState}, updateResp)
@@ -633,6 +637,7 @@ func TestJiraPermissionSchemeResourceCRUDLifecycle(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, psID),
 		"name":        tftypes.NewValue(tftypes.String, "Updated Permission Scheme"),
 		"description": tftypes.NewValue(tftypes.String, "Updated desc"),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	delResp := &resource.DeleteResponse{State: emptyState(ctx, s)}
 	r.Delete(ctx, resource.DeleteRequest{State: delState}, delResp)
@@ -645,6 +650,7 @@ func TestJiraPermissionSchemeResourceCRUDLifecycle(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, psID),
 		"name":        tftypes.NewValue(tftypes.String, "Updated Permission Scheme"),
 		"description": tftypes.NewValue(tftypes.String, "Updated desc"),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	readResp2 := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState2.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState2}, readResp2)
@@ -667,6 +673,7 @@ func TestJiraPermissionSchemeResourceCreateConflict(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "Dup PS"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -695,6 +702,7 @@ func TestJiraPermissionSchemeResourceCreateForbidden(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "Forbidden PS"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -717,6 +725,7 @@ func TestJiraPermissionSchemeResourceCreateServerError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "Error PS"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -739,6 +748,7 @@ func TestJiraPermissionSchemeResourceReadServerError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "some-id"),
 		"name":        tftypes.NewValue(tftypes.String, "PS"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: state}, resp)
@@ -761,11 +771,13 @@ func TestJiraPermissionSchemeResourceUpdateNotFound(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
 		"name":        tftypes.NewValue(tftypes.String, "Updated"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
 		"name":        tftypes.NewValue(tftypes.String, "Old"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, resp)
@@ -788,11 +800,13 @@ func TestJiraPermissionSchemeResourceUpdateForbidden(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "some-id"),
 		"name":        tftypes.NewValue(tftypes.String, "Updated"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":          tftypes.NewValue(tftypes.String, "some-id"),
 		"name":        tftypes.NewValue(tftypes.String, "Old"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, resp)
@@ -815,11 +829,13 @@ func TestJiraPermissionSchemeResourceUpdateServerError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "some-id"),
 		"name":        tftypes.NewValue(tftypes.String, "Updated"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":          tftypes.NewValue(tftypes.String, "some-id"),
 		"name":        tftypes.NewValue(tftypes.String, "Old"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, resp)
@@ -842,6 +858,7 @@ func TestJiraPermissionSchemeResourceDeleteForbidden(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "some-id"),
 		"name":        tftypes.NewValue(tftypes.String, "PS"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.DeleteResponse{State: emptyState(ctx, s)}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -864,6 +881,7 @@ func TestJiraPermissionSchemeResourceDeleteServerError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "some-id"),
 		"name":        tftypes.NewValue(tftypes.String, "PS"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.DeleteResponse{State: emptyState(ctx, s)}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -886,6 +904,7 @@ func TestJiraPermissionSchemeResourceDeleteNotFound(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
 		"name":        tftypes.NewValue(tftypes.String, "PS"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.DeleteResponse{State: emptyState(ctx, s)}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -976,6 +995,7 @@ func TestJiraPermissionSchemeResourceUpdateStateGetError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "id"),
 		"name":        tftypes.NewValue(tftypes.String, "n"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{
@@ -1026,7 +1046,7 @@ func TestJiraPermissionSchemeDataSourceSchema(t *testing.T) {
 	if resp.Schema.Attributes == nil {
 		t.Fatal("expected schema to have attributes")
 	}
-	expectedAttrs := []string{"id", "name", "description"}
+	expectedAttrs := []string{"id", "name", "description", "grants"}
 	for _, attr := range expectedAttrs {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected schema to have attribute %q", attr)
@@ -1041,7 +1061,7 @@ func TestJiraPermissionSchemeDataSourceSchemaAttributeCount(t *testing.T) {
 	req := datasource.SchemaRequest{}
 	resp := &datasource.SchemaResponse{}
 	ds.Schema(context.Background(), req, resp)
-	expected := 3
+	expected := 4
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -1072,6 +1092,7 @@ func TestJiraPermissionSchemeDataSourceByID(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "DS Perm Scheme"),
 		"description": tftypes.NewValue(tftypes.String, "ds desc"),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -1089,6 +1110,7 @@ func TestJiraPermissionSchemeDataSourceByID(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, psID),
 		"name":        tftypes.NewValue(tftypes.String, nil),
 		"description": tftypes.NewValue(tftypes.String, nil),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1114,6 +1136,7 @@ func TestJiraPermissionSchemeDataSourceNotFound(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
 		"name":        tftypes.NewValue(tftypes.String, nil),
 		"description": tftypes.NewValue(tftypes.String, nil),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1160,6 +1183,7 @@ func TestJiraPermissionSchemeDataSourceReadServerError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "some-id"),
 		"name":        tftypes.NewValue(tftypes.String, nil),
 		"description": tftypes.NewValue(tftypes.String, nil),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String}}}, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -2704,5 +2728,102 @@ func TestJiraNotificationSchemeDataSourceReadBadConfig(t *testing.T) {
 	ds.Read(ctx, datasource.ReadRequest{Config: badConfig}, resp)
 	if !resp.Diagnostics.HasError() {
 		t.Fatal("Expected error from bad config on data source read")
+	}
+}
+
+// TestJiraPermissionSchemeWithGrants tests creating a scheme with grants.
+func TestJiraPermissionSchemeWithGrants(t *testing.T) {
+	t.Parallel()
+	_, client := testSchemeMockServer(t)
+	ctx := context.Background()
+	r := permissionschemers.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	grantObjType := tftypes.Object{AttributeTypes: map[string]tftypes.Type{
+		"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String,
+	}}
+	grantsListType := tftypes.List{ElementType: grantObjType}
+
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":        tftypes.NewValue(tftypes.String, "Grants Scheme"),
+		"description": tftypes.NewValue(tftypes.String, "With grants"),
+		"grants": tftypes.NewValue(grantsListType, []tftypes.Value{
+			tftypes.NewValue(grantObjType, map[string]tftypes.Value{
+				"permission":  tftypes.NewValue(tftypes.String, "BROWSE_PROJECTS"),
+				"holder_type": tftypes.NewValue(tftypes.String, "group"),
+				"holder_id":   tftypes.NewValue(tftypes.String, "developers"),
+			}),
+		}),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create with grants: %v", createResp.Diagnostics.Errors())
+	}
+	id := getStringAttr(t, createResp.State, "id")
+	if id == "" {
+		t.Fatal("expected non-empty ID")
+	}
+}
+
+// TestJiraPermissionSchemeGrantsToStateNonEmpty exercises the non-empty
+// path of grantsToState via a Read that returns permissions.
+func TestJiraPermissionSchemeGrantsToStateNonEmpty(t *testing.T) {
+	t.Parallel()
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /rest/api/3/permissionscheme/ps-1", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "ps-1", "name": "Test", "description": "desc",
+			"permissions": []map[string]interface{}{
+				{"permission": "BROWSE_PROJECTS", "holder": map[string]string{"type": "group", "parameter": "devs"}},
+				{"permission": "EDIT_ISSUES", "holder": map[string]string{"type": "user", "parameter": "uid-1"}},
+			},
+		})
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 5e9, MaxRetries: 0, RetryWaitMin: 1e9, RetryWaitMax: 1e9}
+	client, _ := atlassian.NewClient(cfg, &testNoopAuth{})
+	ctx := context.Background()
+
+	// Test resource Read
+	r := permissionschemers.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+	grantObjType := tftypes.Object{AttributeTypes: map[string]tftypes.Type{
+		"permission": tftypes.String, "holder_type": tftypes.String, "holder_id": tftypes.String,
+	}}
+	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, "ps-1"),
+		"name":        tftypes.NewValue(tftypes.String, "Test"),
+		"description": tftypes.NewValue(tftypes.String, "desc"),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: grantObjType}, nil),
+	})}
+	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
+	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+
+	// Test data source Read
+	ds := permissionschemeds.NewDataSource()
+	configureDatasource(t, ds, client)
+	dss := getDatasourceSchema(t, ds)
+	dsType := dss.Type().TerraformType(ctx)
+	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, "ps-1"),
+		"name":        tftypes.NewValue(tftypes.String, nil),
+		"description": tftypes.NewValue(tftypes.String, nil),
+		"grants":      tftypes.NewValue(tftypes.List{ElementType: grantObjType}, nil),
+	})}
+	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
+	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
+	if dsResp.Diagnostics.HasError() {
+		t.Fatalf("DS Read: %v", dsResp.Diagnostics.Errors())
 	}
 }
