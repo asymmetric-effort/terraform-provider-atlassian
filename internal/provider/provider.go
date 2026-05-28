@@ -7,6 +7,10 @@ import (
 	"time"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	bbbranchrestrictionds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/bitbucket/branch_restriction"
+	bbdeploymentds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/bitbucket/deployment"
+	bbpipelineds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/bitbucket/pipeline"
+	bbrepopermds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/bitbucket/repository"
 	confluencepagedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/confluence/page"
 	confluencespacedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/confluence/space"
 	confluencespacepermdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/confluence/space"
@@ -28,6 +32,10 @@ import (
 	securityschemeds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/security_scheme"
 	spacedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/space"
 	workflowdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/workflow"
+	bbbranchrestrictionrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/bitbucket/branch_restriction"
+	bbdeploymentrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/bitbucket/deployment"
+	bbpipeliners "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/bitbucket/pipeline"
+	bbrepopermrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/bitbucket/repository"
 	confluencepageresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/confluence/page"
 	confluencespacepermresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/confluence/space"
 	confluencespaceresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/confluence/space"
@@ -282,6 +290,10 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		confluencepageresource.NewRestrictionResource,
 		confluencetemplateresource.NewResource,
 		confluencespacepermresource.NewPermissionResource,
+		bbbranchrestrictionrs.NewResource,
+		bbpipeliners.NewResource,
+		bbdeploymentrs.NewResource,
+		bbrepopermrs.NewPermissionResource,
 	}
 }
 
@@ -317,5 +329,9 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 		confluencepagedatasource.NewRestrictionDataSource,
 		confluencetemplatedatasource.NewDataSource,
 		confluencespacepermdatasource.NewPermissionDataSource,
+		bbbranchrestrictionds.NewDataSource,
+		bbpipelineds.NewDataSource,
+		bbdeploymentds.NewDataSource,
+		bbrepopermds.NewPermissionDataSource,
 	}
 }
