@@ -15,6 +15,13 @@ This is a **Go provider binary**, not a collection of `.tf` modules.
   [Asymmetric Effort](https://coding-standards.asymmetric-effort.com/#/getting-started)
 - **Avoid IBM/HashiCorp licensing conflicts — OpenTofu-first**
 
+## HARD REQUIREMENT: Version Tagging
+
+- Tags MUST match the pattern: `^v[0-9]+\.[0-9]+\.[0-9]+$`
+- Unless specifically instructed, all version bumps MUST be
+  PATCH only (e.g., v0.0.1 → v0.0.2).
+- Minor and major bumps require explicit instruction.
+
 ## HARD REQUIREMENT: Issue Closure Policy
 
 **No GitHub issue may be closed until ALL of the following are verified:**
