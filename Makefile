@@ -47,14 +47,19 @@ lint:
 
 test:
 	@echo "Running test suite..."
+	@echo ""
 	@echo "=== Unit tests ==="
-	@go test ./test/unit/... -v -count=1 2>/dev/null || echo "  No unit tests yet."
+	@go test ./test/unit/... -v -count=1
 	@echo ""
 	@echo "=== Integration tests ==="
-	@go test ./test/integration/... -v -count=1 2>/dev/null || echo "  No integration tests yet."
+	@go test ./test/integration/... -v -count=1
 	@echo ""
 	@echo "=== End-to-end tests ==="
-	@go test ./test/e2e/... -v -count=1 2>/dev/null || echo "  No e2e tests yet."
+	@if [ -n "$$(find test/e2e -name '*_test.go' 2>/dev/null)" ]; then \
+		go test ./test/e2e/... -v -count=1; \
+	else \
+		echo "  No e2e tests yet."; \
+	fi
 	@echo ""
 	@echo "=== PDV tests ==="
 	@echo "  No PDV tests yet."
