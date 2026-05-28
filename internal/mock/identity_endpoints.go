@@ -69,6 +69,7 @@ func registerUserEndpoints(s *Server) {
 			"emailAddress": email,
 			"displayName":  displayName,
 			"active":       true,
+			"self":         fmt.Sprintf("https://example.atlassian.net/rest/api/3/user?accountId=%s", accountID),
 		}
 
 		data, _ := json.Marshal(user)

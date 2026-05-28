@@ -80,6 +80,7 @@ func TestUserUpdatePlanGetError(t *testing.T) {
 	validState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"account_id": tftypes.NewValue(tftypes.String, "uid"), "email": tftypes.NewValue(tftypes.String, "x@e.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "X"), "active": tftypes.NewValue(tftypes.Bool, true),
+		"self_url": tftypes.NewValue(tftypes.String, ""),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{
@@ -101,6 +102,7 @@ func TestUserUpdateStateGetError(t *testing.T) {
 	validPlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"account_id": tftypes.NewValue(tftypes.String, "uid"), "email": tftypes.NewValue(tftypes.String, "x@e.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "Y"), "active": tftypes.NewValue(tftypes.Bool, true),
+		"self_url": tftypes.NewValue(tftypes.String, ""),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{

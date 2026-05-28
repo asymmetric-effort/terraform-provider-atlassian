@@ -55,7 +55,7 @@ func TestUserResourceSchemaAttributeCount(t *testing.T) {
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), req, resp)
 
-	expected := 4
+	expected := 5
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -160,7 +160,7 @@ func TestUserDataSourceSchemaAttributeCount(t *testing.T) {
 	resp := &datasource.SchemaResponse{}
 	ds.Schema(context.Background(), req, resp)
 
-	expected := 4
+	expected := 5
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)

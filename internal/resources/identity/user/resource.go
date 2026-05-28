@@ -34,6 +34,7 @@ type apiUser struct {
 	Email       string `json:"emailAddress"`
 	DisplayName string `json:"displayName"`
 	Active      bool   `json:"active"`
+	Self        string `json:"self"`
 }
 
 // apiUserCreate represents the JSON body for creating a user.
@@ -53,6 +54,7 @@ type ResourceModel struct {
 	Email       types.String `tfsdk:"email"`
 	DisplayName types.String `tfsdk:"display_name"`
 	Active      types.Bool   `tfsdk:"active"`
+	SelfURL     types.String `tfsdk:"self_url"`
 }
 
 // Resource implements the atlassian_user managed resource.
@@ -95,6 +97,13 @@ func (r *Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp *res
 				Computed:    true,
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"self_url": schema.StringAttribute{
+				Description: "The URL of the user resource in the Atlassian API.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 		},
@@ -161,6 +170,7 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	plan.Email = types.StringValue(created.Email)
 	plan.DisplayName = types.StringValue(created.DisplayName)
 	plan.Active = types.BoolValue(created.Active)
+	plan.SelfURL = types.StringValue(created.Self)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -192,6 +202,7 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	state.Email = types.StringValue(user.Email)
 	state.DisplayName = types.StringValue(user.DisplayName)
 	state.Active = types.BoolValue(user.Active)
+	state.SelfURL = types.StringValue(user.Self)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -245,6 +256,7 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	plan.Email = types.StringValue(updated.Email)
 	plan.DisplayName = types.StringValue(updated.DisplayName)
 	plan.Active = types.BoolValue(updated.Active)
+	plan.SelfURL = types.StringValue(updated.Self)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }

@@ -56,6 +56,7 @@ func TestUserCreateForbidden(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "x@e.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "X"),
 		"active":       tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"self_url":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -78,6 +79,7 @@ func TestUserUpdateForbidden(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "x@e.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "X"),
 		"active":       tftypes.NewValue(tftypes.Bool, true),
+		"self_url":     tftypes.NewValue(tftypes.String, ""),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -101,6 +103,7 @@ func TestUserDeleteForbidden(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "x@e.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "X"),
 		"active":       tftypes.NewValue(tftypes.Bool, true),
+		"self_url":     tftypes.NewValue(tftypes.String, ""),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -123,6 +126,7 @@ func TestUserResourceDeleteNotFoundHandled(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "x@e.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "X"),
 		"active":       tftypes.NewValue(tftypes.Bool, true),
+		"self_url":     tftypes.NewValue(tftypes.String, ""),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -146,6 +150,7 @@ func TestUserReadError(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "x@e.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "X"),
 		"active":       tftypes.NewValue(tftypes.Bool, true),
+		"self_url":     tftypes.NewValue(tftypes.String, ""),
 	})}
 	resp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: state}, resp)
@@ -168,6 +173,7 @@ func TestUserDeleteGenericError(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "x@e.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "X"),
 		"active":       tftypes.NewValue(tftypes.Bool, true),
+		"self_url":     tftypes.NewValue(tftypes.String, ""),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -190,6 +196,7 @@ func TestUserUpdateGenericError(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "x@e.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "X"),
 		"active":       tftypes.NewValue(tftypes.Bool, true),
+		"self_url":     tftypes.NewValue(tftypes.String, ""),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -213,6 +220,7 @@ func TestUserCreateGenericError(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "x@e.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "X"),
 		"active":       tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"self_url":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)

@@ -25,6 +25,7 @@ type apiUser struct {
 	Email       string `json:"emailAddress"`
 	DisplayName string `json:"displayName"`
 	Active      bool   `json:"active"`
+	Self        string `json:"self"`
 }
 
 // apiUserSearchResponse represents the JSON structure for user search results.
@@ -33,6 +34,7 @@ type apiUserSearchResponse struct {
 	Email       string `json:"emailAddress"`
 	DisplayName string `json:"displayName"`
 	Active      bool   `json:"active"`
+	Self        string `json:"self"`
 }
 
 // DataSourceModel describes the data source data model.
@@ -41,6 +43,7 @@ type DataSourceModel struct {
 	Email       types.String `tfsdk:"email"`
 	DisplayName types.String `tfsdk:"display_name"`
 	Active      types.Bool   `tfsdk:"active"`
+	SelfURL     types.String `tfsdk:"self_url"`
 }
 
 // DataSource implements the atlassian_user data source.
@@ -79,6 +82,10 @@ func (d *DataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp 
 			},
 			"active": schema.BoolAttribute{
 				Description: "Whether the user account is active.",
+				Computed:    true,
+			},
+			"self_url": schema.StringAttribute{
+				Description: "The URL of the user resource in the Atlassian API.",
 				Computed:    true,
 			},
 		},
@@ -146,6 +153,7 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 	config.Email = types.StringValue(user.Email)
 	config.DisplayName = types.StringValue(user.DisplayName)
 	config.Active = types.BoolValue(user.Active)
+	config.SelfURL = types.StringValue(user.Self)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }
@@ -167,6 +175,7 @@ func (d *DataSource) findUserByEmail(ctx context.Context, email string) (apiUser
 				Email:       result.Email,
 				DisplayName: result.DisplayName,
 				Active:      result.Active,
+				Self:        result.Self,
 			}, nil
 		}
 	}

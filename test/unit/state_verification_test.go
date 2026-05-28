@@ -244,6 +244,7 @@ func TestStateVerification_UserResource_CreateReadUpdateDelete(t *testing.T) {
 			"email":        tftypes.NewValue(tftypes.String, "test@example.com"),
 			"display_name": tftypes.NewValue(tftypes.String, "Test User"),
 			"active":       tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+			"self_url":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		}),
 	}
 	createResp := &fwresource.CreateResponse{State: tfsdk.State{Schema: schemaResp.Schema, Raw: tftypes.NewValue(schemaResp.Schema.Type().TerraformType(context.Background()), nil)}}
@@ -271,6 +272,7 @@ func TestStateVerification_UserResource_CreateReadUpdateDelete(t *testing.T) {
 			"email":        tftypes.NewValue(tftypes.String, "updated@example.com"),
 			"display_name": tftypes.NewValue(tftypes.String, "Updated User"),
 			"active":       tftypes.NewValue(tftypes.Bool, true),
+			"self_url":     tftypes.NewValue(tftypes.String, ""),
 		}),
 	}
 	updateResp := &fwresource.UpdateResponse{State: readResp.State}

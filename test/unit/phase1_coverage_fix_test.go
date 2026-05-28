@@ -180,6 +180,7 @@ func TestUserDSIsStatusCodeNil(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, nil),
 		"display_name": tftypes.NewValue(tftypes.String, nil),
 		"active":       tftypes.NewValue(tftypes.Bool, nil),
+		"self_url":     tftypes.NewValue(tftypes.String, nil),
 	})}
 	resp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, resp)
@@ -207,6 +208,7 @@ func TestUserDSReadByEmailNotFound(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "missing@example.com"),
 		"display_name": tftypes.NewValue(tftypes.String, nil),
 		"active":       tftypes.NewValue(tftypes.Bool, nil),
+		"self_url":     tftypes.NewValue(tftypes.String, nil),
 	})}
 	resp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, resp)

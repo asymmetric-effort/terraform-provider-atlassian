@@ -475,6 +475,7 @@ func TestUserReadNotFoundRemoves(t *testing.T) {
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"account_id": tftypes.NewValue(tftypes.String, "uid"), "email": tftypes.NewValue(tftypes.String, "x@e.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "X"), "active": tftypes.NewValue(tftypes.Bool, true),
+		"self_url": tftypes.NewValue(tftypes.String, ""),
 	})}
 	resp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: state}, resp)

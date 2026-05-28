@@ -481,7 +481,7 @@ func TestUserDataSourceByEmailSearchError(t *testing.T) {
 
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
 		"account_id": tftypes.NewValue(tftypes.String, nil), "email": tftypes.NewValue(tftypes.String, "x@e.com"),
-		"display_name": tftypes.NewValue(tftypes.String, nil), "active": tftypes.NewValue(tftypes.Bool, nil),
+		"display_name": tftypes.NewValue(tftypes.String, nil), "active": tftypes.NewValue(tftypes.Bool, nil), "self_url": tftypes.NewValue(tftypes.String, nil),
 	})}
 	resp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, resp)

@@ -581,6 +581,7 @@ func TestUserResourceCRUDLifecycle(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "crud@example.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "CRUD User"),
 		"active":       tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"self_url":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -598,6 +599,7 @@ func TestUserResourceCRUDLifecycle(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "crud@example.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "CRUD User"),
 		"active":       tftypes.NewValue(tftypes.Bool, true),
+		"self_url":     tftypes.NewValue(tftypes.String, ""),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -611,6 +613,7 @@ func TestUserResourceCRUDLifecycle(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "crud@example.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "Updated CRUD"),
 		"active":       tftypes.NewValue(tftypes.Bool, true),
+		"self_url":     tftypes.NewValue(tftypes.String, ""),
 	})}
 	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
@@ -650,6 +653,7 @@ func TestUserResourceCreateDuplicate(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "dup@example.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "First"),
 		"active":       tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"self_url":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	resp1 := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp1)
@@ -662,6 +666,7 @@ func TestUserResourceCreateDuplicate(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "dup@example.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "Second"),
 		"active":       tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"self_url":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	resp2 := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan2}, resp2)
@@ -684,6 +689,7 @@ func TestUserResourceUpdateNotFound(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "x@e.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "X"),
 		"active":       tftypes.NewValue(tftypes.Bool, true),
+		"self_url":     tftypes.NewValue(tftypes.String, ""),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -1211,6 +1217,7 @@ func TestUserDataSourceByAccountID(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "ds@example.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "DS User"),
 		"active":       tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"self_url":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -1230,6 +1237,7 @@ func TestUserDataSourceByAccountID(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, nil),
 		"display_name": tftypes.NewValue(tftypes.String, nil),
 		"active":       tftypes.NewValue(tftypes.Bool, nil),
+		"self_url":     tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1254,6 +1262,7 @@ func TestUserDataSourceByEmail(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "byemail@example.com"),
 		"display_name": tftypes.NewValue(tftypes.String, "ByEmail"),
 		"active":       tftypes.NewValue(tftypes.Bool, tftypes.UnknownValue),
+		"self_url":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -1271,6 +1280,7 @@ func TestUserDataSourceByEmail(t *testing.T) {
 		"email":        tftypes.NewValue(tftypes.String, "byemail@example.com"),
 		"display_name": tftypes.NewValue(tftypes.String, nil),
 		"active":       tftypes.NewValue(tftypes.Bool, nil),
+		"self_url":     tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1291,6 +1301,7 @@ func TestUserDataSourceMissingBoth(t *testing.T) {
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
 		"account_id": tftypes.NewValue(tftypes.String, nil), "email": tftypes.NewValue(tftypes.String, nil),
 		"display_name": tftypes.NewValue(tftypes.String, nil), "active": tftypes.NewValue(tftypes.Bool, nil),
+		"self_url": tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1311,6 +1322,7 @@ func TestUserDataSourceNotFound(t *testing.T) {
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
 		"account_id": tftypes.NewValue(tftypes.String, "nonexistent"), "email": tftypes.NewValue(tftypes.String, nil),
 		"display_name": tftypes.NewValue(tftypes.String, nil), "active": tftypes.NewValue(tftypes.Bool, nil),
+		"self_url": tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1331,6 +1343,7 @@ func TestUserDataSourceByEmailNotFound(t *testing.T) {
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
 		"account_id": tftypes.NewValue(tftypes.String, nil), "email": tftypes.NewValue(tftypes.String, "nope@e.com"),
 		"display_name": tftypes.NewValue(tftypes.String, nil), "active": tftypes.NewValue(tftypes.Bool, nil),
+		"self_url": tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
