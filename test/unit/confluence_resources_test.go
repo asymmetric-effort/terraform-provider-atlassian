@@ -156,7 +156,7 @@ func testConfluenceMockServer(t *testing.T) (*httptest.Server, *atlassian.Client
 		spaceID, _ := req["spaceId"].(string)
 		templateType, _ := req["templateType"].(string)
 		tmpl := map[string]interface{}{
-			"templateId":   id,
+			"id":           id,
 			"name":         name,
 			"description":  description,
 			"body":         body,
@@ -194,7 +194,7 @@ func testConfluenceMockServer(t *testing.T) (*httptest.Server, *atlassian.Client
 		var req map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&req)
 		for k, v := range req {
-			if k != "templateId" {
+			if k != "id" {
 				tmpl[k] = v
 			}
 		}

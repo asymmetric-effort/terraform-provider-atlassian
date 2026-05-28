@@ -19,7 +19,7 @@ var _ datasource.DataSource = &DataSource{}
 
 // apiTemplate represents the JSON structure returned by the Confluence template API.
 type apiTemplate struct {
-	TemplateID   string `json:"templateId"`
+	TemplateID   string `json:"id"`
 	Name         string `json:"name"`
 	Description  string `json:"description,omitempty"`
 	Body         string `json:"body,omitempty"`
