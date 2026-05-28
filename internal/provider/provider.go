@@ -33,6 +33,9 @@ import (
 	securityschemeds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/security_scheme"
 	spacedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/space"
 	workflowdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/workflow"
+	spcomponentds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/statuspage/component"
+	sppageds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/statuspage/page"
+	spsubscriberds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/statuspage/subscriber"
 	bbbranchrestrictionrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/bitbucket/branch_restriction"
 	bbdeploymentrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/bitbucket/deployment"
 	bbpipeliners "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/bitbucket/pipeline"
@@ -60,6 +63,9 @@ import (
 	securityschemers "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/security_scheme"
 	spaceresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/space"
 	workflowresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/workflow"
+	spcomponentrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/statuspage/component"
+	sppagers "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/statuspage/page"
+	spsubscriberrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/statuspage/subscriber"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
@@ -297,6 +303,13 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		bbpipeliners.NewResource,
 		bbdeploymentrs.NewResource,
 		bbrepopermrs.NewPermissionResource,
+		sppagers.NewResource,
+		sppagers.NewIncidentTemplateResource,
+		sppagers.NewMaintenanceTemplateResource,
+		sppagers.NewPermissionResource,
+		spcomponentrs.NewResource,
+		spcomponentrs.NewGroupResource,
+		spsubscriberrs.NewResource,
 	}
 }
 
@@ -337,5 +350,12 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 		bbpipelineds.NewDataSource,
 		bbdeploymentds.NewDataSource,
 		bbrepopermds.NewPermissionDataSource,
+		sppageds.NewDataSource,
+		sppageds.NewIncidentTemplateDataSource,
+		sppageds.NewMaintenanceTemplateDataSource,
+		sppageds.NewPermissionDataSource,
+		spcomponentds.NewDataSource,
+		spcomponentds.NewGroupDataSource,
+		spsubscriberds.NewDataSource,
 	}
 }
