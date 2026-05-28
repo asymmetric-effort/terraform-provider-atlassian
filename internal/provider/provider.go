@@ -10,10 +10,12 @@ import (
 	groupdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/group"
 	roledatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/role"
 	userds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/user"
+	spacedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/space"
 	groupresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/group"
 	roleresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/role"
 	tokenresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/token"
 	userrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/user"
+	spaceresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/space"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
@@ -219,6 +221,7 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		roleresource.NewResource,
 		roleresource.NewAssignmentResource,
 		tokenresource.NewResource,
+		spaceresource.NewResource,
 	}
 }
 
@@ -228,5 +231,6 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 		userds.NewDataSource,
 		groupdatasource.NewDataSource,
 		roledatasource.NewDataSource,
+		spacedatasource.NewDataSource,
 	}
 }
