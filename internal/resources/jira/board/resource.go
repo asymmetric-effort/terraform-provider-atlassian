@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -26,35 +27,110 @@ var (
 	_ resource.ResourceWithImportState = &Resource{}
 )
 
+// apiColumnConfig represents a single column in the board column configuration.
+type apiColumnConfig struct {
+	Name      string   `json:"name"`
+	StatusIDs []string `json:"statusIds,omitempty"`
+}
+
 // apiBoard represents the JSON structure returned by the Atlassian board API.
 type apiBoard struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Type    string `json:"type"`
-	SpaceID string `json:"spaceId"`
-	Self    string `json:"self"`
+	ID           string            `json:"id"`
+	Name         string            `json:"name"`
+	Type         string            `json:"type"`
+	SpaceID      string            `json:"spaceId"`
+	Self         string            `json:"self"`
+	ColumnConfig []apiColumnConfig `json:"columnConfig,omitempty"`
 }
 
 // apiBoardCreate represents the JSON body for creating a board.
 type apiBoardCreate struct {
-	Name    string `json:"name"`
-	Type    string `json:"type"`
-	SpaceID string `json:"spaceId"`
+	Name         string            `json:"name"`
+	Type         string            `json:"type"`
+	SpaceID      string            `json:"spaceId"`
+	ColumnConfig []apiColumnConfig `json:"columnConfig,omitempty"`
 }
 
 // apiBoardUpdate represents the JSON body for updating a board.
 type apiBoardUpdate struct {
-	Name    string `json:"name,omitempty"`
-	Type    string `json:"type,omitempty"`
-	SpaceID string `json:"spaceId,omitempty"`
+	Name         string            `json:"name,omitempty"`
+	Type         string            `json:"type,omitempty"`
+	SpaceID      string            `json:"spaceId,omitempty"`
+	ColumnConfig []apiColumnConfig `json:"columnConfig,omitempty"`
+}
+
+// ColumnConfigModel describes a single column configuration entry in the Terraform model.
+type ColumnConfigModel struct {
+	Name      string   `tfsdk:"name"`
+	StatusIDs []string `tfsdk:"status_ids"`
+}
+
+// columnConfigObjectType is the attr.Type for the column config nested object.
+var columnConfigObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"name":       types.StringType,
+		"status_ids": types.ListType{ElemType: types.StringType},
+	},
+}
+
+// columnConfigFromPlan converts the Terraform column_config list to API format.
+func columnConfigFromPlan(ctx context.Context, configs types.List) []apiColumnConfig {
+	if configs.IsNull() || configs.IsUnknown() {
+		return nil
+	}
+	var models []ColumnConfigModel
+	configs.ElementsAs(ctx, &models, false)
+	var result []apiColumnConfig
+	for _, m := range models {
+		result = append(result, apiColumnConfig{
+			Name:      m.Name,
+			StatusIDs: m.StatusIDs,
+		})
+	}
+	return result
+}
+
+// columnConfigToState converts API column configs to the Terraform state list.
+func columnConfigToState(ctx context.Context, configs []apiColumnConfig) types.List {
+	if len(configs) == 0 {
+		return types.ListNull(columnConfigObjectType)
+	}
+	var elems []attr.Value
+	for _, c := range configs {
+		var statusElems []attr.Value
+		for _, s := range c.StatusIDs {
+			statusElems = append(statusElems, types.StringValue(s))
+		}
+		var statusList types.List
+		if len(statusElems) == 0 {
+			statusList = types.ListNull(types.StringType)
+		} else {
+			statusList, _ = types.ListValue(types.StringType, statusElems)
+		}
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"name":       types.StringType,
+				"status_ids": types.ListType{ElemType: types.StringType},
+			},
+			map[string]attr.Value{
+				"name":       types.StringValue(c.Name),
+				"status_ids": statusList,
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(columnConfigObjectType, elems)
+	_ = ctx
+	return list
 }
 
 // ResourceModel describes the resource data model.
 type ResourceModel struct {
-	ID      types.String `tfsdk:"id"`
-	Name    types.String `tfsdk:"name"`
-	Type    types.String `tfsdk:"type"`
-	SpaceID types.String `tfsdk:"space_id"`
+	ID           types.String `tfsdk:"id"`
+	Name         types.String `tfsdk:"name"`
+	Type         types.String `tfsdk:"type"`
+	SpaceID      types.String `tfsdk:"space_id"`
+	ColumnConfig types.List   `tfsdk:"column_config"`
 }
 
 // Resource implements the atlassian_jira_board managed resource.
@@ -96,6 +172,24 @@ func (r *Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp *res
 				Description: "The ID of the space (project) associated with this board.",
 				Required:    true,
 			},
+			"column_config": schema.ListNestedAttribute{
+				Description: "Column configuration for the board, defining columns and their mapped statuses.",
+				Optional:    true,
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Description: "The name of the column.",
+							Required:    true,
+						},
+						"status_ids": schema.ListAttribute{
+							Description: "List of status IDs mapped to this column.",
+							Optional:    true,
+							ElementType: types.StringType,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -125,9 +219,10 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	}
 
 	body := apiBoardCreate{
-		Name:    plan.Name.ValueString(),
-		Type:    plan.Type.ValueString(),
-		SpaceID: plan.SpaceID.ValueString(),
+		Name:         plan.Name.ValueString(),
+		Type:         plan.Type.ValueString(),
+		SpaceID:      plan.SpaceID.ValueString(),
+		ColumnConfig: columnConfigFromPlan(ctx, plan.ColumnConfig),
 	}
 	bodyBytes, _ := json.Marshal(body)
 
@@ -168,6 +263,7 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	plan.Name = types.StringValue(created.Name)
 	plan.Type = types.StringValue(created.Type)
 	plan.SpaceID = types.StringValue(created.SpaceID)
+	plan.ColumnConfig = columnConfigToState(ctx, created.ColumnConfig)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -199,6 +295,7 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	state.Name = types.StringValue(b.Name)
 	state.Type = types.StringValue(b.Type)
 	state.SpaceID = types.StringValue(b.SpaceID)
+	state.ColumnConfig = columnConfigToState(ctx, b.ColumnConfig)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -218,9 +315,10 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	}
 
 	body := apiBoardUpdate{
-		Name:    plan.Name.ValueString(),
-		Type:    plan.Type.ValueString(),
-		SpaceID: plan.SpaceID.ValueString(),
+		Name:         plan.Name.ValueString(),
+		Type:         plan.Type.ValueString(),
+		SpaceID:      plan.SpaceID.ValueString(),
+		ColumnConfig: columnConfigFromPlan(ctx, plan.ColumnConfig),
 	}
 	bodyBytes, _ := json.Marshal(body)
 
@@ -261,6 +359,7 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	plan.Name = types.StringValue(updated.Name)
 	plan.Type = types.StringValue(updated.Type)
 	plan.SpaceID = types.StringValue(updated.SpaceID)
+	plan.ColumnConfig = columnConfigToState(ctx, updated.ColumnConfig)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }

@@ -488,12 +488,14 @@ func TestPermissionDeniedBoard(t *testing.T) {
 	configureResource(t, r, client)
 	s := getResourceSchema(t, r)
 	tfType := s.Type().TerraformType(ctx)
+	ccType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}}
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":       tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":     tftypes.NewValue(tftypes.String, "Board"),
-		"type":     tftypes.NewValue(tftypes.String, "scrum"),
-		"space_id": tftypes.NewValue(tftypes.String, "proj-1"),
+		"id":            tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":          tftypes.NewValue(tftypes.String, "Board"),
+		"type":          tftypes.NewValue(tftypes.String, "scrum"),
+		"space_id":      tftypes.NewValue(tftypes.String, "proj-1"),
+		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -586,12 +588,14 @@ func TestBoardInvalidTypeCreate(t *testing.T) {
 	configureResource(t, r, client)
 	s := getResourceSchema(t, r)
 	tfType := s.Type().TerraformType(ctx)
+	ccType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}}
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":       tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":     tftypes.NewValue(tftypes.String, "Bad Board"),
-		"type":     tftypes.NewValue(tftypes.String, "invalid"),
-		"space_id": tftypes.NewValue(tftypes.String, "proj-1"),
+		"id":            tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":          tftypes.NewValue(tftypes.String, "Bad Board"),
+		"type":          tftypes.NewValue(tftypes.String, "invalid"),
+		"space_id":      tftypes.NewValue(tftypes.String, "proj-1"),
+		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)

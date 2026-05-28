@@ -294,12 +294,14 @@ func TestBoardUpdateBadRequest(t *testing.T) {
 	configureResource(t, r, cl)
 	s := getResourceSchema(t, r)
 	tfType := s.Type().TerraformType(ctx)
+	ccType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}}
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":       tftypes.NewValue(tftypes.String, "b-1"),
-		"name":     tftypes.NewValue(tftypes.String, "Board"),
-		"type":     tftypes.NewValue(tftypes.String, "scrum"),
-		"space_id": tftypes.NewValue(tftypes.String, "sp-1"),
+		"id":            tftypes.NewValue(tftypes.String, "b-1"),
+		"name":          tftypes.NewValue(tftypes.String, "Board"),
+		"type":          tftypes.NewValue(tftypes.String, "scrum"),
+		"space_id":      tftypes.NewValue(tftypes.String, "sp-1"),
+		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}

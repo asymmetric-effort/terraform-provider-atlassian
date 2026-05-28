@@ -314,6 +314,9 @@ func testMiscMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
 		boardType, _ := req["type"].(string)
 		spaceID, _ := req["spaceId"].(string)
 		b := map[string]interface{}{"id": id, "name": name, "type": boardType, "spaceId": spaceID, "self": fmt.Sprintf("https://example.atlassian.net/rest/agile/1.0/board/%s", id)}
+		if cc, ok := req["columnConfig"]; ok && cc != nil {
+			b["columnConfig"] = cc
+		}
 		boards[id] = b
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
@@ -1755,13 +1758,13 @@ func TestJiraBoardResourceSchema(t *testing.T) {
 	r := boardresource.NewResource()
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), resource.SchemaRequest{}, resp)
-	for _, attr := range []string{"id", "name", "type", "space_id"} {
+	for _, attr := range []string{"id", "name", "type", "space_id", "column_config"} {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected attribute %q", attr)
 		}
 	}
-	if len(resp.Schema.Attributes) != 4 {
-		t.Errorf("expected 4 attributes, got %d", len(resp.Schema.Attributes))
+	if len(resp.Schema.Attributes) != 5 {
+		t.Errorf("expected 5 attributes, got %d", len(resp.Schema.Attributes))
 	}
 	for _, name := range []string{"name", "type", "space_id"} {
 		if !resp.Schema.Attributes[name].IsRequired() {
@@ -1792,9 +1795,11 @@ func TestJiraBoardResourceCRUDLifecycle(t *testing.T) {
 	s := getResourceSchema(t, r)
 	tfType := s.Type().TerraformType(ctx)
 
+	ccType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}}
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Test Board"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "PROJ1"),
+		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1812,6 +1817,7 @@ func TestJiraBoardResourceCRUDLifecycle(t *testing.T) {
 	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "Test Board"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "PROJ1"),
+		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -1822,6 +1828,7 @@ func TestJiraBoardResourceCRUDLifecycle(t *testing.T) {
 	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "Updated Board"),
 		"type": tftypes.NewValue(tftypes.String, "kanban"), "space_id": tftypes.NewValue(tftypes.String, "PROJ2"),
+		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
@@ -1837,6 +1844,160 @@ func TestJiraBoardResourceCRUDLifecycle(t *testing.T) {
 	}
 }
 
+// TestJiraBoardResourceWithColumnConfig tests creating a board with non-empty column_config.
+func TestJiraBoardResourceWithColumnConfig(t *testing.T) {
+	t.Parallel()
+	_, client := testMiscMockServer(t)
+	ctx := context.Background()
+	r := boardresource.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+	ccType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}}
+
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "CC Board"),
+		"type": tftypes.NewValue(tftypes.String, "kanban"), "space_id": tftypes.NewValue(tftypes.String, "PROJ1"),
+		"column_config": tftypes.NewValue(ccType, []tftypes.Value{
+			tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}, map[string]tftypes.Value{
+				"name":       tftypes.NewValue(tftypes.String, "To Do"),
+				"status_ids": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{tftypes.NewValue(tftypes.String, "10001")}),
+			}),
+			tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}, map[string]tftypes.Value{
+				"name":       tftypes.NewValue(tftypes.String, "Done"),
+				"status_ids": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{tftypes.NewValue(tftypes.String, "10002"), tftypes.NewValue(tftypes.String, "10003")}),
+			}),
+		}),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+	id := getStringAttr(t, createResp.State, "id")
+	if id == "" {
+		t.Fatal("expected non-empty id")
+	}
+
+	// Read back and verify column config is present
+	readState := tfsdk.State{Schema: s, Raw: createResp.State.Raw.Copy()}
+	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
+	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+
+	// Update with different column config
+	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "CC Board"),
+		"type": tftypes.NewValue(tftypes.String, "kanban"), "space_id": tftypes.NewValue(tftypes.String, "PROJ1"),
+		"column_config": tftypes.NewValue(ccType, []tftypes.Value{
+			tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}, map[string]tftypes.Value{
+				"name":       tftypes.NewValue(tftypes.String, "Backlog"),
+				"status_ids": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, nil),
+			}),
+		}),
+	})}
+	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
+	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
+	if updateResp.Diagnostics.HasError() {
+		t.Fatalf("Update: %v", updateResp.Diagnostics.Errors())
+	}
+
+	// Delete
+	deleteState := tfsdk.State{Schema: s, Raw: updateResp.State.Raw.Copy()}
+	deleteResp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: deleteState.Raw.Copy()}}
+	r.Delete(ctx, resource.DeleteRequest{State: deleteState}, deleteResp)
+	if deleteResp.Diagnostics.HasError() {
+		t.Fatalf("Delete: %v", deleteResp.Diagnostics.Errors())
+	}
+}
+
+// TestJiraBoardDataSourceWithColumnConfig tests reading a board with column config via data source.
+func TestJiraBoardDataSourceWithColumnConfig(t *testing.T) {
+	t.Parallel()
+	_, client := testMiscMockServer(t)
+	ctx := context.Background()
+	ccType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}}
+
+	r := boardresource.NewResource()
+	configureResource(t, r, client)
+	rs := getResourceSchema(t, r)
+	rsTfType := rs.Type().TerraformType(ctx)
+	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
+		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "DS CC Board"),
+		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "SP1"),
+		"column_config": tftypes.NewValue(ccType, []tftypes.Value{
+			tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}, map[string]tftypes.Value{
+				"name":       tftypes.NewValue(tftypes.String, "In Progress"),
+				"status_ids": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{tftypes.NewValue(tftypes.String, "3")}),
+			}),
+		}),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+	id := getStringAttr(t, createResp.State, "id")
+
+	ds := boarddatasource.NewDataSource()
+	configureDatasource(t, ds, client)
+	dss := getDatasourceSchema(t, ds)
+	dsTfType := dss.Type().TerraformType(ctx)
+
+	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
+		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "space_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"column_config": tftypes.NewValue(ccType, nil),
+	})}
+	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
+	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("DS Read: %v", readResp.Diagnostics.Errors())
+	}
+}
+
+// TestJiraBoardDataSourceColumnConfigEmptyStatusIDs tests DS read with empty status_ids in column config.
+func TestJiraBoardDataSourceColumnConfigEmptyStatusIDs(t *testing.T) {
+	t.Parallel()
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /rest/agile/1.0/board/cc-empty", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "cc-empty", "name": "Empty CC Board", "type": "kanban", "spaceId": "SP1",
+			"columnConfig": []map[string]interface{}{
+				{"name": "Backlog"},
+			},
+		})
+	})
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 5000000000, MaxRetries: 0, RetryWaitMin: 1000000000, RetryWaitMax: 1000000000}
+	client, err := atlassian.NewClient(cfg, &testNoopAuth{})
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	ctx := context.Background()
+	ccType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}}
+
+	ds := boarddatasource.NewDataSource()
+	configureDatasource(t, ds, client)
+	dss := getDatasourceSchema(t, ds)
+	dsTfType := dss.Type().TerraformType(ctx)
+
+	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
+		"id": tftypes.NewValue(tftypes.String, "cc-empty"), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "space_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"column_config": tftypes.NewValue(ccType, nil),
+	})}
+	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
+	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("DS Read: %v", readResp.Diagnostics.Errors())
+	}
+}
+
 // TestJiraBoardResourceErrorPaths tests error scenarios.
 func TestJiraBoardResourceErrorPaths(t *testing.T) {
 	t.Parallel()
@@ -1846,11 +2007,13 @@ func TestJiraBoardResourceErrorPaths(t *testing.T) {
 	configureResource(t, r, client)
 	s := getResourceSchema(t, r)
 	tfType := s.Type().TerraformType(ctx)
+	ccType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}}
 
 	// Duplicate
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Dup Board"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "P"),
+		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	resp1 := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp1)
@@ -1863,6 +2026,7 @@ func TestJiraBoardResourceErrorPaths(t *testing.T) {
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "nonexistent"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "P"),
+		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	uResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}, State: state}, uResp)
@@ -1922,6 +2086,7 @@ func TestJiraBoardDataSource(t *testing.T) {
 	_, client := testMiscMockServer(t)
 	ctx := context.Background()
 
+	ccType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}}
 	r := boardresource.NewResource()
 	configureResource(t, r, client)
 	rs := getResourceSchema(t, r)
@@ -1929,6 +2094,7 @@ func TestJiraBoardDataSource(t *testing.T) {
 	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "DS Board"),
 		"type": tftypes.NewValue(tftypes.String, "kanban"), "space_id": tftypes.NewValue(tftypes.String, "SP1"),
+		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1947,13 +2113,14 @@ func TestJiraBoardDataSource(t *testing.T) {
 	}
 	schemaResp := &datasource.SchemaResponse{}
 	ds.Schema(ctx, datasource.SchemaRequest{}, schemaResp)
-	if len(schemaResp.Schema.Attributes) != 4 {
-		t.Errorf("expected 4 attrs, got %d", len(schemaResp.Schema.Attributes))
+	if len(schemaResp.Schema.Attributes) != 5 {
+		t.Errorf("expected 5 attrs, got %d", len(schemaResp.Schema.Attributes))
 	}
 
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "space_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -1965,6 +2132,7 @@ func TestJiraBoardDataSource(t *testing.T) {
 	config404 := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "nonexistent"), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "space_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	resp404 := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config404}, resp404)
@@ -2937,9 +3105,11 @@ func TestJiraBoardResourceUpdateServerError(t *testing.T) {
 	configureResource(t, r, client)
 	s := getResourceSchema(t, r)
 	tfType := s.Type().TerraformType(ctx)
+	ccType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "some-id"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "P"),
+		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}, State: state}, resp)
@@ -2957,9 +3127,11 @@ func TestJiraBoardResourceDeleteServerError(t *testing.T) {
 	configureResource(t, r, client)
 	s := getResourceSchema(t, r)
 	tfType := s.Type().TerraformType(ctx)
+	ccType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "some-id"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "P"),
+		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -3386,10 +3558,12 @@ func TestJiraBoardResourceUpdateBadPlan(t *testing.T) {
 	s := getResourceSchema(t, r)
 	ctx := context.Background()
 	tfType := s.Type().TerraformType(ctx)
+	ccType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}}
 	badPlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tftypes.String, "invalid")}
 	goodState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "P"),
+		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: badPlan, State: goodState}, resp)
@@ -3407,9 +3581,11 @@ func TestJiraBoardResourceUpdateBadState(t *testing.T) {
 	s := getResourceSchema(t, r)
 	ctx := context.Background()
 	tfType := s.Type().TerraformType(ctx)
+	ccType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}}
 	goodPlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "P"),
+		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	badState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tftypes.String, "invalid")}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
