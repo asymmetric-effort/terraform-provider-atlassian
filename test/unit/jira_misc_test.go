@@ -473,7 +473,21 @@ func testMiscMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
 		}
 		id := miscNextID("ps")
 		description, _ := req["description"].(string)
-		ps := map[string]interface{}{"id": id, "name": name, "description": description, "self": fmt.Sprintf("https://example.atlassian.net/rest/api/3/priorityscheme/%s", id)}
+		defaultPriorityID, _ := req["defaultPriorityId"].(string)
+		var priorityIDs []interface{}
+		if raw, ok := req["priorityIds"]; ok {
+			if arr, ok := raw.([]interface{}); ok {
+				priorityIDs = arr
+			}
+		}
+		ps := map[string]interface{}{
+			"id": id, "name": name, "description": description,
+			"defaultPriorityId": defaultPriorityID,
+			"self":              fmt.Sprintf("https://example.atlassian.net/rest/api/3/priorityscheme/%s", id),
+		}
+		if len(priorityIDs) > 0 {
+			ps["priorityIds"] = priorityIDs
+		}
 		prioritySchemes[id] = ps
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
@@ -2432,13 +2446,13 @@ func TestJiraPrioritySchemeResourceSchema(t *testing.T) {
 	r := priorityresource.NewSchemeResource()
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), resource.SchemaRequest{}, resp)
-	for _, attr := range []string{"id", "name", "description"} {
+	for _, attr := range []string{"id", "name", "description", "priority_ids", "default_priority_id"} {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected attribute %q", attr)
 		}
 	}
-	if len(resp.Schema.Attributes) != 3 {
-		t.Errorf("expected 3 attributes, got %d", len(resp.Schema.Attributes))
+	if len(resp.Schema.Attributes) != 5 {
+		t.Errorf("expected 5 attributes, got %d", len(resp.Schema.Attributes))
 	}
 }
 
@@ -2464,9 +2478,12 @@ func TestJiraPrioritySchemeResourceCRUDLifecycle(t *testing.T) {
 	s := getResourceSchema(t, r)
 	tfType := s.Type().TerraformType(ctx)
 
+	emptyPIDs := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{})
+	unknownPIDs := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue)
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Test Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "A scheme"),
+		"description":  tftypes.NewValue(tftypes.String, "A scheme"),
+		"priority_ids": emptyPIDs, "default_priority_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -2480,7 +2497,8 @@ func TestJiraPrioritySchemeResourceCRUDLifecycle(t *testing.T) {
 
 	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "Test Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "A scheme"),
+		"description":  tftypes.NewValue(tftypes.String, "A scheme"),
+		"priority_ids": emptyPIDs, "default_priority_id": tftypes.NewValue(tftypes.String, ""),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -2490,7 +2508,72 @@ func TestJiraPrioritySchemeResourceCRUDLifecycle(t *testing.T) {
 
 	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "Updated Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "Updated"),
+		"description":  tftypes.NewValue(tftypes.String, "Updated"),
+		"priority_ids": unknownPIDs, "default_priority_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+	})}
+	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
+	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
+	if updateResp.Diagnostics.HasError() {
+		t.Fatalf("Update: %v", updateResp.Diagnostics.Errors())
+	}
+
+	deleteState := tfsdk.State{Schema: s, Raw: updateResp.State.Raw.Copy()}
+	deleteResp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: deleteState.Raw.Copy()}}
+	r.Delete(ctx, resource.DeleteRequest{State: deleteState}, deleteResp)
+	if deleteResp.Diagnostics.HasError() {
+		t.Fatalf("Delete: %v", deleteResp.Diagnostics.Errors())
+	}
+}
+
+// TestJiraPrioritySchemeResourceWithPriorityIDs tests CRUD with non-empty priority_ids and default_priority_id.
+func TestJiraPrioritySchemeResourceWithPriorityIDs(t *testing.T) {
+	t.Parallel()
+	_, client := testMiscMockServer(t)
+	ctx := context.Background()
+	r := priorityresource.NewSchemeResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	pidList := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{
+		tftypes.NewValue(tftypes.String, "pri-1"),
+		tftypes.NewValue(tftypes.String, "pri-2"),
+		tftypes.NewValue(tftypes.String, "pri-3"),
+	})
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Ordered Scheme"),
+		"description":  tftypes.NewValue(tftypes.String, "with priorities"),
+		"priority_ids": pidList, "default_priority_id": tftypes.NewValue(tftypes.String, "pri-1"),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+	id := getStringAttr(t, createResp.State, "id")
+	if id == "" {
+		t.Fatal("expected non-empty id")
+	}
+	dpid := getStringAttr(t, createResp.State, "default_priority_id")
+	if dpid != "pri-1" {
+		t.Errorf("expected default_priority_id 'pri-1', got %q", dpid)
+	}
+
+	readState := tfsdk.State{Schema: s, Raw: createResp.State.Raw.Copy()}
+	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
+	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+
+	updatedPidList := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{
+		tftypes.NewValue(tftypes.String, "pri-3"),
+		tftypes.NewValue(tftypes.String, "pri-1"),
+	})
+	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "Ordered Scheme"),
+		"description":  tftypes.NewValue(tftypes.String, "with priorities"),
+		"priority_ids": updatedPidList, "default_priority_id": tftypes.NewValue(tftypes.String, "pri-3"),
 	})}
 	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
@@ -2516,9 +2599,12 @@ func TestJiraPrioritySchemeResourceErrorPaths(t *testing.T) {
 	s := getResourceSchema(t, r)
 	tfType := s.Type().TerraformType(ctx)
 
+	emptyPIDs := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{})
+	unknownPIDs := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue)
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Dup Scheme"),
-		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"description":  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"priority_ids": unknownPIDs, "default_priority_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	resp1 := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp1)
@@ -2530,7 +2616,8 @@ func TestJiraPrioritySchemeResourceErrorPaths(t *testing.T) {
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "nonexistent"), "name": tftypes.NewValue(tftypes.String, "X"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"description":  tftypes.NewValue(tftypes.String, ""),
+		"priority_ids": emptyPIDs, "default_priority_id": tftypes.NewValue(tftypes.String, ""),
 	})}
 	uResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}, State: state}, uResp)
@@ -2592,9 +2679,11 @@ func TestJiraPrioritySchemeDataSource(t *testing.T) {
 	configureResource(t, r, client)
 	rs := getResourceSchema(t, r)
 	rsTfType := rs.Type().TerraformType(ctx)
+	unknownPIDs := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue)
 	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "DS Scheme"),
-		"description": tftypes.NewValue(tftypes.String, "ds desc"),
+		"description":  tftypes.NewValue(tftypes.String, "ds desc"),
+		"priority_ids": unknownPIDs, "default_priority_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -2613,13 +2702,15 @@ func TestJiraPrioritySchemeDataSource(t *testing.T) {
 	}
 	schemaResp := &datasource.SchemaResponse{}
 	ds.Schema(ctx, datasource.SchemaRequest{}, schemaResp)
-	if len(schemaResp.Schema.Attributes) != 3 {
-		t.Errorf("expected 3 attrs, got %d", len(schemaResp.Schema.Attributes))
+	if len(schemaResp.Schema.Attributes) != 5 {
+		t.Errorf("expected 5 attrs, got %d", len(schemaResp.Schema.Attributes))
 	}
 
+	dsUnknownPIDs := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue)
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"description":  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"priority_ids": dsUnknownPIDs, "default_priority_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
@@ -2629,7 +2720,8 @@ func TestJiraPrioritySchemeDataSource(t *testing.T) {
 
 	config404 := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "nonexistent"), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"description":  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"priority_ids": dsUnknownPIDs, "default_priority_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	resp404 := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config404}, resp404)
@@ -2644,6 +2736,55 @@ func TestJiraPrioritySchemeDataSource(t *testing.T) {
 	ds2.Read(ctx, datasource.ReadRequest{Config: config}, seResp)
 	if !seResp.Diagnostics.HasError() {
 		t.Fatal("Expected server error")
+	}
+}
+
+// TestJiraPrioritySchemeDataSourceWithPriorityIDs tests reading a scheme with non-empty priority_ids via data source.
+func TestJiraPrioritySchemeDataSourceWithPriorityIDs(t *testing.T) {
+	t.Parallel()
+	_, client := testMiscMockServer(t)
+	ctx := context.Background()
+
+	r := priorityresource.NewSchemeResource()
+	configureResource(t, r, client)
+	rs := getResourceSchema(t, r)
+	rsTfType := rs.Type().TerraformType(ctx)
+
+	pidList := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{
+		tftypes.NewValue(tftypes.String, "pri-10"),
+		tftypes.NewValue(tftypes.String, "pri-20"),
+	})
+	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
+		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "DS Scheme With PIDs"),
+		"description":  tftypes.NewValue(tftypes.String, "ds with pids"),
+		"priority_ids": pidList, "default_priority_id": tftypes.NewValue(tftypes.String, "pri-10"),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+	id := getStringAttr(t, createResp.State, "id")
+
+	ds := prioritydatasource.NewSchemeDataSource()
+	configureDatasource(t, ds, client)
+	dss := getDatasourceSchema(t, ds)
+	dsTfType := dss.Type().TerraformType(ctx)
+
+	dsUnknownPIDs := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tftypes.UnknownValue)
+	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
+		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"description":  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"priority_ids": dsUnknownPIDs, "default_priority_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+	})}
+	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
+	ds.Read(ctx, datasource.ReadRequest{Config: config}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("DS Read: %v", readResp.Diagnostics.Errors())
+	}
+	dpid := getStringAttr(t, readResp.State, "default_priority_id")
+	if dpid != "pri-10" {
+		t.Errorf("expected default_priority_id 'pri-10', got %q", dpid)
 	}
 }
 
@@ -3189,9 +3330,11 @@ func TestJiraPrioritySchemeResourceUpdateServerError(t *testing.T) {
 	configureResource(t, r, client)
 	s := getResourceSchema(t, r)
 	tfType := s.Type().TerraformType(ctx)
+	emptyPIDs := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{})
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "some-id"), "name": tftypes.NewValue(tftypes.String, "X"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"description":  tftypes.NewValue(tftypes.String, ""),
+		"priority_ids": emptyPIDs, "default_priority_id": tftypes.NewValue(tftypes.String, ""),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}, State: state}, resp)
@@ -3209,9 +3352,11 @@ func TestJiraPrioritySchemeResourceDeleteServerError(t *testing.T) {
 	configureResource(t, r, client)
 	s := getResourceSchema(t, r)
 	tfType := s.Type().TerraformType(ctx)
+	emptyPIDs := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{})
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "some-id"), "name": tftypes.NewValue(tftypes.String, "X"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"description":  tftypes.NewValue(tftypes.String, ""),
+		"priority_ids": emptyPIDs, "default_priority_id": tftypes.NewValue(tftypes.String, ""),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -3742,10 +3887,12 @@ func TestJiraPrioritySchemeResourceUpdateBadPlan(t *testing.T) {
 	s := getResourceSchema(t, r)
 	ctx := context.Background()
 	tfType := s.Type().TerraformType(ctx)
+	emptyPIDs := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{})
 	badPlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tftypes.String, "invalid")}
 	goodState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, "X"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"description":  tftypes.NewValue(tftypes.String, ""),
+		"priority_ids": emptyPIDs, "default_priority_id": tftypes.NewValue(tftypes.String, ""),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: badPlan, State: goodState}, resp)
@@ -3763,9 +3910,11 @@ func TestJiraPrioritySchemeResourceUpdateBadState(t *testing.T) {
 	s := getResourceSchema(t, r)
 	ctx := context.Background()
 	tfType := s.Type().TerraformType(ctx)
+	emptyPIDs := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{})
 	goodPlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, "X"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"description":  tftypes.NewValue(tftypes.String, ""),
+		"priority_ids": emptyPIDs, "default_priority_id": tftypes.NewValue(tftypes.String, ""),
 	})}
 	badState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tftypes.String, "invalid")}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}

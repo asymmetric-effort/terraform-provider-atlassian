@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,17 +20,21 @@ var _ datasource.DataSource = &SchemeDataSource{}
 
 // apiPriorityScheme represents the JSON structure returned by the Atlassian priority scheme API.
 type apiPriorityScheme struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Self        string `json:"self"`
+	ID                string   `json:"id"`
+	Name              string   `json:"name"`
+	Description       string   `json:"description"`
+	PriorityIDs       []string `json:"priorityIds,omitempty"`
+	DefaultPriorityID string   `json:"defaultPriorityId,omitempty"`
+	Self              string   `json:"self"`
 }
 
 // SchemeDataSourceModel describes the priority scheme data source data model.
 type SchemeDataSourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
+	ID                types.String `tfsdk:"id"`
+	Name              types.String `tfsdk:"name"`
+	Description       types.String `tfsdk:"description"`
+	PriorityIDs       types.List   `tfsdk:"priority_ids"`
+	DefaultPriorityID types.String `tfsdk:"default_priority_id"`
 }
 
 // SchemeDataSource implements the atlassian_jira_priority_scheme data source.
@@ -64,6 +69,15 @@ func (d *SchemeDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 				Description: "A description of the priority scheme.",
 				Computed:    true,
 			},
+			"priority_ids": schema.ListAttribute{
+				Description: "Ordered list of priority IDs in the scheme, defining priority ordering.",
+				Computed:    true,
+				ElementType: types.StringType,
+			},
+			"default_priority_id": schema.StringAttribute{
+				Description: "The default priority ID for this scheme.",
+				Computed:    true,
+			},
 		},
 	}
 }
@@ -82,6 +96,18 @@ func (d *SchemeDataSource) Configure(_ context.Context, req datasource.Configure
 		return
 	}
 	d.client = client
+}
+
+// buildPriorityIDsList converts a string slice to a types.List of StringType values.
+func buildPriorityIDsList(ids []string) types.List {
+	if len(ids) == 0 {
+		return types.ListValueMust(types.StringType, []attr.Value{})
+	}
+	elems := make([]attr.Value, len(ids))
+	for i, id := range ids {
+		elems[i] = types.StringValue(id)
+	}
+	return types.ListValueMust(types.StringType, elems)
 }
 
 // Read retrieves priority scheme data from the Atlassian API.
@@ -114,6 +140,8 @@ func (d *SchemeDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	config.ID = types.StringValue(ps.ID)
 	config.Name = types.StringValue(ps.Name)
 	config.Description = types.StringValue(ps.Description)
+	config.PriorityIDs = buildPriorityIDsList(ps.PriorityIDs)
+	config.DefaultPriorityID = types.StringValue(ps.DefaultPriorityID)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }

@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -28,29 +29,37 @@ var (
 
 // apiPriorityScheme represents the JSON structure returned by the Atlassian priority scheme API.
 type apiPriorityScheme struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Self        string `json:"self"`
+	ID                string   `json:"id"`
+	Name              string   `json:"name"`
+	Description       string   `json:"description"`
+	PriorityIDs       []string `json:"priorityIds,omitempty"`
+	DefaultPriorityID string   `json:"defaultPriorityId,omitempty"`
+	Self              string   `json:"self"`
 }
 
 // apiPrioritySchemeCreate represents the JSON body for creating a priority scheme.
 type apiPrioritySchemeCreate struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
+	Name              string   `json:"name"`
+	Description       string   `json:"description,omitempty"`
+	PriorityIDs       []string `json:"priorityIds,omitempty"`
+	DefaultPriorityID string   `json:"defaultPriorityId,omitempty"`
 }
 
 // apiPrioritySchemeUpdate represents the JSON body for updating a priority scheme.
 type apiPrioritySchemeUpdate struct {
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
+	Name              string   `json:"name,omitempty"`
+	Description       string   `json:"description,omitempty"`
+	PriorityIDs       []string `json:"priorityIds,omitempty"`
+	DefaultPriorityID string   `json:"defaultPriorityId,omitempty"`
 }
 
 // SchemeResourceModel describes the priority scheme resource data model.
 type SchemeResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
+	ID                types.String `tfsdk:"id"`
+	Name              types.String `tfsdk:"name"`
+	Description       types.String `tfsdk:"description"`
+	PriorityIDs       types.List   `tfsdk:"priority_ids"`
+	DefaultPriorityID types.String `tfsdk:"default_priority_id"`
 }
 
 // SchemeResource implements the atlassian_jira_priority_scheme managed resource.
@@ -92,6 +101,20 @@ func (r *SchemeResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"priority_ids": schema.ListAttribute{
+				Description: "Ordered list of priority IDs in the scheme, defining priority ordering.",
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
+			},
+			"default_priority_id": schema.StringAttribute{
+				Description: "The default priority ID for this scheme.",
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 }
@@ -112,6 +135,32 @@ func (r *SchemeResource) Configure(_ context.Context, req resource.ConfigureRequ
 	r.client = client
 }
 
+// extractPriorityIDs converts the types.List to a Go string slice.
+// The schema guarantees all elements are types.String, so the type assertion is safe.
+func extractPriorityIDs(list types.List) ([]string, bool) {
+	if list.IsNull() || list.IsUnknown() {
+		return nil, false
+	}
+	var ids []string
+	for _, elem := range list.Elements() {
+		// Safe assertion: schema enforces element type as types.StringType.
+		ids = append(ids, elem.(types.String).ValueString())
+	}
+	return ids, true
+}
+
+// buildPriorityIDsList converts a string slice to a types.List of StringType values.
+func buildPriorityIDsList(ids []string) types.List {
+	if len(ids) == 0 {
+		return types.ListValueMust(types.StringType, []attr.Value{})
+	}
+	elems := make([]attr.Value, len(ids))
+	for i, id := range ids {
+		elems[i] = types.StringValue(id)
+	}
+	return types.ListValueMust(types.StringType, elems)
+}
+
 // Create provisions a new Jira priority scheme.
 func (r *SchemeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan SchemeResourceModel
@@ -125,6 +174,12 @@ func (r *SchemeResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
+	}
+	if ids, ok := extractPriorityIDs(plan.PriorityIDs); ok {
+		body.PriorityIDs = ids
+	}
+	if !plan.DefaultPriorityID.IsNull() && !plan.DefaultPriorityID.IsUnknown() {
+		body.DefaultPriorityID = plan.DefaultPriorityID.ValueString()
 	}
 	bodyBytes, _ := json.Marshal(body)
 
@@ -164,6 +219,8 @@ func (r *SchemeResource) Create(ctx context.Context, req resource.CreateRequest,
 	plan.ID = types.StringValue(created.ID)
 	plan.Name = types.StringValue(created.Name)
 	plan.Description = types.StringValue(created.Description)
+	plan.PriorityIDs = buildPriorityIDsList(created.PriorityIDs)
+	plan.DefaultPriorityID = types.StringValue(created.DefaultPriorityID)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -194,6 +251,8 @@ func (r *SchemeResource) Read(ctx context.Context, req resource.ReadRequest, res
 	state.ID = types.StringValue(ps.ID)
 	state.Name = types.StringValue(ps.Name)
 	state.Description = types.StringValue(ps.Description)
+	state.PriorityIDs = buildPriorityIDsList(ps.PriorityIDs)
+	state.DefaultPriorityID = types.StringValue(ps.DefaultPriorityID)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -217,6 +276,12 @@ func (r *SchemeResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
+	}
+	if ids, ok := extractPriorityIDs(plan.PriorityIDs); ok {
+		body.PriorityIDs = ids
+	}
+	if !plan.DefaultPriorityID.IsNull() && !plan.DefaultPriorityID.IsUnknown() {
+		body.DefaultPriorityID = plan.DefaultPriorityID.ValueString()
 	}
 	bodyBytes, _ := json.Marshal(body)
 
@@ -256,6 +321,8 @@ func (r *SchemeResource) Update(ctx context.Context, req resource.UpdateRequest,
 	plan.ID = types.StringValue(updated.ID)
 	plan.Name = types.StringValue(updated.Name)
 	plan.Description = types.StringValue(updated.Description)
+	plan.PriorityIDs = buildPriorityIDsList(updated.PriorityIDs)
+	plan.DefaultPriorityID = types.StringValue(updated.DefaultPriorityID)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }

@@ -756,10 +756,13 @@ func TestPrioritySchemeCreateBadRequest(t *testing.T) {
 	s := getResourceSchema(t, r)
 	tfType := s.Type().TerraformType(ctx)
 
+	emptyPIDs := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{})
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"name":        tftypes.NewValue(tftypes.String, "PSR"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":                tftypes.NewValue(tftypes.String, "PSR"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"priority_ids":        emptyPIDs,
+		"default_priority_id": tftypes.NewValue(tftypes.String, ""),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -778,10 +781,13 @@ func TestPrioritySchemeUpdateBadRequest(t *testing.T) {
 	s := getResourceSchema(t, r)
 	tfType := s.Type().TerraformType(ctx)
 
+	emptyPIDs := tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{})
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":          tftypes.NewValue(tftypes.String, "psr-1"),
-		"name":        tftypes.NewValue(tftypes.String, "PSR"),
-		"description": tftypes.NewValue(tftypes.String, ""),
+		"id":                  tftypes.NewValue(tftypes.String, "psr-1"),
+		"name":                tftypes.NewValue(tftypes.String, "PSR"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"priority_ids":        emptyPIDs,
+		"default_priority_id": tftypes.NewValue(tftypes.String, ""),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
