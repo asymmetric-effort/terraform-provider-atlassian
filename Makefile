@@ -40,7 +40,24 @@ lint:
 	@echo "  go vet..."
 	@go vet ./...
 	@echo "  govulncheck..."
-	@govulncheck ./... || true
+	@govulncheck ./...
+	@echo "  jsonlint..."
+	@JSONFILES=$$(find . -name '*.json' -not -path './vendor/*' -not -path './.git/*' -not -path './build/*' 2>/dev/null); \
+	if [ -n "$$JSONFILES" ]; then \
+		for f in $$JSONFILES; do \
+			jsonlint -q "$$f" || exit 1; \
+		done; \
+	fi
+	@echo "  yamllint..."
+	@YAMLFILES=$$(find . -name '*.yml' -o -name '*.yaml' | grep -v vendor/ | grep -v '.git/' | grep -v 'build/' 2>/dev/null); \
+	if [ -n "$$YAMLFILES" ]; then \
+		yamllint -c .yamllint.yml $$YAMLFILES || exit 1; \
+	fi
+	@echo "  markdownlint..."
+	@MDFILES=$$(find . -name '*.md' -not -path './vendor/*' -not -path './.git/*' -not -path './build/*' 2>/dev/null); \
+	if [ -n "$$MDFILES" ]; then \
+		markdownlint $$MDFILES || exit 1; \
+	fi
 	@echo "Lint complete."
 
 ## ---- Test targets (Issue #4) ----
