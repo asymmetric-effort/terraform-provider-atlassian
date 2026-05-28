@@ -10,8 +10,12 @@ import (
 	groupdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/group"
 	roledatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/role"
 	userds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/user"
+	boarddatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/board"
 	customdomainds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/custom_domain"
+	customfielddatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/custom_field"
+	dashboarddatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/dashboard"
 	issuetypedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/issue_type"
+	prioritydatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/priority"
 	screendatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/screen"
 	spacedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/space"
 	workflowdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/workflow"
@@ -19,8 +23,12 @@ import (
 	roleresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/role"
 	tokenresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/token"
 	userrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/user"
+	boardresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/board"
 	customdomainrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/custom_domain"
+	customfieldresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/custom_field"
+	dashboardresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/dashboard"
 	issuetyperesource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/issue_type"
+	priorityresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/priority"
 	screenresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/screen"
 	spaceresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/space"
 	workflowresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/workflow"
@@ -238,6 +246,12 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		screenresource.NewResource,
 		screenresource.NewSchemeResource,
 		screenresource.NewTabFieldResource,
+		dashboardresource.NewResource,
+		dashboardresource.NewFilterResource,
+		customfieldresource.NewResource,
+		boardresource.NewResource,
+		priorityresource.NewResource,
+		priorityresource.NewSchemeResource,
 	}
 }
 
@@ -255,5 +269,11 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 		workflowdatasource.NewSchemeDataSource,
 		screendatasource.NewDataSource,
 		screendatasource.NewSchemeDataSource,
+		dashboarddatasource.NewDataSource,
+		dashboarddatasource.NewFilterDataSource,
+		customfielddatasource.NewDataSource,
+		boarddatasource.NewDataSource,
+		prioritydatasource.NewDataSource,
+		prioritydatasource.NewSchemeDataSource,
 	}
 }
