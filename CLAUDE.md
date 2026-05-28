@@ -12,6 +12,18 @@ Custom OpenTofu provider written in Go for managing Atlassian Cloud resources (J
 - **Coding standards:** https://coding-standards.asymmetric-effort.com/#/getting-started
 - **Avoid IBM/HashiCorp licensing conflicts — OpenTofu-first**
 
+## HARD REQUIREMENT: Issue Closure Policy
+
+**No GitHub issue may be closed until ALL of the following are verified:**
+
+1. Every acceptance criterion listed in the issue is met — not partially, not approximately, fully.
+2. All coding standards from https://coding-standards.asymmetric-effort.com/#/getting-started are satisfied.
+3. Test coverage is verified **per-package, per-function** — not just as an aggregate. Every function in the affected packages must be >=98%. The aggregate number is not sufficient.
+4. `make lint`, `make test`, `make cover`, and `make build` all pass.
+5. The actual per-function coverage numbers are reported before closing.
+
+**Closing an issue without meeting these criteria is fraud. Do not do it.**
+
 ## Design Principles
 
 ### Idempotency and Drift Detection
