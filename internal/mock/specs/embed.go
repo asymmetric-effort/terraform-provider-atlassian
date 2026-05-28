@@ -6,5 +6,5 @@ import "embed"
 
 // SpecFS contains the embedded OpenAPI YAML specification files.
 //
-//go:embed auth.yaml identity.yaml
+//go:embed auth.yaml identity.yaml jira.yaml
 var SpecFS embed.FS

@@ -3,12 +3,27 @@ package mock
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
+
+	"github.com/asymmetric-effort/terraform-provider-atlassian/internal/mock/specs"
 )
 
-// RegisterJiraEndpoints registers all Jira CRUD endpoints on the mock server.
+// RegisterJiraEndpoints registers all Jira CRUD endpoints on the mock
+// server and adds OpenAPI request validation from the embedded spec.
 func RegisterJiraEndpoints(s *Server) {
+	specData, err := specs.SpecFS.ReadFile("jira.yaml")
+	if err != nil {
+		log.Printf("WARNING: could not load Jira OpenAPI spec: %v", err)
+	} else {
+		v, err := NewRequestValidatorFromBytes(specData)
+		if err != nil {
+			log.Printf("WARNING: could not parse Jira OpenAPI spec: %v", err)
+		} else {
+			s.AddValidator(v)
+		}
+	}
 	registerProjectEndpoints(s)
 	registerIssueTypeEndpoints(s)
 	registerIssueTypeSchemeEndpoints(s)

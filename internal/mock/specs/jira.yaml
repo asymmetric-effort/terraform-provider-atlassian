@@ -1,0 +1,1215 @@
+---
+openapi: "3.0.3"
+info:
+  title: Atlassian Mock API — Jira
+  version: "0.1.0"
+  description: >
+    OpenAPI spec for mock Atlassian Jira endpoints covering
+    spaces (projects), issue types, workflows, screens,
+    schemes, dashboards, filters, fields, boards, priorities,
+    automation rules, mail handlers, custom domains, and emails.
+paths:
+  /rest/api/3/project:
+    post:
+      operationId: createProject
+      summary: Create a Jira space (project)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listProjects
+      summary: List all projects
+      responses:
+        "200":
+          description: Project list
+  /rest/api/3/project/{idOrKey}:
+    get:
+      operationId: getProject
+      summary: Read project
+      parameters:
+        - name: idOrKey
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Project details
+    put:
+      operationId: updateProject
+      summary: Update project
+      parameters:
+        - name: idOrKey
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteProject
+      summary: Delete project
+      parameters:
+        - name: idOrKey
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/issuetype:
+    post:
+      operationId: createIssueType
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameRequired"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listIssueTypes
+      responses:
+        "200":
+          description: List
+  /rest/api/3/issuetype/{id}:
+    get:
+      operationId: getIssueType
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateIssueType
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteIssueType
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/issuetypescheme:
+    post:
+      operationId: createIssueTypeScheme
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameRequired"
+      responses:
+        "201":
+          description: Created
+  /rest/api/3/issuetypescheme/{id}:
+    get:
+      operationId: getIssueTypeScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateIssueTypeScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteIssueTypeScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/workflow:
+    post:
+      operationId: createWorkflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameRequired"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listWorkflows
+      responses:
+        "200":
+          description: List
+  /rest/api/3/workflow/{id}:
+    get:
+      operationId: getWorkflow
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateWorkflow
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteWorkflow
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/workflowscheme:
+    post:
+      operationId: createWorkflowScheme
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameRequired"
+      responses:
+        "201":
+          description: Created
+  /rest/api/3/workflowscheme/{id}:
+    get:
+      operationId: getWorkflowScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateWorkflowScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteWorkflowScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/screen:
+    post:
+      operationId: createScreen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameRequired"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listScreens
+      responses:
+        "200":
+          description: List
+  /rest/api/3/screen/{id}:
+    get:
+      operationId: getScreen
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateScreen
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteScreen
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/screenscheme:
+    post:
+      operationId: createScreenScheme
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameRequired"
+      responses:
+        "201":
+          description: Created
+  /rest/api/3/screenscheme/{id}:
+    get:
+      operationId: getScreenScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateScreenScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteScreenScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/screentabfield:
+    post:
+      operationId: createScreenTabField
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - fieldId
+              properties:
+                fieldId:
+                  type: string
+      responses:
+        "201":
+          description: Created
+  /rest/api/3/permissionscheme:
+    post:
+      operationId: createPermissionScheme
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameRequired"
+      responses:
+        "201":
+          description: Created
+  /rest/api/3/permissionscheme/{id}:
+    get:
+      operationId: getPermissionScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updatePermissionScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deletePermissionScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/issuesecurityschemes:
+    post:
+      operationId: createSecurityScheme
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameRequired"
+      responses:
+        "201":
+          description: Created
+  /rest/api/3/issuesecurityschemes/{id}:
+    get:
+      operationId: getSecurityScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateSecurityScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteSecurityScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/notificationscheme:
+    post:
+      operationId: createNotificationScheme
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameRequired"
+      responses:
+        "201":
+          description: Created
+  /rest/api/3/notificationscheme/{id}:
+    get:
+      operationId: getNotificationScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateNotificationScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteNotificationScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/dashboard:
+    post:
+      operationId: createDashboard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameRequired"
+      responses:
+        "201":
+          description: Created
+  /rest/api/3/dashboard/{id}:
+    get:
+      operationId: getDashboard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateDashboard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteDashboard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/filter:
+    post:
+      operationId: createFilter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameRequired"
+      responses:
+        "201":
+          description: Created
+  /rest/api/3/filter/{id}:
+    get:
+      operationId: getFilter
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateFilter
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteFilter
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/field:
+    post:
+      operationId: createField
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFieldRequest"
+      responses:
+        "201":
+          description: Created
+  /rest/api/3/field/{id}:
+    get:
+      operationId: getField
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateField
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteField
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/agile/1.0/board:
+    post:
+      operationId: createBoard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBoardRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listBoards
+      responses:
+        "200":
+          description: List
+  /rest/agile/1.0/board/{id}:
+    get:
+      operationId: getBoard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateBoard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteBoard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/priority:
+    post:
+      operationId: createPriority
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameRequired"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listPriorities
+      responses:
+        "200":
+          description: List
+  /rest/api/3/priority/{id}:
+    get:
+      operationId: getPriority
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updatePriority
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deletePriority
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/priorityscheme:
+    post:
+      operationId: createPriorityScheme
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameRequired"
+      responses:
+        "201":
+          description: Created
+  /rest/api/3/priorityscheme/{id}:
+    get:
+      operationId: getPriorityScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updatePriorityScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deletePriorityScheme
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/automation/rule:
+    post:
+      operationId: createAutomationRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAutomationRuleRequest"
+      responses:
+        "201":
+          description: Created
+  /rest/api/3/automation/rule/{id}:
+    get:
+      operationId: getAutomationRule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateAutomationRule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteAutomationRule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/mailhandler/incoming:
+    post:
+      operationId: createIncomingMailHandler
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameRequired"
+      responses:
+        "201":
+          description: Created
+  /rest/api/3/mailhandler/incoming/{id}:
+    get:
+      operationId: getIncomingMailHandler
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateIncomingMailHandler
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteIncomingMailHandler
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/mailhandler/outgoing:
+    post:
+      operationId: createOutgoingMailHandler
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameRequired"
+      responses:
+        "201":
+          description: Created
+  /rest/api/3/mailhandler/outgoing/{id}:
+    get:
+      operationId: getOutgoingMailHandler
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Details
+    put:
+      operationId: updateOutgoingMailHandler
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+    delete:
+      operationId: deleteOutgoingMailHandler
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/domain:
+    post:
+      operationId: createDomain
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDomainRequest"
+      responses:
+        "201":
+          description: Created with DNS records
+  /rest/api/3/domain/{id}:
+    get:
+      operationId: getDomain
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Domain with DNS records
+    delete:
+      operationId: deleteDomain
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /rest/api/3/email:
+    post:
+      operationId: createEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmailRequest"
+      responses:
+        "201":
+          description: Created
+    get:
+      operationId: listEmails
+      responses:
+        "200":
+          description: Email list
+  /rest/api/3/email/{id}:
+    get:
+      operationId: getEmail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Email details
+    delete:
+      operationId: deleteEmail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+components:
+  schemas:
+    CreateProjectRequest:
+      type: object
+      required:
+        - key
+        - name
+        - projectTypeKey
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        projectTypeKey:
+          type: string
+        description:
+          type: string
+        leadAccountId:
+          type: string
+    NameRequired:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+    CreateFieldRequest:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        description:
+          type: string
+    CreateBoardRequest:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+            - scrum
+            - kanban
+    CreateAutomationRuleRequest:
+      type: object
+      required:
+        - name
+        - trigger
+      properties:
+        name:
+          type: string
+        trigger:
+          type: object
+        conditions:
+          type: object
+        actions:
+          type: object
+        state:
+          type: string
+    CreateDomainRequest:
+      type: object
+      required:
+        - domain
+      properties:
+        domain:
+          type: string
+    CreateEmailRequest:
+      type: object
+      required:
+        - emailAddress
+      properties:
+        emailAddress:
+          type: string
+        domainId:
+          type: string
+        spaceId:
+          type: string
+        active:
+          type: boolean
