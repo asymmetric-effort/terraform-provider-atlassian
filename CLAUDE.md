@@ -137,9 +137,15 @@ permissions (user/group), permissions and access controls.
 subscribers, incidents and maintenance templates, permissions and access
 controls (team members, roles, page-level access).
 
-**Atlassian Guard:** Security policies, org-level security controls,
-audit logging configuration, data security policies. Phase 6 scope
-contingent on API availability research.
+**Atlassian Guard (confirmed scope per API research):**
+
+- `atlassian_guard_app_access_policy` — managed resource (CRUD
+  on app access domain settings via /v2/orgs/{orgId}/app-access-settings)
+- `atlassian_guard_audit_event` — read-only data source (query
+  org audit events via /v1/orgs/{orgId}/events)
+- Security policies, audit log config, and data security policies
+  are **deferred** — Atlassian has not published CRUD endpoints.
+  See docs/guard-api-research.md for details.
 
 **Identity and Access:** Users and provisioning, groups and membership,
 org-level roles, product-level roles and permissions, API token
