@@ -12,6 +12,7 @@ import (
 	userds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/user"
 	customdomainds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/custom_domain"
 	issuetypedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/issue_type"
+	screendatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/screen"
 	spacedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/space"
 	workflowdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/workflow"
 	groupresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/group"
@@ -20,6 +21,7 @@ import (
 	userrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/user"
 	customdomainrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/custom_domain"
 	issuetyperesource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/issue_type"
+	screenresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/screen"
 	spaceresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/space"
 	workflowresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/workflow"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -233,6 +235,9 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		issuetyperesource.NewSchemeResource,
 		workflowresource.NewResource,
 		workflowresource.NewSchemeResource,
+		screenresource.NewResource,
+		screenresource.NewSchemeResource,
+		screenresource.NewTabFieldResource,
 	}
 }
 
@@ -248,5 +253,7 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 		issuetypedatasource.NewSchemeDataSource,
 		workflowdatasource.NewDataSource,
 		workflowdatasource.NewSchemeDataSource,
+		screendatasource.NewDataSource,
+		screendatasource.NewSchemeDataSource,
 	}
 }
