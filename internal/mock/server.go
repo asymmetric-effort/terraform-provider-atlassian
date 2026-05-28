@@ -158,6 +158,7 @@ func Run(addr string) error {
 	s := NewServer()
 	RegisterAuthEndpoints(s)
 	RegisterIdentityEndpoints(s)
+	RegisterJiraEndpoints(s)
 	return s.ListenAndServe(addr)
 }
 
