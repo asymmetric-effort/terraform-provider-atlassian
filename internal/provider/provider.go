@@ -10,8 +10,10 @@ import (
 	groupdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/group"
 	roledatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/role"
 	userds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/user"
+	automationdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/automation"
 	customdomainds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/custom_domain"
 	issuetypedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/issue_type"
+	mailhandlerdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/mail_handler"
 	screendatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/screen"
 	spacedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/space"
 	workflowdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/workflow"
@@ -19,8 +21,10 @@ import (
 	roleresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/role"
 	tokenresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/token"
 	userrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/user"
+	automationresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/automation"
 	customdomainrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/custom_domain"
 	issuetyperesource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/issue_type"
+	mailhandlerresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/mail_handler"
 	screenresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/screen"
 	spaceresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/space"
 	workflowresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/workflow"
@@ -238,6 +242,9 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		screenresource.NewResource,
 		screenresource.NewSchemeResource,
 		screenresource.NewTabFieldResource,
+		automationresource.NewResource,
+		mailhandlerresource.NewIncomingResource,
+		mailhandlerresource.NewOutgoingResource,
 	}
 }
 
@@ -255,5 +262,8 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 		workflowdatasource.NewSchemeDataSource,
 		screendatasource.NewDataSource,
 		screendatasource.NewSchemeDataSource,
+		automationdatasource.NewDataSource,
+		mailhandlerdatasource.NewIncomingDataSource,
+		mailhandlerdatasource.NewOutgoingDataSource,
 	}
 }
