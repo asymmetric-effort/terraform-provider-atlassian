@@ -113,9 +113,12 @@ func registerUserEndpoints(s *Server) {
 		w.Write(item)
 	})
 
-	// PUT /rest/api/3/user/{id} — update user
-	s.RegisterEndpoint("PUT /rest/api/3/user/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
+	// updateUserHandler handles user updates by accountId (query or path).
+	updateUserHandler := func(w http.ResponseWriter, r *http.Request) {
+		id := r.URL.Query().Get("accountId")
+		if id == "" {
+			id = r.PathValue("id")
+		}
 		existing, ok := store.Get(id)
 		if !ok {
 			WriteError(w, http.StatusNotFound, "User not found")
@@ -140,17 +143,24 @@ func registerUserEndpoints(s *Server) {
 		data, _ := json.Marshal(current)
 		store.Set(id, data)
 		WriteJSON(w, http.StatusOK, current)
-	})
+	}
+	s.RegisterEndpoint("PUT /rest/api/3/user", updateUserHandler)
+	s.RegisterEndpoint("PUT /rest/api/3/user/{id}", updateUserHandler)
 
-	// DELETE /rest/api/3/user/{id} — delete user
-	s.RegisterEndpoint("DELETE /rest/api/3/user/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
+	// deleteUserHandler handles user deletes by accountId (query or path).
+	deleteUserHandler := func(w http.ResponseWriter, r *http.Request) {
+		id := r.URL.Query().Get("accountId")
+		if id == "" {
+			id = r.PathValue("id")
+		}
 		if !store.Delete(id) {
 			WriteError(w, http.StatusNotFound, "User not found")
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
-	})
+	}
+	s.RegisterEndpoint("DELETE /rest/api/3/user", deleteUserHandler)
+	s.RegisterEndpoint("DELETE /rest/api/3/user/{id}", deleteUserHandler)
 
 	// GET /rest/api/3/user/search — search users by query
 	s.RegisterEndpoint("GET /rest/api/3/user/search", func(w http.ResponseWriter, r *http.Request) {
@@ -434,9 +444,10 @@ func registerRoleEndpoints(s *Server) {
 			}
 		}
 
-		roleID := nextID("role")
+		roleNum := atomic.AddUint64(&idCounter, 1)
+		roleID := fmt.Sprintf("%d", roleNum)
 		role := map[string]interface{}{
-			"id":          roleID,
+			"id":          roleNum,
 			"name":        name,
 			"description": req["description"],
 			"scope":       req["scope"],

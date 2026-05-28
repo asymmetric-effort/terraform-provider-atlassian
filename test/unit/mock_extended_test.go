@@ -207,8 +207,8 @@ func TestMockRoleUpdateBadJSON(t *testing.T) {
 	c, _ := atlassian.NewClient(cfg, auth)
 	ctx := context.Background()
 	var role map[string]interface{}
-	c.Post(ctx, "/rest/api/3/role", nopBody(`{"name":"updrole"}`), &role)
-	roleID := role["id"].(string)
+	c.Post(ctx, "/rest/api/3/role", nopBody(`{"name":"updrole","scope":"org"}`), &role)
+	roleID := fmt.Sprintf("%v", role["id"])
 
 	req, _ := http.NewRequest("PUT", ts.URL+"/rest/api/3/role/"+roleID, nopBody("bad json"))
 	req.Header.Set("Content-Type", "application/json")

@@ -461,10 +461,11 @@ func TestRoleCRUDLifecycle(t *testing.T) {
 	}
 	var role map[string]interface{}
 	decodeJSON(t, resp, &role)
-	roleID, ok := role["id"].(string)
-	if !ok || roleID == "" {
-		t.Fatal("create role: expected non-empty id")
+	rawID := role["id"]
+	if rawID == nil {
+		t.Fatal("create role: expected non-nil id")
 	}
+	roleID := fmt.Sprintf("%v", rawID)
 	if role["name"] != "Administrators" {
 		t.Errorf("create role: expected name 'Administrators', got %v", role["name"])
 	}
@@ -479,7 +480,7 @@ func TestRoleCRUDLifecycle(t *testing.T) {
 	}
 	var readRole map[string]interface{}
 	decodeJSON(t, resp, &readRole)
-	if readRole["id"] != roleID {
+	if fmt.Sprintf("%v", readRole["id"]) != roleID {
 		t.Errorf("read role: expected id %q, got %v", roleID, readRole["id"])
 	}
 
@@ -495,7 +496,7 @@ func TestRoleCRUDLifecycle(t *testing.T) {
 	if updatedRole["description"] != "Updated admin role" {
 		t.Errorf("update role: expected description 'Updated admin role', got %v", updatedRole["description"])
 	}
-	if updatedRole["id"] != roleID {
+	if fmt.Sprintf("%v", updatedRole["id"]) != roleID {
 		t.Errorf("update role: id should not change, got %v", updatedRole["id"])
 	}
 

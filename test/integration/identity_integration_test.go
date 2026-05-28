@@ -534,7 +534,8 @@ func TestIntegrationRoleCRUDLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create role failed: %v", err)
 	}
-	roleID, ok := created["id"].(string)
+	roleID := fmt.Sprintf("%v", created["id"])
+	ok := roleID != ""
 	if !ok || roleID == "" {
 		t.Fatal("create role: expected non-empty id")
 	}
@@ -548,7 +549,7 @@ func TestIntegrationRoleCRUDLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read role failed: %v", err)
 	}
-	if readRole["id"] != roleID {
+	if fmt.Sprintf("%v", readRole["id"]) != roleID {
 		t.Errorf("read role: expected id %q, got %v", roleID, readRole["id"])
 	}
 	if readRole["description"] != "Integration test admin role" {
@@ -571,7 +572,7 @@ func TestIntegrationRoleCRUDLifecycle(t *testing.T) {
 	if updated["description"] != "Updated description" {
 		t.Errorf("update role: expected description 'Updated description', got %v", updated["description"])
 	}
-	if updated["id"] != roleID {
+	if fmt.Sprintf("%v", updated["id"]) != roleID {
 		t.Errorf("update role: id should not change, got %v", updated["id"])
 	}
 
@@ -688,7 +689,7 @@ func TestIntegrationRoleAssignmentCRUDLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create role failed: %v", err)
 	}
-	roleID := role["id"].(string)
+	roleID := fmt.Sprintf("%v", role["id"])
 
 	// Create a user
 	var user map[string]interface{}
@@ -1084,7 +1085,7 @@ func TestIntegrationCrossResourceWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create role failed: %v", err)
 	}
-	roleID := role["id"].(string)
+	roleID := fmt.Sprintf("%v", role["id"])
 	t.Logf("created role: %s", roleID)
 
 	// Step 5: Assign role to user
@@ -1350,7 +1351,7 @@ func TestIntegrationImportRoleByID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create role failed: %v", err)
 	}
-	roleID := created["id"].(string)
+	roleID := fmt.Sprintf("%v", created["id"])
 
 	// Simulate import: read by role ID
 	var imported map[string]interface{}
@@ -1358,7 +1359,7 @@ func TestIntegrationImportRoleByID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("import (read) role failed: %v", err)
 	}
-	if imported["id"] != roleID {
+	if fmt.Sprintf("%v", imported["id"]) != roleID {
 		t.Errorf("imported id mismatch: expected %q, got %v", roleID, imported["id"])
 	}
 	if imported["name"] != "Import Role" {
@@ -1491,7 +1492,7 @@ func TestIntegrationRoleUpdateIdempotency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create role failed: %v", err)
 	}
-	roleID := role["id"].(string)
+	roleID := fmt.Sprintf("%v", role["id"])
 
 	updateBody := map[string]string{"name": "Idempotent Role", "description": "Updated"}
 	var first, second map[string]interface{}
@@ -1626,7 +1627,7 @@ func TestIntegrationRoleDataSourceByID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create role failed: %v", err)
 	}
-	roleID := created["id"].(string)
+	roleID := fmt.Sprintf("%v", created["id"])
 
 	// Read role by ID (data source path)
 	var ds map[string]interface{}
@@ -1735,7 +1736,7 @@ func TestIntegrationDriftDetectionRoleModifiedExternally(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create role failed: %v", err)
 	}
-	roleID := role["id"].(string)
+	roleID := fmt.Sprintf("%v", role["id"])
 
 	// Simulate external modification
 	var modified map[string]interface{}
