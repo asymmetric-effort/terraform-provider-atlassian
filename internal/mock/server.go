@@ -160,6 +160,7 @@ func Run(addr string) error {
 	RegisterIdentityEndpoints(s)
 	RegisterJiraEndpoints(s)
 	RegisterConfluenceEndpoints(s)
+	RegisterBitbucketEndpoints(s)
 	return s.ListenAndServe(addr)
 }
 
