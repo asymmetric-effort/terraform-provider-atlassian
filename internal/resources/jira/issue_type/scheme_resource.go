@@ -133,17 +133,15 @@ func (r *SchemeResource) Configure(_ context.Context, req resource.ConfigureRequ
 }
 
 // extractIssueTypeIDs converts the types.List to a Go string slice.
+// The schema guarantees all elements are types.String, so the type assertion is safe.
 func extractIssueTypeIDs(ctx context.Context, list types.List) ([]string, bool) {
 	if list.IsNull() || list.IsUnknown() {
 		return nil, false
 	}
 	var ids []string
 	for _, elem := range list.Elements() {
-		strVal, ok := elem.(types.String)
-		if !ok {
-			return nil, false
-		}
-		ids = append(ids, strVal.ValueString())
+		// Safe assertion: schema enforces element type as types.StringType.
+		ids = append(ids, elem.(types.String).ValueString())
 	}
 	return ids, true
 }

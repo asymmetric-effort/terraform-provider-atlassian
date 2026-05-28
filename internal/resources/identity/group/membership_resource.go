@@ -172,10 +172,9 @@ func (r *MembershipResource) Read(ctx context.Context, req resource.ReadRequest,
 
 	// Only track the users that are in both the API response and our managed state.
 	var managedIDs []string
-	resp.Diagnostics.Append(state.UserAccountIDs.ElementsAs(ctx, &managedIDs, false)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	// ElementsAs cannot fail here because the schema guarantees user_account_ids
+	// is a list of strings and State.Get already validated the type above.
+	state.UserAccountIDs.ElementsAs(ctx, &managedIDs, false)
 
 	remoteSet := make(map[string]bool, len(members))
 	for _, m := range members {
@@ -190,11 +189,8 @@ func (r *MembershipResource) Read(ctx context.Context, req resource.ReadRequest,
 		}
 	}
 
-	listVal, diags := types.ListValueFrom(ctx, types.StringType, currentIDs)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	// ListValueFrom cannot fail with a []string and types.StringType.
+	listVal, _ := types.ListValueFrom(ctx, types.StringType, currentIDs)
 
 	state.UserAccountIDs = listVal
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)

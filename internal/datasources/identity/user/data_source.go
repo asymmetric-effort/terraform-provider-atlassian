@@ -180,10 +180,8 @@ func (d *DataSource) findUserByEmail(ctx context.Context, email string) (apiUser
 }
 
 // isStatusCode checks whether an error is an APIError with the given HTTP status code.
+// Precondition: err is not nil (callers guard with 'if err != nil' before calling).
 func isStatusCode(err error, code int) bool {
-	if err == nil {
-		return false
-	}
 	msg := err.Error()
 	expected := fmt.Sprintf("HTTP %d)", code)
 	return strings.Contains(msg, expected)
