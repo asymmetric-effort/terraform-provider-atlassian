@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -66,6 +67,8 @@ type ResourceModel struct {
 	LeadAccountID types.String `tfsdk:"lead_account_id"`
 	SpaceType     types.String `tfsdk:"space_type"`
 	URL           types.String `tfsdk:"url"`
+	SelfURL       types.String `tfsdk:"self_url"`
+	BrowseURL     types.String `tfsdk:"browse_url"`
 }
 
 // Resource implements the atlassian_jira_space managed resource.
@@ -128,6 +131,20 @@ func (r *Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp *res
 			},
 			"url": schema.StringAttribute{
 				Description: "The URL of the space in Atlassian Cloud.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"self_url": schema.StringAttribute{
+				Description: "The self URL of the space resource in the Atlassian API.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"browse_url": schema.StringAttribute{
+				Description: "The browser-accessible URL of the space.",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
@@ -223,6 +240,8 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	plan.LeadAccountID = types.StringValue(created.LeadAccountID)
 	plan.SpaceType = types.StringValue(projectTypeKeyToSpaceType(created.ProjectTypeKey))
 	plan.URL = types.StringValue(created.Self)
+	plan.SelfURL = types.StringValue(created.Self)
+	plan.BrowseURL = types.StringValue(browseURL(created.Self, created.Key))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -262,6 +281,8 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	state.LeadAccountID = types.StringValue(space.LeadAccountID)
 	state.SpaceType = types.StringValue(projectTypeKeyToSpaceType(space.ProjectTypeKey))
 	state.URL = types.StringValue(space.Self)
+	state.SelfURL = types.StringValue(space.Self)
+	state.BrowseURL = types.StringValue(browseURL(space.Self, space.Key))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -325,8 +346,22 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	plan.LeadAccountID = types.StringValue(updated.LeadAccountID)
 	plan.SpaceType = types.StringValue(projectTypeKeyToSpaceType(updated.ProjectTypeKey))
 	plan.URL = types.StringValue(updated.Self)
+	plan.SelfURL = types.StringValue(updated.Self)
+	plan.BrowseURL = types.StringValue(browseURL(updated.Self, updated.Key))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+// browseURL constructs a browser-accessible URL from the API self URL
+// and the space key. The self URL has the form
+// https://example.atlassian.net/rest/api/3/project/ID
+// and the browse URL is https://example.atlassian.net/browse/KEY.
+func browseURL(selfURL, key string) string {
+	idx := strings.Index(selfURL, "/rest/api/")
+	if idx < 0 {
+		return ""
+	}
+	return selfURL[:idx] + "/browse/" + key
 }
 
 // Delete removes a Jira space.

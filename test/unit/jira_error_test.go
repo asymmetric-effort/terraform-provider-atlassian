@@ -67,6 +67,8 @@ func TestSpaceNotFoundRead(t *testing.T) {
 		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
 		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
 		"url":             tftypes.NewValue(tftypes.String, ""),
+		"self_url":        tftypes.NewValue(tftypes.String, ""),
+		"browse_url":      tftypes.NewValue(tftypes.String, ""),
 	})}
 	resp := &resource.ReadResponse{State: emptyState(ctx, s)}
 	r.Read(ctx, resource.ReadRequest{State: state}, resp)
@@ -93,6 +95,8 @@ func TestSpaceDuplicateKey(t *testing.T) {
 		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
 		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
 		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -128,6 +132,8 @@ func TestSpacePermissionDeniedCreate(t *testing.T) {
 		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
 		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
 		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -622,6 +628,8 @@ func TestErrorDoesNotExposeRawJSON(t *testing.T) {
 		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
 		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
 		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -663,6 +671,8 @@ func TestErrorMessageConsistency(t *testing.T) {
 		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
 		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
 		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	sResp := &resource.CreateResponse{State: emptyState(ctx, ss)}
 	sr.Create(ctx, resource.CreateRequest{Plan: sPlan}, sResp)

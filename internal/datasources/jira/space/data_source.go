@@ -6,8 +6,10 @@ package space
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -38,6 +40,8 @@ type DataSourceModel struct {
 	LeadAccountID types.String `tfsdk:"lead_account_id"`
 	SpaceType     types.String `tfsdk:"space_type"`
 	URL           types.String `tfsdk:"url"`
+	SelfURL       types.String `tfsdk:"self_url"`
+	BrowseURL     types.String `tfsdk:"browse_url"`
 }
 
 // DataSource implements the atlassian_jira_space data source.
@@ -58,20 +62,21 @@ func (d *DataSource) Metadata(_ context.Context, req datasource.MetadataRequest,
 // Schema defines the schema for the jira space data source.
 func (d *DataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Reads a Jira space (project) from Atlassian Cloud by ID or key.",
+		Description: "Reads a Jira space (project) from Atlassian Cloud by ID, key, or name.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "The unique identifier of the space. Exactly one of id or key must be specified.",
+				Description: "The unique identifier of the space. Provide id, key, or name.",
 				Optional:    true,
 				Computed:    true,
 			},
 			"key": schema.StringAttribute{
-				Description: "The project key (e.g., PROJ). Exactly one of id or key must be specified.",
+				Description: "The project key (e.g., PROJ). Provide id, key, or name.",
 				Optional:    true,
 				Computed:    true,
 			},
 			"name": schema.StringAttribute{
-				Description: "The display name of the space.",
+				Description: "The display name of the space. Provide id, key, or name.",
+				Optional:    true,
 				Computed:    true,
 			},
 			"description": schema.StringAttribute{
@@ -88,6 +93,14 @@ func (d *DataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp 
 			},
 			"url": schema.StringAttribute{
 				Description: "The URL of the space in Atlassian Cloud.",
+				Computed:    true,
+			},
+			"self_url": schema.StringAttribute{
+				Description: "The self URL of the space resource in the Atlassian API.",
+				Computed:    true,
+			},
+			"browse_url": schema.StringAttribute{
+				Description: "The browser-accessible URL of the space.",
 				Computed:    true,
 			},
 		},
@@ -128,35 +141,48 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 
 	hasID := !config.ID.IsNull() && !config.ID.IsUnknown()
 	hasKey := !config.Key.IsNull() && !config.Key.IsUnknown()
+	hasName := !config.Name.IsNull() && !config.Name.IsUnknown()
 
-	if !hasID && !hasKey {
+	if !hasID && !hasKey && !hasName {
 		resp.Diagnostics.AddError(
 			"Missing required attribute",
-			"Exactly one of id or key must be specified to look up a Jira space.",
+			"At least one of id, key, or name must be specified to look up a Jira space.",
 		)
 		return
-	}
-
-	identifier := config.ID.ValueString()
-	if !hasID {
-		identifier = config.Key.ValueString()
 	}
 
 	var space apiSpace
-	err := d.client.Get(ctx, fmt.Sprintf("/rest/api/3/project/%s", identifier), &space)
-	if err != nil {
-		if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
+
+	if hasID || hasKey {
+		identifier := config.ID.ValueString()
+		if !hasID {
+			identifier = config.Key.ValueString()
+		}
+		err := d.client.Get(ctx, fmt.Sprintf("/rest/api/3/project/%s", identifier), &space)
+		if err != nil {
+			if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
+				resp.Diagnostics.AddError(
+					"Space not found",
+					fmt.Sprintf("Jira space %q not found. Verify the ID or key is correct.", identifier),
+				)
+				return
+			}
 			resp.Diagnostics.AddError(
-				"Space not found",
-				fmt.Sprintf("Jira space %q not found. Verify the ID or key is correct.", identifier),
+				"Failed to read space",
+				fmt.Sprintf("Could not read Jira space %q: %s", identifier, err.Error()),
 			)
 			return
 		}
-		resp.Diagnostics.AddError(
-			"Failed to read space",
-			fmt.Sprintf("Could not read Jira space %q: %s", identifier, err.Error()),
-		)
-		return
+	} else {
+		found, err := d.findSpaceByName(ctx, config.Name.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Failed to search spaces",
+				fmt.Sprintf("Could not search for Jira space by name %q: %s", config.Name.ValueString(), err.Error()),
+			)
+			return
+		}
+		space = found
 	}
 
 	config.ID = types.StringValue(space.ID)
@@ -166,6 +192,44 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 	config.LeadAccountID = types.StringValue(space.LeadAccountID)
 	config.SpaceType = types.StringValue(projectTypeKeyToSpaceType(space.ProjectTypeKey))
 	config.URL = types.StringValue(space.Self)
+	config.SelfURL = types.StringValue(space.Self)
+	config.BrowseURL = types.StringValue(browseURL(space.Self, space.Key))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
+}
+
+// findSpaceByName searches for a space by name using the project list API.
+func (d *DataSource) findSpaceByName(ctx context.Context, name string) (apiSpace, error) {
+	var spaces []json.RawMessage
+	err := d.client.Get(ctx, "/rest/api/3/project", &spaces)
+	if err != nil {
+		return apiSpace{}, err
+	}
+
+	for _, raw := range spaces {
+		var s apiSpace
+		if err := json.Unmarshal(raw, &s); err != nil {
+			continue
+		}
+		if strings.EqualFold(s.Name, name) {
+			return s, nil
+		}
+	}
+
+	return apiSpace{}, &atlassian.APIError{
+		StatusCode: http.StatusNotFound,
+		Message:    fmt.Sprintf("no Jira space found with name %q", name),
+		Resource:   "jira_space",
+		Action:     "read",
+	}
+}
+
+// browseURL constructs a browser-accessible URL from the API self URL
+// and the space key.
+func browseURL(selfURL, key string) string {
+	idx := strings.Index(selfURL, "/rest/api/")
+	if idx < 0 {
+		return ""
+	}
+	return selfURL[:idx] + "/browse/" + key
 }

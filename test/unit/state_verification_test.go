@@ -434,6 +434,8 @@ func TestStateVerification_JiraSpace_CreateReadUpdateDelete(t *testing.T) {
 			"lead_account_id": tftypes.NewValue(tftypes.String, ""),
 			"space_type":      tftypes.NewValue(tftypes.String, "classic"),
 			"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		})},
 	}, createResp)
 	if createResp.Diagnostics.HasError() {
@@ -462,6 +464,8 @@ func TestStateVerification_JiraSpace_CreateReadUpdateDelete(t *testing.T) {
 			"lead_account_id": tftypes.NewValue(tftypes.String, ""),
 			"space_type":      tftypes.NewValue(tftypes.String, "classic"),
 			"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		})},
 		State: readResp.State,
 	}, updateResp)
