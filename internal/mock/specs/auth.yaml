@@ -1,0 +1,146 @@
+---
+openapi: "3.0.3"
+info:
+  title: Atlassian Mock API — Auth
+  version: "0.1.0"
+  description: >
+    OpenAPI spec for the mock Atlassian authentication endpoints.
+    Phase 0 skeleton covering API token validation and OAuth 2.0
+    token exchange.
+paths:
+  /rest/api/3/myself:
+    get:
+      operationId: getCurrentUser
+      summary: Validate API token by fetching current user
+      responses:
+        "200":
+          description: Authenticated user details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Authentication required or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /oauth/token:
+    post:
+      operationId: exchangeOAuthToken
+      summary: Exchange OAuth credentials for an access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthTokenRequest"
+      responses:
+        "200":
+          description: Token exchange successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthTokenResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthErrorResponse"
+        "401":
+          description: Invalid client credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthErrorResponse"
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Health check endpoint
+      responses:
+        "200":
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - accountId
+        - emailAddress
+        - displayName
+        - active
+      properties:
+        accountId:
+          type: string
+        emailAddress:
+          type: string
+        displayName:
+          type: string
+        active:
+          type: boolean
+    OAuthTokenRequest:
+      type: object
+      required:
+        - grant_type
+        - client_id
+        - client_secret
+      properties:
+        grant_type:
+          type: string
+          enum:
+            - refresh_token
+            - client_credentials
+        client_id:
+          type: string
+        client_secret:
+          type: string
+        refresh_token:
+          type: string
+    OAuthTokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+        expires_in:
+          type: integer
+        scope:
+          type: string
+    OAuthErrorResponse:
+      type: object
+      required:
+        - error
+        - error_description
+      properties:
+        error:
+          type: string
+        error_description:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        errorMessages:
+          type: array
+          items:
+            type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string

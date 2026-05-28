@@ -9,14 +9,23 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 )
 
 // Server is the mock Atlassian API server.
 type Server struct {
-	mux    *http.ServeMux
-	mu     sync.RWMutex
-	stores map[string]*Store
+	mux        *http.ServeMux
+	mu         sync.RWMutex
+	stores     map[string]*Store
+	validators []*RequestValidator
+}
+
+// AddValidator adds an OpenAPI request validator to the server.
+// Requests matching routes in the spec will be validated before
+// being passed to the handler.
+func (s *Server) AddValidator(v *RequestValidator) {
+	s.validators = append(s.validators, v)
 }
 
 // Store holds in-memory state for a resource type.
@@ -101,14 +110,31 @@ func (s *Server) RegisterEndpoint(pattern string, handler http.HandlerFunc) {
 }
 
 // Handler returns the HTTP handler for the server.
+// If validators have been added, requests are validated against
+// OpenAPI specs before reaching the handlers.
 func (s *Server) Handler() http.Handler {
-	return s.mux
+	if len(s.validators) == 0 {
+		return s.mux
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, v := range s.validators {
+			if err := v.ValidateRequest(r); err != nil {
+				errStr := err.Error()
+				if !strings.Contains(errStr, "no matching route") {
+					WriteError(w, http.StatusBadRequest,
+						"Request validation failed: "+errStr)
+					return
+				}
+			}
+		}
+		s.mux.ServeHTTP(w, r)
+	})
 }
 
 // ListenAndServe starts the mock server on the given address.
 func (s *Server) ListenAndServe(addr string) error {
 	log.Printf("Mock Atlassian API server listening on %s", addr)
-	return http.ListenAndServe(addr, s.mux)
+	return http.ListenAndServe(addr, s.Handler())
 }
 
 // WriteJSON writes a JSON response.

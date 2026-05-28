@@ -73,6 +73,11 @@ API communication is handled by the purpose-built thin client in
 `internal/client/`. The only non-OpenTofu/HashiCorp dependencies
 permitted are:
 
+**HARD RULE: No dependencies from <https://github.com/mailru> are
+permitted under any circumstances.**
+
+The allowed non-framework dependencies are:
+
 - Go standard library
 - `golang.org/x` packages (for TLS and OAuth2 helpers)
 
