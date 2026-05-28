@@ -349,8 +349,8 @@ func TestProviderResources(t *testing.T) {
 	t.Parallel()
 	p := provider.New("test")()
 	resources := p.Resources(context.Background())
-	if len(resources) != 34 {
-		t.Errorf("expected 34 resources, got %d", len(resources))
+	if len(resources) != 38 {
+		t.Errorf("expected 38 resources, got %d", len(resources))
 	}
 }
 
@@ -359,7 +359,7 @@ func TestProviderDataSources(t *testing.T) {
 	t.Parallel()
 	p := provider.New("test")()
 	dataSources := p.DataSources(context.Background())
-	if len(dataSources) != 30 {
-		t.Errorf("expected 30 data sources, got %d", len(dataSources))
+	if len(dataSources) != 34 {
+		t.Errorf("expected 34 data sources, got %d", len(dataSources))
 	}
 }
