@@ -7,6 +7,7 @@ import (
 	"time"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	confluencespacedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/confluence/space"
 	groupdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/group"
 	roledatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/role"
 	userds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/identity/user"
@@ -24,6 +25,7 @@ import (
 	securityschemeds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/security_scheme"
 	spacedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/space"
 	workflowdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/workflow"
+	confluencespaceresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/confluence/space"
 	groupresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/group"
 	roleresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/role"
 	tokenresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/identity/token"
@@ -269,6 +271,7 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		mailhandlerresource.NewIncomingResource,
 		mailhandlerresource.NewOutgoingResource,
 		customdomainrs.NewEmailResource,
+		confluencespaceresource.NewResource,
 	}
 }
 
@@ -299,5 +302,6 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 		automationdatasource.NewDataSource,
 		mailhandlerdatasource.NewIncomingDataSource,
 		mailhandlerdatasource.NewOutgoingDataSource,
+		confluencespacedatasource.NewDataSource,
 	}
 }
