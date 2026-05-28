@@ -159,6 +159,7 @@ func Run(addr string) error {
 	RegisterAuthEndpoints(s)
 	RegisterIdentityEndpoints(s)
 	RegisterJiraEndpoints(s)
+	RegisterConfluenceEndpoints(s)
 	return s.ListenAndServe(addr)
 }
 
