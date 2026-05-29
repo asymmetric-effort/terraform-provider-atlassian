@@ -39,6 +39,7 @@ type apiBoard struct {
 	Name         string            `json:"name"`
 	Type         string            `json:"type"`
 	SpaceID      string            `json:"spaceId"`
+	FilterID     string            `json:"filterId,omitempty"`
 	Self         string            `json:"self"`
 	ColumnConfig []apiColumnConfig `json:"columnConfig,omitempty"`
 }
@@ -48,6 +49,7 @@ type apiBoardCreate struct {
 	Name         string            `json:"name"`
 	Type         string            `json:"type"`
 	SpaceID      string            `json:"spaceId"`
+	FilterID     string            `json:"filterId,omitempty"`
 	ColumnConfig []apiColumnConfig `json:"columnConfig,omitempty"`
 }
 
@@ -56,6 +58,7 @@ type apiBoardUpdate struct {
 	Name         string            `json:"name,omitempty"`
 	Type         string            `json:"type,omitempty"`
 	SpaceID      string            `json:"spaceId,omitempty"`
+	FilterID     string            `json:"filterId,omitempty"`
 	ColumnConfig []apiColumnConfig `json:"columnConfig,omitempty"`
 }
 
@@ -130,6 +133,7 @@ type ResourceModel struct {
 	Name         types.String `tfsdk:"name"`
 	Type         types.String `tfsdk:"type"`
 	SpaceID      types.String `tfsdk:"space_id"`
+	FilterID     types.String `tfsdk:"filter_id"`
 	ColumnConfig types.List   `tfsdk:"column_config"`
 }
 
@@ -171,6 +175,14 @@ func (r *Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp *res
 			"space_id": schema.StringAttribute{
 				Description: "The ID of the space (project) associated with this board.",
 				Required:    true,
+			},
+			"filter_id": schema.StringAttribute{
+				Description: "The ID of the JQL filter this board is based on.",
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"column_config": schema.ListNestedAttribute{
 				Description: "Column configuration for the board, defining columns and their mapped statuses.",
@@ -222,6 +234,7 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 		Name:         plan.Name.ValueString(),
 		Type:         plan.Type.ValueString(),
 		SpaceID:      plan.SpaceID.ValueString(),
+		FilterID:     plan.FilterID.ValueString(),
 		ColumnConfig: columnConfigFromPlan(ctx, plan.ColumnConfig),
 	}
 	bodyBytes, _ := json.Marshal(body)
@@ -263,6 +276,11 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	plan.Name = types.StringValue(created.Name)
 	plan.Type = types.StringValue(created.Type)
 	plan.SpaceID = types.StringValue(created.SpaceID)
+	if created.FilterID != "" {
+		plan.FilterID = types.StringValue(created.FilterID)
+	} else if plan.FilterID.IsUnknown() {
+		plan.FilterID = types.StringNull()
+	}
 	plan.ColumnConfig = columnConfigToState(ctx, created.ColumnConfig)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -295,6 +313,11 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	state.Name = types.StringValue(b.Name)
 	state.Type = types.StringValue(b.Type)
 	state.SpaceID = types.StringValue(b.SpaceID)
+	if b.FilterID != "" {
+		state.FilterID = types.StringValue(b.FilterID)
+	} else {
+		state.FilterID = types.StringNull()
+	}
 	state.ColumnConfig = columnConfigToState(ctx, b.ColumnConfig)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -318,6 +341,7 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 		Name:         plan.Name.ValueString(),
 		Type:         plan.Type.ValueString(),
 		SpaceID:      plan.SpaceID.ValueString(),
+		FilterID:     plan.FilterID.ValueString(),
 		ColumnConfig: columnConfigFromPlan(ctx, plan.ColumnConfig),
 	}
 	bodyBytes, _ := json.Marshal(body)
@@ -359,6 +383,11 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	plan.Name = types.StringValue(updated.Name)
 	plan.Type = types.StringValue(updated.Type)
 	plan.SpaceID = types.StringValue(updated.SpaceID)
+	if updated.FilterID != "" {
+		plan.FilterID = types.StringValue(updated.FilterID)
+	} else {
+		plan.FilterID = types.StringNull()
+	}
 	plan.ColumnConfig = columnConfigToState(ctx, updated.ColumnConfig)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)

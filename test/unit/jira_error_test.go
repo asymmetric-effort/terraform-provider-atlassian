@@ -532,6 +532,7 @@ func TestPermissionDeniedBoard(t *testing.T) {
 		"name":          tftypes.NewValue(tftypes.String, "Board"),
 		"type":          tftypes.NewValue(tftypes.String, "scrum"),
 		"space_id":      tftypes.NewValue(tftypes.String, "proj-1"),
+		"filter_id":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
@@ -632,6 +633,7 @@ func TestBoardInvalidTypeCreate(t *testing.T) {
 		"name":          tftypes.NewValue(tftypes.String, "Bad Board"),
 		"type":          tftypes.NewValue(tftypes.String, "invalid"),
 		"space_id":      tftypes.NewValue(tftypes.String, "proj-1"),
+		"filter_id":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}

@@ -30,6 +30,7 @@ type apiBoard struct {
 	Name         string            `json:"name"`
 	Type         string            `json:"type"`
 	SpaceID      string            `json:"spaceId"`
+	FilterID     string            `json:"filterId,omitempty"`
 	Self         string            `json:"self"`
 	ColumnConfig []apiColumnConfig `json:"columnConfig,omitempty"`
 }
@@ -82,6 +83,7 @@ type DataSourceModel struct {
 	Name         types.String `tfsdk:"name"`
 	Type         types.String `tfsdk:"type"`
 	SpaceID      types.String `tfsdk:"space_id"`
+	FilterID     types.String `tfsdk:"filter_id"`
 	ColumnConfig types.List   `tfsdk:"column_config"`
 }
 
@@ -119,6 +121,10 @@ func (d *DataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp 
 			},
 			"space_id": schema.StringAttribute{
 				Description: "The ID of the space (project) associated with this board.",
+				Computed:    true,
+			},
+			"filter_id": schema.StringAttribute{
+				Description: "The ID of the JQL filter this board is based on.",
 				Computed:    true,
 			},
 			"column_config": schema.ListNestedAttribute{
@@ -189,6 +195,11 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 	config.Name = types.StringValue(b.Name)
 	config.Type = types.StringValue(b.Type)
 	config.SpaceID = types.StringValue(b.SpaceID)
+	if b.FilterID != "" {
+		config.FilterID = types.StringValue(b.FilterID)
+	} else {
+		config.FilterID = types.StringNull()
+	}
 	config.ColumnConfig = columnConfigToState(ctx, b.ColumnConfig)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)

@@ -313,7 +313,11 @@ func testMiscMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
 		id := miscNextID("board")
 		boardType, _ := req["type"].(string)
 		spaceID, _ := req["spaceId"].(string)
+		filterID, _ := req["filterId"].(string)
 		b := map[string]interface{}{"id": id, "name": name, "type": boardType, "spaceId": spaceID, "self": fmt.Sprintf("https://example.atlassian.net/rest/agile/1.0/board/%s", id)}
+		if filterID != "" {
+			b["filterId"] = filterID
+		}
 		if cc, ok := req["columnConfig"]; ok && cc != nil {
 			b["columnConfig"] = cc
 		}
@@ -1772,13 +1776,13 @@ func TestJiraBoardResourceSchema(t *testing.T) {
 	r := boardresource.NewResource()
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), resource.SchemaRequest{}, resp)
-	for _, attr := range []string{"id", "name", "type", "space_id", "column_config"} {
+	for _, attr := range []string{"id", "name", "type", "space_id", "filter_id", "column_config"} {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected attribute %q", attr)
 		}
 	}
-	if len(resp.Schema.Attributes) != 5 {
-		t.Errorf("expected 5 attributes, got %d", len(resp.Schema.Attributes))
+	if len(resp.Schema.Attributes) != 6 {
+		t.Errorf("expected 6 attributes, got %d", len(resp.Schema.Attributes))
 	}
 	for _, name := range []string{"name", "type", "space_id"} {
 		if !resp.Schema.Attributes[name].IsRequired() {
@@ -1813,6 +1817,7 @@ func TestJiraBoardResourceCRUDLifecycle(t *testing.T) {
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Test Board"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "PROJ1"),
+		"filter_id":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
@@ -1831,6 +1836,7 @@ func TestJiraBoardResourceCRUDLifecycle(t *testing.T) {
 	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "Test Board"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "PROJ1"),
+		"filter_id":     tftypes.NewValue(tftypes.String, ""),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
@@ -1842,6 +1848,7 @@ func TestJiraBoardResourceCRUDLifecycle(t *testing.T) {
 	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "Updated Board"),
 		"type": tftypes.NewValue(tftypes.String, "kanban"), "space_id": tftypes.NewValue(tftypes.String, "PROJ2"),
+		"filter_id":     tftypes.NewValue(tftypes.String, ""),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -1872,6 +1879,7 @@ func TestJiraBoardResourceWithColumnConfig(t *testing.T) {
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "CC Board"),
 		"type": tftypes.NewValue(tftypes.String, "kanban"), "space_id": tftypes.NewValue(tftypes.String, "PROJ1"),
+		"filter_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"column_config": tftypes.NewValue(ccType, []tftypes.Value{
 			tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}, map[string]tftypes.Value{
 				"name":       tftypes.NewValue(tftypes.String, "To Do"),
@@ -1905,6 +1913,7 @@ func TestJiraBoardResourceWithColumnConfig(t *testing.T) {
 	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "CC Board"),
 		"type": tftypes.NewValue(tftypes.String, "kanban"), "space_id": tftypes.NewValue(tftypes.String, "PROJ1"),
+		"filter_id": tftypes.NewValue(tftypes.String, ""),
 		"column_config": tftypes.NewValue(ccType, []tftypes.Value{
 			tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}, map[string]tftypes.Value{
 				"name":       tftypes.NewValue(tftypes.String, "Backlog"),
@@ -1916,6 +1925,93 @@ func TestJiraBoardResourceWithColumnConfig(t *testing.T) {
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
 	if updateResp.Diagnostics.HasError() {
 		t.Fatalf("Update: %v", updateResp.Diagnostics.Errors())
+	}
+
+	// Delete
+	deleteState := tfsdk.State{Schema: s, Raw: updateResp.State.Raw.Copy()}
+	deleteResp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: deleteState.Raw.Copy()}}
+	r.Delete(ctx, resource.DeleteRequest{State: deleteState}, deleteResp)
+	if deleteResp.Diagnostics.HasError() {
+		t.Fatalf("Delete: %v", deleteResp.Diagnostics.Errors())
+	}
+}
+
+// TestJiraBoardResourceWithFilterID tests creating a board with filter_id set.
+func TestJiraBoardResourceWithFilterID(t *testing.T) {
+	t.Parallel()
+	_, client := testMiscMockServer(t)
+	ctx := context.Background()
+	r := boardresource.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+	ccType := tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}}
+
+	// Create with filter_id
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Filter Board"),
+		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "PROJ1"),
+		"filter_id":     tftypes.NewValue(tftypes.String, "12345"),
+		"column_config": tftypes.NewValue(ccType, nil),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+	id := getStringAttr(t, createResp.State, "id")
+	if id == "" {
+		t.Fatal("expected non-empty id")
+	}
+	if fid := getStringAttr(t, createResp.State, "filter_id"); fid != "12345" {
+		t.Errorf("expected filter_id '12345', got %q", fid)
+	}
+
+	// Read back
+	readState := tfsdk.State{Schema: s, Raw: createResp.State.Raw.Copy()}
+	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
+	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+	if fid := getStringAttr(t, readResp.State, "filter_id"); fid != "12345" {
+		t.Errorf("Read: expected filter_id '12345', got %q", fid)
+	}
+
+	// Update filter_id
+	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, "Filter Board"),
+		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "PROJ1"),
+		"filter_id":     tftypes.NewValue(tftypes.String, "67890"),
+		"column_config": tftypes.NewValue(ccType, nil),
+	})}
+	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
+	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
+	if updateResp.Diagnostics.HasError() {
+		t.Fatalf("Update: %v", updateResp.Diagnostics.Errors())
+	}
+	if fid := getStringAttr(t, updateResp.State, "filter_id"); fid != "67890" {
+		t.Errorf("Update: expected filter_id '67890', got %q", fid)
+	}
+
+	// Data source read with filter_id
+	ds := boarddatasource.NewDataSource()
+	configureDatasource(t, ds, client)
+	dss := getDatasourceSchema(t, ds)
+	dsTfType := dss.Type().TerraformType(ctx)
+	dsConfig := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
+		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "space_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"filter_id":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"column_config": tftypes.NewValue(ccType, nil),
+	})}
+	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
+	ds.Read(ctx, datasource.ReadRequest{Config: dsConfig}, dsResp)
+	if dsResp.Diagnostics.HasError() {
+		t.Fatalf("DS Read: %v", dsResp.Diagnostics.Errors())
+	}
+	if fid := getStringAttr(t, dsResp.State, "filter_id"); fid != "67890" {
+		t.Errorf("DS Read: expected filter_id '67890', got %q", fid)
 	}
 
 	// Delete
@@ -1941,6 +2037,7 @@ func TestJiraBoardDataSourceWithColumnConfig(t *testing.T) {
 	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "DS CC Board"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "SP1"),
+		"filter_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"column_config": tftypes.NewValue(ccType, []tftypes.Value{
 			tftypes.NewValue(tftypes.Object{AttributeTypes: map[string]tftypes.Type{"name": tftypes.String, "status_ids": tftypes.List{ElementType: tftypes.String}}}, map[string]tftypes.Value{
 				"name":       tftypes.NewValue(tftypes.String, "In Progress"),
@@ -1963,6 +2060,7 @@ func TestJiraBoardDataSourceWithColumnConfig(t *testing.T) {
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "space_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"filter_id":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
@@ -2003,6 +2101,7 @@ func TestJiraBoardDataSourceColumnConfigEmptyStatusIDs(t *testing.T) {
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "cc-empty"), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "space_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"filter_id":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
@@ -2027,6 +2126,7 @@ func TestJiraBoardResourceErrorPaths(t *testing.T) {
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "Dup Board"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "P"),
+		"filter_id":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	resp1 := &resource.CreateResponse{State: emptyState(ctx, s)}
@@ -2040,6 +2140,7 @@ func TestJiraBoardResourceErrorPaths(t *testing.T) {
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "nonexistent"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "P"),
+		"filter_id":     tftypes.NewValue(tftypes.String, ""),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	uResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -2108,6 +2209,7 @@ func TestJiraBoardDataSource(t *testing.T) {
 	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "name": tftypes.NewValue(tftypes.String, "DS Board"),
 		"type": tftypes.NewValue(tftypes.String, "kanban"), "space_id": tftypes.NewValue(tftypes.String, "SP1"),
+		"filter_id":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
@@ -2127,13 +2229,14 @@ func TestJiraBoardDataSource(t *testing.T) {
 	}
 	schemaResp := &datasource.SchemaResponse{}
 	ds.Schema(ctx, datasource.SchemaRequest{}, schemaResp)
-	if len(schemaResp.Schema.Attributes) != 5 {
-		t.Errorf("expected 5 attrs, got %d", len(schemaResp.Schema.Attributes))
+	if len(schemaResp.Schema.Attributes) != 6 {
+		t.Errorf("expected 6 attrs, got %d", len(schemaResp.Schema.Attributes))
 	}
 
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, id), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "space_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"filter_id":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	readResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
@@ -2146,6 +2249,7 @@ func TestJiraBoardDataSource(t *testing.T) {
 	config404 := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsTfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "nonexistent"), "name": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"type": tftypes.NewValue(tftypes.String, tftypes.UnknownValue), "space_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"filter_id":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	resp404 := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
@@ -3250,6 +3354,7 @@ func TestJiraBoardResourceUpdateServerError(t *testing.T) {
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "some-id"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "P"),
+		"filter_id":     tftypes.NewValue(tftypes.String, ""),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -3272,6 +3377,7 @@ func TestJiraBoardResourceDeleteServerError(t *testing.T) {
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "some-id"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "P"),
+		"filter_id":     tftypes.NewValue(tftypes.String, ""),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
@@ -3708,6 +3814,7 @@ func TestJiraBoardResourceUpdateBadPlan(t *testing.T) {
 	goodState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "P"),
+		"filter_id":     tftypes.NewValue(tftypes.String, ""),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -3730,6 +3837,7 @@ func TestJiraBoardResourceUpdateBadState(t *testing.T) {
 	goodPlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id": tftypes.NewValue(tftypes.String, "x"), "name": tftypes.NewValue(tftypes.String, "X"),
 		"type": tftypes.NewValue(tftypes.String, "scrum"), "space_id": tftypes.NewValue(tftypes.String, "P"),
+		"filter_id":     tftypes.NewValue(tftypes.String, ""),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	badState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tftypes.String, "invalid")}

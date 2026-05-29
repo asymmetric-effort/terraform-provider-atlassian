@@ -301,6 +301,7 @@ func TestBoardUpdateBadRequest(t *testing.T) {
 		"name":          tftypes.NewValue(tftypes.String, "Board"),
 		"type":          tftypes.NewValue(tftypes.String, "scrum"),
 		"space_id":      tftypes.NewValue(tftypes.String, "sp-1"),
+		"filter_id":     tftypes.NewValue(tftypes.String, ""),
 		"column_config": tftypes.NewValue(ccType, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
