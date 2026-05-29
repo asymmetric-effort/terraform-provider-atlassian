@@ -146,7 +146,7 @@ func TestPDV_Product_Provision(t *testing.T) {
 
 	// Jira Software Cloud offering ID (from Atlassian Admin API)
 	jiraOfferingID := "39605741-b92f-4763-8229-7bba2d16433c"
-	adminEmail := os.Getenv("ATLASSIAN_USERNAME")
+	adminEmail := os.Getenv("ATLASSIAN_ADMIN_EMAIL")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: pdvProviderFactories(),
@@ -184,7 +184,7 @@ func TestPDV_Product_DataSource(t *testing.T) {
 	siteName := fmt.Sprintf("tfpdvds%s", suffix)
 
 	jiraOfferingID := "39605741-b92f-4763-8229-7bba2d16433c"
-	adminEmail := os.Getenv("ATLASSIAN_USERNAME")
+	adminEmail := os.Getenv("ATLASSIAN_ADMIN_EMAIL")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: pdvProviderFactories(),

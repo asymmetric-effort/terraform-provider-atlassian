@@ -127,6 +127,7 @@ jobs:
           ATLASSIAN_URL: ${{ secrets.ATLASSIAN_URL }}
           ATLASSIAN_API_KEY: ${{ secrets.ATLASSIAN_ADMIN_API_KEY }}
           ATLASSIAN_ORG_ID: ${{ secrets.ATLASSIAN_ORG_ID }}
+          ATLASSIAN_ADMIN_EMAIL: ${{ secrets.ATLASSIAN_ADMIN_EMAIL }}
         run: go test ./test/pdv/... -v -count=1 -timeout 600s -failfast
 
   # Stage 4: Publish (only on tagged push, after PDV passes)
