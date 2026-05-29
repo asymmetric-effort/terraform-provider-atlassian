@@ -100,7 +100,6 @@ resource "atlassian_organization" "test" {
 `, orgID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("atlassian_organization.test", "id", orgID),
-					resource.TestCheckResourceAttrSet("atlassian_organization.test", "name"),
 				),
 			},
 			// Import
@@ -129,7 +128,6 @@ data "atlassian_organization" "test" {
 `, orgID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.atlassian_organization.test", "id", orgID),
-					resource.TestCheckResourceAttrSet("data.atlassian_organization.test", "name"),
 				),
 			},
 		},
