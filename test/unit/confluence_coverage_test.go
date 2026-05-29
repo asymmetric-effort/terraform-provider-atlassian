@@ -23,7 +23,7 @@ import (
 // confluenceCovClient creates a client pointing at the given test server.
 func confluenceCovClient(t *testing.T, ts *httptest.Server) *atlassian.Client {
 	t.Helper()
-	auth, _ := atlassian.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	c, _ := atlassian.NewClient(atlassian.Config{
 		BaseURL:        ts.URL,
 		RequestTimeout: 5 * time.Second,

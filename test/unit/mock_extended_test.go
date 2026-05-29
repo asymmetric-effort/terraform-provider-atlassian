@@ -83,7 +83,7 @@ func TestMockUserEndpointForbiddenHeader(t *testing.T) {
 	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	c, _ := atlassian.NewClient(cfg, auth)
 
@@ -174,7 +174,7 @@ func TestMockUserUpdateBadJSON(t *testing.T) {
 	defer ts.Close()
 
 	// Create a user first
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	c, _ := atlassian.NewClient(cfg, auth)
 	ctx := context.Background()
@@ -202,7 +202,7 @@ func TestMockRoleUpdateBadJSON(t *testing.T) {
 	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	c, _ := atlassian.NewClient(cfg, auth)
 	ctx := context.Background()
@@ -231,7 +231,7 @@ func TestMockMembershipBadJSON(t *testing.T) {
 	defer ts.Close()
 
 	// Create a group
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	c, _ := atlassian.NewClient(cfg, auth)
 	ctx := context.Background()

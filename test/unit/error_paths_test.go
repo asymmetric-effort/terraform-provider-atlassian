@@ -35,7 +35,7 @@ func errorMockServer(t *testing.T, statusCode int, message string) *atlassian.Cl
 		})
 	}))
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	c, _ := atlassian.NewClient(atlassian.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}, auth)
 	return c
 }

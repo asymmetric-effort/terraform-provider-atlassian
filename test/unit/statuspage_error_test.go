@@ -37,7 +37,7 @@ func spErrorServer(t *testing.T, statusCode int, message string) *client.Client 
 		})
 	}))
 	t.Cleanup(ts.Close)
-	auth, _ := client.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := client.NewAPIKeyAuthenticator("test-api-key")
 	c, _ := client.NewClient(client.Config{
 		BaseURL:        ts.URL,
 		RequestTimeout: 5 * time.Second,

@@ -251,10 +251,10 @@ func TestOAuthClientCredentialsUnknownError(t *testing.T) {
 	}
 }
 
-// TestTokenAuthenticatorSetsBearerHeader verifies the Authorization header format.
-func TestTokenAuthenticatorSetsBearerHeader(t *testing.T) {
+// TestAPIKeyAuthenticatorSetsBearerHeader verifies the Authorization header format.
+func TestAPIKeyAuthenticatorSetsBearerHeader(t *testing.T) {
 	t.Parallel()
-	auth, err := client.NewTokenAuthenticator("user@example.com", "my-token")
+	auth, err := client.NewAPIKeyAuthenticator("test-api-key")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestTokenAuthenticatorSetsBearerHeader(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	authHeader := req.Header.Get("Authorization")
-	if len(authHeader) < 6 || authHeader[:6] != "Basic " {
-		t.Errorf("expected Basic auth, got %q", authHeader)
+	if authHeader != "Bearer test-api-key" {
+		t.Errorf("expected 'Bearer test-api-key', got %q", authHeader)
 	}
 }

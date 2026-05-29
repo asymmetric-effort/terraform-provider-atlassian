@@ -36,8 +36,7 @@ func pdvProviderConfig() string {
 provider "atlassian" {
   url       = %q
   admin_url = "https://api.atlassian.com"
-  username  = %q
-  api_token = %q
+  api_key   = %q
 
   request_timeout = "30s"
   max_retries     = 3
@@ -45,8 +44,7 @@ provider "atlassian" {
   retry_wait_max  = "15s"
 }
 `, os.Getenv("ATLASSIAN_URL"),
-		os.Getenv("ATLASSIAN_USERNAME"),
-		os.Getenv("ATLASSIAN_API_TOKEN"))
+		os.Getenv("ATLASSIAN_API_KEY"))
 }
 
 // randomSuffix returns a random 6-character hex string for unique resource names.
@@ -58,16 +56,13 @@ func randomSuffix() string {
 func skipIfNoPDV(t *testing.T) {
 	t.Helper()
 	if os.Getenv("PDV") == "" {
-		t.Skip("PDV tests skipped: set PDV=1 with ATLASSIAN_URL, ATLASSIAN_USERNAME, ATLASSIAN_API_TOKEN")
+		t.Skip("PDV tests skipped: set PDV=1 with ATLASSIAN_URL and ATLASSIAN_API_KEY")
 	}
 	if os.Getenv("ATLASSIAN_URL") == "" {
 		t.Skip("PDV tests skipped: ATLASSIAN_URL not set")
 	}
-	if os.Getenv("ATLASSIAN_USERNAME") == "" {
-		t.Skip("PDV tests skipped: ATLASSIAN_USERNAME not set")
-	}
-	if os.Getenv("ATLASSIAN_API_TOKEN") == "" {
-		t.Skip("PDV tests skipped: ATLASSIAN_API_TOKEN not set")
+	if os.Getenv("ATLASSIAN_API_KEY") == "" {
+		t.Skip("PDV tests skipped: ATLASSIAN_API_KEY not set")
 	}
 }
 

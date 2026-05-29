@@ -100,7 +100,7 @@ func TestMockAuthEndpointsOAuth(t *testing.T) {
 
 	// Test /rest/api/3/myself - valid auth
 	req, _ := http.NewRequest("GET", ts.URL+"/rest/api/3/myself", nil)
-	req.Header.Set("Authorization", mock.ValidTestToken)
+	req.Header.Set("Authorization", mock.ValidTestAPIKey)
 	resp7, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("myself: %v", err)
@@ -167,7 +167,7 @@ func TestMockIdentityEndpointEdgeCases(t *testing.T) {
 	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	c, _ := atlassian.NewClient(cfg, auth)
 	ctx := context.Background()
@@ -324,7 +324,7 @@ func TestRoleAssignmentUpdateCreateErrors(t *testing.T) {
 				json.NewEncoder(w).Encode(map[string]interface{}{"errorMessages": []string{"error"}})
 			}))
 			defer ts.Close()
-			auth, _ := atlassian.NewTokenAuthenticator("u@e.com", "tok")
+			auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 			client, _ := atlassian.NewClient(atlassian.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}, auth)
 
 			ctx := context.Background()
@@ -372,7 +372,7 @@ func TestGroupMembershipUpdateRemoveError(t *testing.T) {
 		w.WriteHeader(200)
 	}))
 	defer ts.Close()
-	auth, _ := atlassian.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(atlassian.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}, auth)
 
 	ctx := context.Background()

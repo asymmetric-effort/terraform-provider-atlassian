@@ -30,7 +30,7 @@ func setupStatuspageMockServer(t *testing.T) (*httptest.Server, *client.Client) 
 	ts := httptest.NewServer(s.Handler())
 	t.Cleanup(ts.Close)
 
-	auth, err := client.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, err := client.NewAPIKeyAuthenticator("test-api-key")
 	if err != nil {
 		t.Fatalf("failed to create authenticator: %v", err)
 	}

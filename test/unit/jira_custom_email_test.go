@@ -117,7 +117,7 @@ func emailMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
 
-	auth, err := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, err := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	if err != nil {
 		t.Fatalf("auth: %v", err)
 	}
@@ -570,7 +570,7 @@ func TestCustomEmailResourceCreateForbidden(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
 
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -614,7 +614,7 @@ func TestCustomEmailResourceDeleteForbidden(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
 
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -649,7 +649,7 @@ func TestCustomEmailResourceReadError(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
 
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -684,7 +684,7 @@ func TestCustomEmailResourceDeleteGenericError(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
 
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -719,7 +719,7 @@ func TestCustomEmailResourceCreateGenericError(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
 
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -1138,7 +1138,7 @@ func TestCustomEmailDataSourceFindByAddressAPIError(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
 
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -1173,7 +1173,7 @@ func TestCustomEmailDataSourceReadByIDGenericError(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
 
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -1228,7 +1228,7 @@ func TestCustomEmailDataSourceReadNilError(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
 
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 

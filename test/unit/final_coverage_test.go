@@ -37,7 +37,7 @@ func TestGroupDataSourceByNamePath(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	auth, _ := client.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := client.NewAPIKeyAuthenticator("test-api-key")
 	c, _ := client.NewClient(client.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}, auth)
 
 	ctx := context.Background()
@@ -153,7 +153,7 @@ func TestRoleFindByNameWithBadJSON(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	auth, _ := client.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := client.NewAPIKeyAuthenticator("test-api-key")
 	c, _ := client.NewClient(client.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}, auth)
 
 	ctx := context.Background()
@@ -249,7 +249,7 @@ func TestMockUserSearchEmpty(t *testing.T) {
 	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
-	auth, _ := client.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := client.NewAPIKeyAuthenticator("test-api-key")
 	cfg := client.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	c, _ := client.NewClient(cfg, auth)
 

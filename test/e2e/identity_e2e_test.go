@@ -40,9 +40,8 @@ func providerFactories() map[string]func() (tfprotov6.ProviderServer, error) {
 func providerConfig(mockURL string) string {
 	return fmt.Sprintf(`
 provider "atlassian" {
-  url      = %q
-  username = "test@example.com"
-  api_token = "test-token"
+  url     = %q
+  api_key = "test-api-key"
 }
 `, mockURL)
 }

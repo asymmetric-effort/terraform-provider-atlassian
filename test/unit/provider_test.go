@@ -51,7 +51,7 @@ func TestProviderSchema(t *testing.T) {
 	}
 
 	expectedAttrs := []string{
-		"url", "username", "api_token",
+		"url", "admin_url", "api_key",
 		"oauth_client_id", "oauth_client_secret", "oauth_refresh_token",
 		"request_timeout", "max_retries", "retry_wait_min", "retry_wait_max",
 	}
@@ -73,7 +73,7 @@ func TestProviderSchemaAttributeCount(t *testing.T) {
 	resp := &frameworkprovider.SchemaResponse{}
 	p.Schema(context.Background(), req, resp)
 
-	expected := 11
+	expected := 10
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -90,7 +90,7 @@ func TestProviderSensitiveAttributes(t *testing.T) {
 	resp := &frameworkprovider.SchemaResponse{}
 	p.Schema(context.Background(), req, resp)
 
-	sensitiveAttrs := []string{"api_token", "oauth_client_secret", "oauth_refresh_token"}
+	sensitiveAttrs := []string{"api_key", "oauth_client_secret", "oauth_refresh_token"}
 	for _, name := range sensitiveAttrs {
 		attr, ok := resp.Schema.Attributes[name]
 		if !ok {

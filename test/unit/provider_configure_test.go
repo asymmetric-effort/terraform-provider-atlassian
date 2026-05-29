@@ -34,8 +34,7 @@ func buildProviderConfig(t *testing.T, attrs map[string]interface{}) tfsdk.Confi
 	values := map[string]tftypes.Value{
 		"url":                 tftypes.NewValue(tftypes.String, nil),
 		"admin_url":           tftypes.NewValue(tftypes.String, nil),
-		"username":            tftypes.NewValue(tftypes.String, nil),
-		"api_token":           tftypes.NewValue(tftypes.String, nil),
+		"api_key":             tftypes.NewValue(tftypes.String, nil),
 		"oauth_client_id":     tftypes.NewValue(tftypes.String, nil),
 		"oauth_client_secret": tftypes.NewValue(tftypes.String, nil),
 		"oauth_refresh_token": tftypes.NewValue(tftypes.String, nil),
@@ -74,9 +73,9 @@ func TestProviderConfigureAPIToken(t *testing.T) {
 
 	p := provider.New("test")()
 	config := buildProviderConfig(t, map[string]interface{}{
-		"url":       ts.URL,
-		"username":  "test@example.com",
-		"api_token": "test-token",
+		"url": ts.URL,
+
+		"api_key": "test-api-key",
 	})
 
 	req := frameworkprovider.ConfigureRequest{Config: config}
@@ -175,8 +174,8 @@ func TestProviderConfigureMissingURL(t *testing.T) {
 
 	p := provider.New("test")()
 	config := buildProviderConfig(t, map[string]interface{}{
-		"username":  "test@example.com",
-		"api_token": "test-token",
+
+		"api_key": "test-api-key",
 	})
 
 	req := frameworkprovider.ConfigureRequest{Config: config}
@@ -194,9 +193,9 @@ func TestProviderConfigureInvalidRequestTimeout(t *testing.T) {
 
 	p := provider.New("test")()
 	config := buildProviderConfig(t, map[string]interface{}{
-		"url":             "https://example.atlassian.net",
-		"username":        "test@example.com",
-		"api_token":       "test-token",
+		"url": "https://example.atlassian.net",
+
+		"api_key":         "test-api-key",
 		"request_timeout": "not-a-duration",
 	})
 
@@ -215,9 +214,9 @@ func TestProviderConfigureInvalidRetryWaitMin(t *testing.T) {
 
 	p := provider.New("test")()
 	config := buildProviderConfig(t, map[string]interface{}{
-		"url":            "https://example.atlassian.net",
-		"username":       "test@example.com",
-		"api_token":      "test-token",
+		"url": "https://example.atlassian.net",
+
+		"api_key":        "test-api-key",
 		"retry_wait_min": "not-a-duration",
 	})
 
@@ -236,9 +235,9 @@ func TestProviderConfigureInvalidRetryWaitMax(t *testing.T) {
 
 	p := provider.New("test")()
 	config := buildProviderConfig(t, map[string]interface{}{
-		"url":            "https://example.atlassian.net",
-		"username":       "test@example.com",
-		"api_token":      "test-token",
+		"url": "https://example.atlassian.net",
+
+		"api_key":        "test-api-key",
 		"retry_wait_max": "not-a-duration",
 	})
 
@@ -263,9 +262,9 @@ func TestProviderConfigureWithRetryParams(t *testing.T) {
 
 	p := provider.New("test")()
 	config := buildProviderConfig(t, map[string]interface{}{
-		"url":             ts.URL,
-		"username":        "test@example.com",
-		"api_token":       "test-token",
+		"url": ts.URL,
+
+		"api_key":         "test-api-key",
 		"request_timeout": "10s",
 		"max_retries":     int64(3),
 		"retry_wait_min":  "500ms",
@@ -292,8 +291,7 @@ func TestProviderConfigureEnvVarFallback(t *testing.T) {
 	defer ts.Close()
 
 	t.Setenv("ATLASSIAN_URL", ts.URL)
-	t.Setenv("ATLASSIAN_USERNAME", "env@example.com")
-	t.Setenv("ATLASSIAN_API_TOKEN", "env-token")
+	t.Setenv("ATLASSIAN_API_KEY", "env-api-key")
 
 	p := provider.New("test")()
 	config := buildProviderConfig(t, map[string]interface{}{})
@@ -307,22 +305,31 @@ func TestProviderConfigureEnvVarFallback(t *testing.T) {
 	}
 }
 
-// TestProviderConfigureMissingUsernameForToken tests API token auth with missing username.
-func TestProviderConfigureMissingUsernameForToken(t *testing.T) {
+// TestProviderConfigureAPIKey tests Configure with API key auth.
+func TestProviderConfigureAPIKey(t *testing.T) {
 	t.Parallel()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer ts.Close()
 
 	p := provider.New("test")()
 	config := buildProviderConfig(t, map[string]interface{}{
-		"url":       "https://example.atlassian.net",
-		"api_token": "test-token",
+		"url":     ts.URL,
+		"api_key": "test-api-key",
 	})
 
 	req := frameworkprovider.ConfigureRequest{Config: config}
 	resp := &frameworkprovider.ConfigureResponse{}
 	p.Configure(context.Background(), req, resp)
 
-	if !resp.Diagnostics.HasError() {
-		t.Fatal("Expected error when username is missing for API token auth")
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("Configure with API key failed: %v", resp.Diagnostics.Errors())
+	}
+	if resp.ResourceData == nil {
+		t.Fatal("Expected non-nil ResourceData")
 	}
 }
 
@@ -332,9 +339,9 @@ func TestProviderConfigureInvalidURL(t *testing.T) {
 
 	p := provider.New("test")()
 	config := buildProviderConfig(t, map[string]interface{}{
-		"url":       "not-a-valid-url",
-		"username":  "test@example.com",
-		"api_token": "test-token",
+		"url": "not-a-valid-url",
+
+		"api_key": "test-api-key",
 	})
 
 	req := frameworkprovider.ConfigureRequest{Config: config}

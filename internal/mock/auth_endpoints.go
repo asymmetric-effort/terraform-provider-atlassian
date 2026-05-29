@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// ValidTestToken is the default valid API token for testing.
-const ValidTestToken = "Basic dGVzdEBleGFtcGxlLmNvbTp0ZXN0LXRva2Vu" // test@example.com:test-token
+// ValidTestAPIKey is the default valid Admin API key for testing.
+const ValidTestAPIKey = "Bearer test-api-key"
 
 // ValidBearerToken is the default valid OAuth bearer token for testing.
 const ValidBearerToken = "Bearer mock-access-token"
@@ -22,7 +22,7 @@ func RegisterAuthEndpoints(s *Server) {
 			return
 		}
 
-		if auth != ValidTestToken && auth != ValidBearerToken {
+		if auth != ValidTestAPIKey && auth != ValidBearerToken {
 			WriteError(w, http.StatusUnauthorized, "Invalid authentication credentials. "+
 				"Check your API token or OAuth configuration")
 			return

@@ -36,7 +36,7 @@ func cgClient(t *testing.T) *atlassian.Client {
 		w.WriteHeader(200)
 	}))
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	c, _ := atlassian.NewClient(atlassian.Config{
 		BaseURL:        ts.URL,
 		RequestTimeout: 5 * time.Second,
@@ -175,7 +175,7 @@ func TestBBRepoResourceCreate409Conflict(t *testing.T) {
 		})
 	}))
 	defer ts.Close()
-	auth, _ := atlassian.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(atlassian.Config{
 		BaseURL:        ts.URL,
 		RequestTimeout: 5 * time.Second,
@@ -220,7 +220,7 @@ func TestIssueTypeResourceCreate409Conflict(t *testing.T) {
 		})
 	}))
 	defer ts.Close()
-	auth, _ := atlassian.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(atlassian.Config{
 		BaseURL:        ts.URL,
 		RequestTimeout: 5 * time.Second,
@@ -262,7 +262,7 @@ func TestScreenResourceCreate409Conflict(t *testing.T) {
 		})
 	}))
 	defer ts.Close()
-	auth, _ := atlassian.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(atlassian.Config{
 		BaseURL:        ts.URL,
 		RequestTimeout: 5 * time.Second,
@@ -301,7 +301,7 @@ func TestScreenSchemeResourceCreate409Conflict(t *testing.T) {
 		})
 	}))
 	defer ts.Close()
-	auth, _ := atlassian.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(atlassian.Config{
 		BaseURL:        ts.URL,
 		RequestTimeout: 5 * time.Second,
@@ -339,7 +339,7 @@ func TestBBBranchRestrictionUpdateGenericError(t *testing.T) {
 		w.Write([]byte(`{"error":{"message":"Error"}}`))
 	}))
 	defer ts.Close()
-	auth, _ := atlassian.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(atlassian.Config{
 		BaseURL:        ts.URL,
 		RequestTimeout: 5 * time.Second,
@@ -385,7 +385,7 @@ func TestBBDeploymentUpdateGenericError(t *testing.T) {
 		w.Write([]byte(`{"error":{"message":"Error"}}`))
 	}))
 	defer ts.Close()
-	auth, _ := atlassian.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(atlassian.Config{
 		BaseURL:        ts.URL,
 		RequestTimeout: 5 * time.Second,
@@ -431,7 +431,7 @@ func TestBBPipelineUpdateGenericError(t *testing.T) {
 		w.Write([]byte(`{"error":{"message":"Error"}}`))
 	}))
 	defer ts.Close()
-	auth, _ := atlassian.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(atlassian.Config{
 		BaseURL:        ts.URL,
 		RequestTimeout: 5 * time.Second,
@@ -473,7 +473,7 @@ func TestBBRepoPermissionUpdateGenericError(t *testing.T) {
 		w.Write([]byte(`{"error":{"message":"Error"}}`))
 	}))
 	defer ts.Close()
-	auth, _ := atlassian.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(atlassian.Config{
 		BaseURL:        ts.URL,
 		RequestTimeout: 5 * time.Second,

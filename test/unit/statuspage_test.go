@@ -1193,7 +1193,7 @@ func testStatuspageMockServer(t *testing.T) (*httptest.Server, *atlassian.Client
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
 
-	auth, err := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, err := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	if err != nil {
 		t.Fatalf("failed to create authenticator: %v", err)
 	}

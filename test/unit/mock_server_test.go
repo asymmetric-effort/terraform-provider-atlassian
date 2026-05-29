@@ -134,7 +134,7 @@ func TestMockAuthEndpointValidToken(t *testing.T) {
 	defer server.Close()
 
 	req, _ := http.NewRequest(http.MethodGet, server.URL+"/rest/api/3/myself", nil)
-	req.Header.Set("Authorization", mock.ValidTestToken)
+	req.Header.Set("Authorization", mock.ValidTestAPIKey)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

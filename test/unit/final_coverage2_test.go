@@ -104,7 +104,7 @@ func TestRoleResourceCreateWithScope(t *testing.T) {
 		w.WriteHeader(204)
 	}))
 	defer ts.Close()
-	auth, _ := client.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := client.NewAPIKeyAuthenticator("test-api-key")
 	cl, _ := client.NewClient(client.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}, auth)
 
 	ctx := context.Background()
@@ -169,7 +169,7 @@ func TestRoleAssignmentWithProductIdInResponse(t *testing.T) {
 		w.WriteHeader(204)
 	}))
 	defer ts.Close()
-	auth, _ := client.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := client.NewAPIKeyAuthenticator("test-api-key")
 	cl, _ := client.NewClient(client.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}, auth)
 
 	ctx := context.Background()
@@ -363,7 +363,7 @@ func TestMembershipCreateIdempotent409(t *testing.T) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"errorMessages": []string{"already member"}})
 	}))
 	defer ts.Close()
-	auth, _ := client.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := client.NewAPIKeyAuthenticator("test-api-key")
 	cl, _ := client.NewClient(client.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}, auth)
 
 	ctx := context.Background()
@@ -398,7 +398,7 @@ func TestMembershipUpdateAdd409(t *testing.T) {
 		w.WriteHeader(204) // DELETE succeeds
 	}))
 	defer ts.Close()
-	auth, _ := client.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := client.NewAPIKeyAuthenticator("test-api-key")
 	cl, _ := client.NewClient(client.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}, auth)
 
 	ctx := context.Background()
@@ -437,7 +437,7 @@ func TestMembershipUpdateRemove404(t *testing.T) {
 		w.WriteHeader(201) // POST succeeds
 	}))
 	defer ts.Close()
-	auth, _ := client.NewTokenAuthenticator("u@e.com", "tok")
+	auth, _ := client.NewAPIKeyAuthenticator("test-api-key")
 	cl, _ := client.NewClient(client.Config{BaseURL: ts.URL, RequestTimeout: 5 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}, auth)
 
 	ctx := context.Background()

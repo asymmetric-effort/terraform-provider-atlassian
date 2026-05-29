@@ -8,11 +8,11 @@ import (
 	"github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
 )
 
-// TestTokenAuthenticatorValid verifies API token auth works with valid credentials.
-func TestTokenAuthenticatorValid(t *testing.T) {
+// TestAPIKeyAuthenticatorValid verifies API key auth works with valid key.
+func TestAPIKeyAuthenticatorValid(t *testing.T) {
 	t.Parallel()
 
-	auth, err := client.NewTokenAuthenticator("user@example.com", "test-token")
+	auth, err := client.NewAPIKeyAuthenticator("test-api-key")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -27,34 +27,21 @@ func TestTokenAuthenticatorValid(t *testing.T) {
 	if authHeader == "" {
 		t.Fatal("expected Authorization header to be set")
 	}
-	if authHeader[:6] != "Basic " {
-		t.Errorf("expected Basic auth scheme, got %q", authHeader[:6])
+	if authHeader != "Bearer test-api-key" {
+		t.Errorf("expected 'Bearer test-api-key', got %q", authHeader)
 	}
 }
 
-// TestTokenAuthenticatorMissingUsername verifies clear error for missing username.
-func TestTokenAuthenticatorMissingUsername(t *testing.T) {
+// TestAPIKeyAuthenticatorMissingKey verifies clear error for missing API key.
+func TestAPIKeyAuthenticatorMissingKey(t *testing.T) {
 	t.Parallel()
 
-	_, err := client.NewTokenAuthenticator("", "test-token")
+	_, err := client.NewAPIKeyAuthenticator("")
 	if err == nil {
-		t.Fatal("expected error for missing username")
+		t.Fatal("expected error for missing API key")
 	}
-	if !contains(err.Error(), "username") {
-		t.Errorf("expected error to mention 'username', got: %s", err.Error())
-	}
-}
-
-// TestTokenAuthenticatorMissingToken verifies clear error for missing token.
-func TestTokenAuthenticatorMissingToken(t *testing.T) {
-	t.Parallel()
-
-	_, err := client.NewTokenAuthenticator("user@example.com", "")
-	if err == nil {
-		t.Fatal("expected error for missing token")
-	}
-	if !contains(err.Error(), "api_token") {
-		t.Errorf("expected error to mention 'api_token', got: %s", err.Error())
+	if !contains(err.Error(), "api_key") {
+		t.Errorf("expected error to mention 'api_key', got: %s", err.Error())
 	}
 }
 

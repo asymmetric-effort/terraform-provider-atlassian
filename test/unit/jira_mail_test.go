@@ -229,7 +229,7 @@ func mailMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
 
-	auth, err := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, err := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	if err != nil {
 		t.Fatalf("auth: %v", err)
 	}
@@ -693,7 +693,7 @@ func TestIncomingMailHandlerResourceCreateForbidden(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -732,7 +732,7 @@ func TestIncomingMailHandlerResourceCreateServerError(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -771,7 +771,7 @@ func TestIncomingMailHandlerResourceReadServerError(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -810,7 +810,7 @@ func TestIncomingMailHandlerResourceUpdateBadRequest(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -851,7 +851,7 @@ func TestIncomingMailHandlerResourceUpdateForbidden(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -892,7 +892,7 @@ func TestIncomingMailHandlerResourceUpdateServerError(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -933,7 +933,7 @@ func TestIncomingMailHandlerResourceDeleteForbidden(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -972,7 +972,7 @@ func TestIncomingMailHandlerResourceDeleteServerError(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -1011,7 +1011,7 @@ func TestIncomingMailHandlerDataSourceReadServerError(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -1466,7 +1466,7 @@ func TestOutgoingMailHandlerResourceCreateForbidden(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -1504,7 +1504,7 @@ func TestOutgoingMailHandlerResourceCreateServerError(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -1542,7 +1542,7 @@ func TestOutgoingMailHandlerResourceReadServerError(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -1580,7 +1580,7 @@ func TestOutgoingMailHandlerResourceUpdateBadRequest(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -1620,7 +1620,7 @@ func TestOutgoingMailHandlerResourceUpdateForbidden(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -1660,7 +1660,7 @@ func TestOutgoingMailHandlerResourceUpdateServerError(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -1700,7 +1700,7 @@ func TestOutgoingMailHandlerResourceDeleteForbidden(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -1738,7 +1738,7 @@ func TestOutgoingMailHandlerResourceDeleteServerError(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 
@@ -1776,7 +1776,7 @@ func TestOutgoingMailHandlerDataSourceReadServerError(t *testing.T) {
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	auth, _ := atlassian.NewTokenAuthenticator("test@example.com", "test-token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 30 * time.Second, MaxRetries: 0, RetryWaitMin: 1 * time.Second, RetryWaitMax: 1 * time.Second}
 	client, _ := atlassian.NewClient(cfg, auth)
 

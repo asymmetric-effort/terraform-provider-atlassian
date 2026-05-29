@@ -94,7 +94,7 @@ not shipped with the provider binary.
 ## Key Constraints
 
 - **No OpsGenie** — out of scope
-- **No HTTP Basic Auth** — API tokens + OAuth 2.0 only
+- **No HTTP Basic Auth** — Admin API keys (Bearer tokens) + OAuth 2.0 only
   (refresh token and client credentials flows)
 - Error messages must be simple, clear, and user-friendly —
   never surface raw API errors
@@ -205,7 +205,7 @@ internal/
 
 Two methods supported:
 
-1. **API Tokens** — scoped to a service account
+1. **Admin API Key** — Bearer token created at admin.atlassian.com
 2. **OAuth 2.0** — both flows:
    - **Refresh token** — user obtains token out-of-band;
      provider refreshes automatically
@@ -216,8 +216,7 @@ Two methods supported:
 Env vars:
 
 - `ATLASSIAN_URL`
-- `ATLASSIAN_USERNAME`
-- `ATLASSIAN_API_TOKEN`
+- `ATLASSIAN_API_KEY`
 - `ATLASSIAN_OAUTH_CLIENT_ID`
 - `ATLASSIAN_OAUTH_CLIENT_SECRET`
 - `ATLASSIAN_OAUTH_REFRESH_TOKEN`

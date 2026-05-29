@@ -156,7 +156,7 @@ func testITSSMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
 	t.Cleanup(ts.Close)
 	cfg := atlassian.DefaultConfig()
 	cfg.BaseURL = ts.URL
-	auth, _ := atlassian.NewTokenAuthenticator("user", "token")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(cfg, auth)
 	return ts, client
 }
@@ -637,7 +637,7 @@ func TestITSSResourceCreateForbidden(t *testing.T) {
 	cfg := atlassian.DefaultConfig()
 	cfg.BaseURL = ts.URL
 	cfg.MaxRetries = 0
-	auth, _ := atlassian.NewTokenAuthenticator("u", "t")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(cfg, auth)
 
 	ctx := context.Background()
@@ -673,7 +673,7 @@ func TestITSSResourceCreateBadRequest(t *testing.T) {
 	cfg := atlassian.DefaultConfig()
 	cfg.BaseURL = ts.URL
 	cfg.MaxRetries = 0
-	auth, _ := atlassian.NewTokenAuthenticator("u", "t")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(cfg, auth)
 
 	ctx := context.Background()
@@ -709,7 +709,7 @@ func TestITSSResourceReadServerError(t *testing.T) {
 	cfg := atlassian.DefaultConfig()
 	cfg.BaseURL = ts.URL
 	cfg.MaxRetries = 0
-	auth, _ := atlassian.NewTokenAuthenticator("u", "t")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(cfg, auth)
 
 	ctx := context.Background()
@@ -745,7 +745,7 @@ func TestITSSResourceUpdateForbidden(t *testing.T) {
 	cfg := atlassian.DefaultConfig()
 	cfg.BaseURL = ts.URL
 	cfg.MaxRetries = 0
-	auth, _ := atlassian.NewTokenAuthenticator("u", "t")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(cfg, auth)
 
 	ctx := context.Background()
@@ -782,7 +782,7 @@ func TestITSSResourceUpdateBadRequest(t *testing.T) {
 	cfg := atlassian.DefaultConfig()
 	cfg.BaseURL = ts.URL
 	cfg.MaxRetries = 0
-	auth, _ := atlassian.NewTokenAuthenticator("u", "t")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(cfg, auth)
 
 	ctx := context.Background()
@@ -819,7 +819,7 @@ func TestITSSResourceUpdateServerError(t *testing.T) {
 	cfg := atlassian.DefaultConfig()
 	cfg.BaseURL = ts.URL
 	cfg.MaxRetries = 0
-	auth, _ := atlassian.NewTokenAuthenticator("u", "t")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(cfg, auth)
 
 	ctx := context.Background()
@@ -856,7 +856,7 @@ func TestITSSResourceDeleteForbidden(t *testing.T) {
 	cfg := atlassian.DefaultConfig()
 	cfg.BaseURL = ts.URL
 	cfg.MaxRetries = 0
-	auth, _ := atlassian.NewTokenAuthenticator("u", "t")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(cfg, auth)
 
 	ctx := context.Background()
@@ -892,7 +892,7 @@ func TestITSSResourceDeleteServerError(t *testing.T) {
 	cfg := atlassian.DefaultConfig()
 	cfg.BaseURL = ts.URL
 	cfg.MaxRetries = 0
-	auth, _ := atlassian.NewTokenAuthenticator("u", "t")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(cfg, auth)
 
 	ctx := context.Background()
@@ -928,7 +928,7 @@ func TestITSSResourceCreateServerError(t *testing.T) {
 	cfg := atlassian.DefaultConfig()
 	cfg.BaseURL = ts.URL
 	cfg.MaxRetries = 0
-	auth, _ := atlassian.NewTokenAuthenticator("u", "t")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(cfg, auth)
 
 	ctx := context.Background()
@@ -1214,7 +1214,7 @@ func TestITSSDataSourceReadServerError(t *testing.T) {
 	cfg := atlassian.DefaultConfig()
 	cfg.BaseURL = ts.URL
 	cfg.MaxRetries = 0
-	auth, _ := atlassian.NewTokenAuthenticator("u", "t")
+	auth, _ := atlassian.NewAPIKeyAuthenticator("test-api-key")
 	client, _ := atlassian.NewClient(cfg, auth)
 
 	ctx := context.Background()
