@@ -46,6 +46,7 @@ func RegisterJiraEndpoints(s *Server) {
 	registerMailHandlerEndpoints(s)
 	registerCustomDomainEndpoints(s)
 	registerCustomEmailEndpoints(s)
+	registerIssueTypeScreenSchemeEndpoints(s)
 }
 
 // registerCRUDEndpoints is a helper that registers standard CRUD endpoints for a resource type.
@@ -745,4 +746,9 @@ func registerCustomDomainEndpoints(s *Server) {
 // registerCustomEmailEndpoints registers custom email CRUD endpoints.
 func registerCustomEmailEndpoints(s *Server) {
 	registerCRUDEndpoints(s, "emails", "/rest/api/3/email", "id", "Email", []string{"emailAddress"}, "emailAddress")
+}
+
+// registerIssueTypeScreenSchemeEndpoints registers issue type screen scheme CRUD endpoints.
+func registerIssueTypeScreenSchemeEndpoints(s *Server) {
+	registerCRUDEndpoints(s, "issuetypescreenschemes", "/rest/api/3/issuetypescreenscheme", "id", "Issue type screen scheme", []string{"name"}, "name")
 }
