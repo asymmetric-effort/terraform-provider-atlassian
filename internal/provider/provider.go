@@ -128,7 +128,7 @@ func (p *AtlassianProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 				Optional:    true,
 			},
 			"admin_url": schema.StringAttribute{
-				Description: "Atlassian Admin API URL. Defaults to https://api.atlassian.com. Used by organization and product provisioning resources. May be set via ATLASSIAN_ADMIN_URL environment variable.",
+				Description: "Atlassian Admin API URL. Defaults to https://api.atlassian.com/admin. Used by organization and product provisioning resources. May be set via ATLASSIAN_ADMIN_URL environment variable.",
 				Optional:    true,
 			},
 			"api_key": schema.StringAttribute{
@@ -190,7 +190,7 @@ func (p *AtlassianProvider) Configure(ctx context.Context, req provider.Configur
 	clientConfig := atlassian.DefaultConfig()
 	clientConfig.BaseURL = siteURL
 	if adminURL == "" {
-		adminURL = "https://api.atlassian.com"
+		adminURL = "https://api.atlassian.com/admin"
 	}
 	clientConfig.AdminBaseURL = adminURL
 

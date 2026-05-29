@@ -35,7 +35,7 @@ func pdvProviderConfig() string {
 	return fmt.Sprintf(`
 provider "atlassian" {
   url       = %q
-  admin_url = "https://api.atlassian.com"
+  admin_url = "https://api.atlassian.com/admin"
   api_key   = %q
 
   request_timeout = "30s"

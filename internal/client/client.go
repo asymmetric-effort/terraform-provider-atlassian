@@ -37,7 +37,7 @@ type Config struct {
 // DefaultConfig returns a Config with sensible defaults.
 func DefaultConfig() Config {
 	return Config{
-		AdminBaseURL:   "https://api.atlassian.com",
+		AdminBaseURL:   "https://api.atlassian.com/admin",
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     5,
 		RetryWaitMin:   1 * time.Second,
