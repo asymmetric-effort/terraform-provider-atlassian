@@ -56,9 +56,9 @@ func registerOrganizationEndpoints(s *Server) {
 			WriteError(w, http.StatusNotFound, "Organization not found")
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(item)
+		var org map[string]interface{}
+		json.Unmarshal(item, &org)
+		WriteJSON(w, http.StatusOK, map[string]interface{}{"data": org})
 	})
 }
 
