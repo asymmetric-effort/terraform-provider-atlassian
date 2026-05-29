@@ -68,8 +68,8 @@ func testAdminMockServer(t *testing.T) *httptest.Server {
 		json.NewEncoder(w).Encode(map[string]interface{}{"data": org})
 	})
 
-	// POST /admin/installations/v2/orgs/{orgID}/products - provision product
-	mux.HandleFunc("POST /admin/installations/v2/orgs/{orgID}/products", func(w http.ResponseWriter, r *http.Request) {
+	// POST /installations/v2/orgs/{orgID}/products - provision product
+	mux.HandleFunc("POST /installations/v2/orgs/{orgID}/products", func(w http.ResponseWriter, r *http.Request) {
 		orgID := r.PathValue("orgID")
 		mu.Lock()
 		defer mu.Unlock()
@@ -104,12 +104,12 @@ func testAdminMockServer(t *testing.T) *httptest.Server {
 		w.WriteHeader(200)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"requestId": requestID,
-			"statusUrl": fmt.Sprintf("/admin/installations/v2/orgs/%s/products/status/%s", orgID, requestID),
+			"statusUrl": fmt.Sprintf("/installations/v2/orgs/%s/products/status/%s", orgID, requestID),
 		})
 	})
 
-	// GET /admin/installations/v2/orgs/{orgID}/products/status/{requestID} - poll status
-	mux.HandleFunc("GET /admin/installations/v2/orgs/{orgID}/products/status/{requestID}", func(w http.ResponseWriter, r *http.Request) {
+	// GET /installations/v2/orgs/{orgID}/products/status/{requestID} - poll status
+	mux.HandleFunc("GET /installations/v2/orgs/{orgID}/products/status/{requestID}", func(w http.ResponseWriter, r *http.Request) {
 		requestID := r.PathValue("requestID")
 		mu.Lock()
 		defer mu.Unlock()
@@ -128,8 +128,8 @@ func testAdminMockServer(t *testing.T) *httptest.Server {
 		})
 	})
 
-	// POST /admin/v2/orgs/{orgID}/workspaces - query workspaces
-	mux.HandleFunc("POST /admin/v2/orgs/{orgID}/workspaces", func(w http.ResponseWriter, r *http.Request) {
+	// POST /v2/orgs/{orgID}/workspaces - query workspaces
+	mux.HandleFunc("POST /v2/orgs/{orgID}/workspaces", func(w http.ResponseWriter, r *http.Request) {
 		orgID := r.PathValue("orgID")
 		mu.Lock()
 		defer mu.Unlock()
@@ -1238,7 +1238,7 @@ func TestAdminProductResourceCreateProvisionFailed(t *testing.T) {
 	t.Parallel()
 	callCount := 0
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /admin/installations/v2/orgs/{orgID}/products", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /installations/v2/orgs/{orgID}/products", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -1246,7 +1246,7 @@ func TestAdminProductResourceCreateProvisionFailed(t *testing.T) {
 			"statusUrl": "/status/req-fail",
 		})
 	})
-	mux.HandleFunc("GET /admin/installations/v2/orgs/{orgID}/products/status/{reqID}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /installations/v2/orgs/{orgID}/products/status/{reqID}", func(w http.ResponseWriter, r *http.Request) {
 		callCount++
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -1297,7 +1297,7 @@ func TestAdminProductResourceCreateProvisionFailed(t *testing.T) {
 func TestAdminProductResourceCreateStatusCheckError(t *testing.T) {
 	t.Parallel()
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /admin/installations/v2/orgs/{orgID}/products", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /installations/v2/orgs/{orgID}/products", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -1305,7 +1305,7 @@ func TestAdminProductResourceCreateStatusCheckError(t *testing.T) {
 			"statusUrl": "/status/req-err",
 		})
 	})
-	mux.HandleFunc("GET /admin/installations/v2/orgs/{orgID}/products/status/{reqID}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /installations/v2/orgs/{orgID}/products/status/{reqID}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(500)
 		json.NewEncoder(w).Encode(map[string]interface{}{

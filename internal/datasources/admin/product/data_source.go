@@ -122,7 +122,7 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 
 	var wsResp apiWorkspaceResponseDS
 	err := d.client.AdminPost(ctx,
-		fmt.Sprintf("/admin/v2/orgs/%s/workspaces", orgID),
+		fmt.Sprintf("/v2/orgs/%s/workspaces", orgID),
 		bytes.NewReader(bodyBytes), &wsResp)
 	if err != nil {
 		resp.Diagnostics.AddError(

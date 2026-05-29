@@ -66,8 +66,8 @@ func registerOrganizationEndpoints(s *Server) {
 func registerWorkspaceEndpoints(s *Server) {
 	store := s.GetStore("workspaces")
 
-	// POST /admin/v2/orgs/{orgId}/workspaces — query workspaces
-	s.RegisterEndpoint("POST /admin/v2/orgs/{orgId}/workspaces", func(w http.ResponseWriter, r *http.Request) {
+	// POST /v2/orgs/{orgId}/workspaces — query workspaces
+	s.RegisterEndpoint("POST /v2/orgs/{orgId}/workspaces", func(w http.ResponseWriter, r *http.Request) {
 		orgID := r.PathValue("orgId")
 
 		// Parse optional query filter
@@ -123,8 +123,8 @@ func registerProductProvisioningEndpoints(s *Server) {
 	provisionStore := s.GetStore("provisions")
 	workspaceStore := s.GetStore("workspaces")
 
-	// POST /admin/installations/v2/orgs/{orgId}/products — provision product
-	s.RegisterEndpoint("POST /admin/installations/v2/orgs/{orgId}/products", func(w http.ResponseWriter, r *http.Request) {
+	// POST /installations/v2/orgs/{orgId}/products — provision product
+	s.RegisterEndpoint("POST /installations/v2/orgs/{orgId}/products", func(w http.ResponseWriter, r *http.Request) {
 		orgID := r.PathValue("orgId")
 
 		var req struct {
@@ -181,12 +181,12 @@ func registerProductProvisioningEndpoints(s *Server) {
 
 		WriteJSON(w, http.StatusAccepted, map[string]interface{}{
 			"requestId": requestID,
-			"statusUrl": fmt.Sprintf("/admin/installations/v2/orgs/%s/products/status/%s", orgID, requestID),
+			"statusUrl": fmt.Sprintf("/installations/v2/orgs/%s/products/status/%s", orgID, requestID),
 		})
 	})
 
-	// GET /admin/installations/v2/orgs/{orgId}/products/status/{requestId} — provisioning status
-	s.RegisterEndpoint("GET /admin/installations/v2/orgs/{orgId}/products/status/{requestId}", func(w http.ResponseWriter, r *http.Request) {
+	// GET /installations/v2/orgs/{orgId}/products/status/{requestId} — provisioning status
+	s.RegisterEndpoint("GET /installations/v2/orgs/{orgId}/products/status/{requestId}", func(w http.ResponseWriter, r *http.Request) {
 		requestID := r.PathValue("requestId")
 		item, ok := provisionStore.Get(requestID)
 		if !ok {
