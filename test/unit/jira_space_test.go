@@ -67,14 +67,22 @@ func testSpaceMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
 		id := spaceNextID()
 		description, _ := req["description"].(string)
 		leadAccountID, _ := req["leadAccountId"].(string)
+		projectTemplateKey, _ := req["projectTemplateKey"].(string)
+		avatarID, _ := req["avatarId"].(float64)
+		categoryID, _ := req["categoryId"].(float64)
+		assigneeType, _ := req["assigneeType"].(string)
 		space := map[string]interface{}{
-			"id":             id,
-			"key":            key,
-			"name":           name,
-			"description":    description,
-			"leadAccountId":  leadAccountID,
-			"projectTypeKey": projectTypeKey,
-			"self":           fmt.Sprintf("https://example.atlassian.net/rest/api/3/project/%s", id),
+			"id":                 id,
+			"key":                key,
+			"name":               name,
+			"description":        description,
+			"leadAccountId":      leadAccountID,
+			"projectTypeKey":     projectTypeKey,
+			"projectTemplateKey": projectTemplateKey,
+			"avatarId":           avatarID,
+			"categoryId":         categoryID,
+			"assigneeType":       assigneeType,
+			"self":               fmt.Sprintf("https://example.atlassian.net/rest/api/3/project/%s", id),
 		}
 		spaces[id] = space
 		keyIndex[key] = id
@@ -263,7 +271,7 @@ func TestJiraSpaceResourceSchema(t *testing.T) {
 		t.Fatal("expected schema to have attributes")
 	}
 
-	expectedAttrs := []string{"id", "key", "name", "description", "lead_account_id", "space_type", "url"}
+	expectedAttrs := []string{"id", "key", "name", "description", "lead_account_id", "space_type", "project_template_key", "avatar_id", "category_id", "assignee_type", "url"}
 	for _, attr := range expectedAttrs {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected schema to have attribute %q", attr)
@@ -280,7 +288,7 @@ func TestJiraSpaceResourceSchemaAttributeCount(t *testing.T) {
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), req, resp)
 
-	expected := 9
+	expected := 13
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -318,7 +326,7 @@ func TestJiraSpaceResourceSchemaComputedAttributes(t *testing.T) {
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), req, resp)
 
-	computedAttrs := []string{"id", "url", "description", "lead_account_id"}
+	computedAttrs := []string{"id", "url", "description", "lead_account_id", "project_template_key", "avatar_id", "category_id", "assignee_type"}
 	for _, name := range computedAttrs {
 		attr, ok := resp.Schema.Attributes[name]
 		if !ok {
@@ -340,7 +348,7 @@ func TestJiraSpaceResourceSchemaOptionalAttributes(t *testing.T) {
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), req, resp)
 
-	optionalAttrs := []string{"description", "lead_account_id"}
+	optionalAttrs := []string{"description", "lead_account_id", "project_template_key", "avatar_id", "category_id", "assignee_type"}
 	for _, name := range optionalAttrs {
 		attr, ok := resp.Schema.Attributes[name]
 		if !ok {
@@ -418,7 +426,7 @@ func TestJiraSpaceDataSourceSchema(t *testing.T) {
 		t.Fatal("expected schema to have attributes")
 	}
 
-	expectedAttrs := []string{"id", "key", "name", "description", "lead_account_id", "space_type", "url"}
+	expectedAttrs := []string{"id", "key", "name", "description", "lead_account_id", "space_type", "project_template_key", "avatar_id", "category_id", "assignee_type", "url"}
 	for _, attr := range expectedAttrs {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected schema to have attribute %q", attr)
@@ -435,7 +443,7 @@ func TestJiraSpaceDataSourceSchemaAttributeCount(t *testing.T) {
 	resp := &datasource.SchemaResponse{}
 	ds.Schema(context.Background(), req, resp)
 
-	expected := 9
+	expected := 13
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -451,7 +459,7 @@ func TestJiraSpaceDataSourceSchemaComputedAttributes(t *testing.T) {
 	resp := &datasource.SchemaResponse{}
 	ds.Schema(context.Background(), req, resp)
 
-	computedAttrs := []string{"name", "description", "lead_account_id", "space_type", "url"}
+	computedAttrs := []string{"name", "description", "lead_account_id", "space_type", "project_template_key", "avatar_id", "category_id", "assignee_type", "url"}
 	for _, name := range computedAttrs {
 		attr, ok := resp.Schema.Attributes[name]
 		if !ok {
@@ -510,15 +518,19 @@ func TestJiraSpaceResourceCRUDLifecycle(t *testing.T) {
 
 	// Create
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"key":             tftypes.NewValue(tftypes.String, "CRUD"),
-		"name":            tftypes.NewValue(tftypes.String, "CRUD Space"),
-		"description":     tftypes.NewValue(tftypes.String, "A test space"),
-		"lead_account_id": tftypes.NewValue(tftypes.String, "lead-123"),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"id":                   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"key":                  tftypes.NewValue(tftypes.String, "CRUD"),
+		"name":                 tftypes.NewValue(tftypes.String, "CRUD Space"),
+		"description":          tftypes.NewValue(tftypes.String, "A test space"),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, "lead-123"),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"project_template_key": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"category_id":          tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"assignee_type":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -550,15 +562,19 @@ func TestJiraSpaceResourceCRUDLifecycle(t *testing.T) {
 
 	// Read
 	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, spaceID),
-		"key":             tftypes.NewValue(tftypes.String, "CRUD"),
-		"name":            tftypes.NewValue(tftypes.String, "CRUD Space"),
-		"description":     tftypes.NewValue(tftypes.String, "A test space"),
-		"lead_account_id": tftypes.NewValue(tftypes.String, "lead-123"),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, "https://example.atlassian.net/rest/api/3/project/"+spaceID),
-		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"id":                   tftypes.NewValue(tftypes.String, spaceID),
+		"key":                  tftypes.NewValue(tftypes.String, "CRUD"),
+		"name":                 tftypes.NewValue(tftypes.String, "CRUD Space"),
+		"description":          tftypes.NewValue(tftypes.String, "A test space"),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, "lead-123"),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, "https://example.atlassian.net/rest/api/3/project/"+spaceID),
+		"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"project_template_key": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"category_id":          tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"assignee_type":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -571,15 +587,19 @@ func TestJiraSpaceResourceCRUDLifecycle(t *testing.T) {
 
 	// Update
 	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, spaceID),
-		"key":             tftypes.NewValue(tftypes.String, "CRUD"),
-		"name":            tftypes.NewValue(tftypes.String, "Updated Space"),
-		"description":     tftypes.NewValue(tftypes.String, "Updated desc"),
-		"lead_account_id": tftypes.NewValue(tftypes.String, "lead-456"),
-		"space_type":      tftypes.NewValue(tftypes.String, "next-gen"),
-		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"id":                   tftypes.NewValue(tftypes.String, spaceID),
+		"key":                  tftypes.NewValue(tftypes.String, "CRUD"),
+		"name":                 tftypes.NewValue(tftypes.String, "Updated Space"),
+		"description":          tftypes.NewValue(tftypes.String, "Updated desc"),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, "lead-456"),
+		"space_type":           tftypes.NewValue(tftypes.String, "next-gen"),
+		"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"project_template_key": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"category_id":          tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"assignee_type":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
@@ -620,15 +640,19 @@ func TestJiraSpaceResourceCreateNextGen(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"key":             tftypes.NewValue(tftypes.String, "NEXT"),
-		"name":            tftypes.NewValue(tftypes.String, "Next-Gen Space"),
-		"description":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"lead_account_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"space_type":      tftypes.NewValue(tftypes.String, "next-gen"),
-		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"id":                   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"key":                  tftypes.NewValue(tftypes.String, "NEXT"),
+		"name":                 tftypes.NewValue(tftypes.String, "Next-Gen Space"),
+		"description":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"space_type":           tftypes.NewValue(tftypes.String, "next-gen"),
+		"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"project_template_key": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"category_id":          tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"assignee_type":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -651,15 +675,19 @@ func TestJiraSpaceResourceCreateDuplicateKey(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"key":             tftypes.NewValue(tftypes.String, "DUP"),
-		"name":            tftypes.NewValue(tftypes.String, "First Space"),
-		"description":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"lead_account_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"id":                   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"key":                  tftypes.NewValue(tftypes.String, "DUP"),
+		"name":                 tftypes.NewValue(tftypes.String, "First Space"),
+		"description":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"project_template_key": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"category_id":          tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"assignee_type":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	resp1 := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp1)
@@ -668,15 +696,19 @@ func TestJiraSpaceResourceCreateDuplicateKey(t *testing.T) {
 	}
 
 	plan2 := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"key":             tftypes.NewValue(tftypes.String, "DUP"),
-		"name":            tftypes.NewValue(tftypes.String, "Second Space"),
-		"description":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"lead_account_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"id":                   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"key":                  tftypes.NewValue(tftypes.String, "DUP"),
+		"name":                 tftypes.NewValue(tftypes.String, "Second Space"),
+		"description":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"project_template_key": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"category_id":          tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"assignee_type":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	resp2 := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan2}, resp2)
@@ -696,15 +728,19 @@ func TestJiraSpaceResourceUpdateNotFound(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, "nonexistent"),
-		"key":             tftypes.NewValue(tftypes.String, "NOPE"),
-		"name":            tftypes.NewValue(tftypes.String, "X"),
-		"description":     tftypes.NewValue(tftypes.String, ""),
-		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, ""),
-		"self_url":        tftypes.NewValue(tftypes.String, ""),
-		"browse_url":      tftypes.NewValue(tftypes.String, ""),
+		"id":                   tftypes.NewValue(tftypes.String, "nonexistent"),
+		"key":                  tftypes.NewValue(tftypes.String, "NOPE"),
+		"name":                 tftypes.NewValue(tftypes.String, "X"),
+		"description":          tftypes.NewValue(tftypes.String, ""),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, ""),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, ""),
+		"self_url":             tftypes.NewValue(tftypes.String, ""),
+		"project_template_key": tftypes.NewValue(tftypes.String, ""),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, 0),
+		"category_id":          tftypes.NewValue(tftypes.Number, 0),
+		"assignee_type":        tftypes.NewValue(tftypes.String, ""),
+		"browse_url":           tftypes.NewValue(tftypes.String, ""),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -725,15 +761,19 @@ func TestJiraSpaceResourceDeleteNotFound(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, "nonexistent"),
-		"key":             tftypes.NewValue(tftypes.String, "NOPE"),
-		"name":            tftypes.NewValue(tftypes.String, "X"),
-		"description":     tftypes.NewValue(tftypes.String, ""),
-		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, ""),
-		"self_url":        tftypes.NewValue(tftypes.String, ""),
-		"browse_url":      tftypes.NewValue(tftypes.String, ""),
+		"id":                   tftypes.NewValue(tftypes.String, "nonexistent"),
+		"key":                  tftypes.NewValue(tftypes.String, "NOPE"),
+		"name":                 tftypes.NewValue(tftypes.String, "X"),
+		"description":          tftypes.NewValue(tftypes.String, ""),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, ""),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, ""),
+		"self_url":             tftypes.NewValue(tftypes.String, ""),
+		"project_template_key": tftypes.NewValue(tftypes.String, ""),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, 0),
+		"category_id":          tftypes.NewValue(tftypes.Number, 0),
+		"assignee_type":        tftypes.NewValue(tftypes.String, ""),
+		"browse_url":           tftypes.NewValue(tftypes.String, ""),
 	})}
 	deleteResp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -753,15 +793,19 @@ func TestJiraSpaceResourceReadNotFound(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, "nonexistent"),
-		"key":             tftypes.NewValue(tftypes.String, "NOPE"),
-		"name":            tftypes.NewValue(tftypes.String, "X"),
-		"description":     tftypes.NewValue(tftypes.String, ""),
-		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, ""),
-		"self_url":        tftypes.NewValue(tftypes.String, ""),
-		"browse_url":      tftypes.NewValue(tftypes.String, ""),
+		"id":                   tftypes.NewValue(tftypes.String, "nonexistent"),
+		"key":                  tftypes.NewValue(tftypes.String, "NOPE"),
+		"name":                 tftypes.NewValue(tftypes.String, "X"),
+		"description":          tftypes.NewValue(tftypes.String, ""),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, ""),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, ""),
+		"self_url":             tftypes.NewValue(tftypes.String, ""),
+		"project_template_key": tftypes.NewValue(tftypes.String, ""),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, 0),
+		"category_id":          tftypes.NewValue(tftypes.Number, 0),
+		"assignee_type":        tftypes.NewValue(tftypes.String, ""),
+		"browse_url":           tftypes.NewValue(tftypes.String, ""),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -785,15 +829,19 @@ func TestJiraSpaceResourceCreateForbidden(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"key":             tftypes.NewValue(tftypes.String, "FORBID"),
-		"name":            tftypes.NewValue(tftypes.String, "Forbidden"),
-		"description":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"lead_account_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"id":                   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"key":                  tftypes.NewValue(tftypes.String, "FORBID"),
+		"name":                 tftypes.NewValue(tftypes.String, "Forbidden"),
+		"description":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"project_template_key": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"category_id":          tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"assignee_type":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -813,15 +861,19 @@ func TestJiraSpaceResourceUpdateForbidden(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, "some-id"),
-		"key":             tftypes.NewValue(tftypes.String, "FORBID"),
-		"name":            tftypes.NewValue(tftypes.String, "Forbidden"),
-		"description":     tftypes.NewValue(tftypes.String, ""),
-		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, ""),
-		"self_url":        tftypes.NewValue(tftypes.String, ""),
-		"browse_url":      tftypes.NewValue(tftypes.String, ""),
+		"id":                   tftypes.NewValue(tftypes.String, "some-id"),
+		"key":                  tftypes.NewValue(tftypes.String, "FORBID"),
+		"name":                 tftypes.NewValue(tftypes.String, "Forbidden"),
+		"description":          tftypes.NewValue(tftypes.String, ""),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, ""),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, ""),
+		"self_url":             tftypes.NewValue(tftypes.String, ""),
+		"project_template_key": tftypes.NewValue(tftypes.String, ""),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, 0),
+		"category_id":          tftypes.NewValue(tftypes.Number, 0),
+		"assignee_type":        tftypes.NewValue(tftypes.String, ""),
+		"browse_url":           tftypes.NewValue(tftypes.String, ""),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -842,15 +894,19 @@ func TestJiraSpaceResourceDeleteForbidden(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, "some-id"),
-		"key":             tftypes.NewValue(tftypes.String, "FORBID"),
-		"name":            tftypes.NewValue(tftypes.String, "Forbidden"),
-		"description":     tftypes.NewValue(tftypes.String, ""),
-		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, ""),
-		"self_url":        tftypes.NewValue(tftypes.String, ""),
-		"browse_url":      tftypes.NewValue(tftypes.String, ""),
+		"id":                   tftypes.NewValue(tftypes.String, "some-id"),
+		"key":                  tftypes.NewValue(tftypes.String, "FORBID"),
+		"name":                 tftypes.NewValue(tftypes.String, "Forbidden"),
+		"description":          tftypes.NewValue(tftypes.String, ""),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, ""),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, ""),
+		"self_url":             tftypes.NewValue(tftypes.String, ""),
+		"project_template_key": tftypes.NewValue(tftypes.String, ""),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, 0),
+		"category_id":          tftypes.NewValue(tftypes.Number, 0),
+		"assignee_type":        tftypes.NewValue(tftypes.String, ""),
+		"browse_url":           tftypes.NewValue(tftypes.String, ""),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -911,15 +967,19 @@ func TestJiraSpaceDataSourceByID(t *testing.T) {
 	rsTfType := rs.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"key":             tftypes.NewValue(tftypes.String, "DSID"),
-		"name":            tftypes.NewValue(tftypes.String, "DS By ID"),
-		"description":     tftypes.NewValue(tftypes.String, "desc"),
-		"lead_account_id": tftypes.NewValue(tftypes.String, "lead-ds"),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"id":                   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"key":                  tftypes.NewValue(tftypes.String, "DSID"),
+		"name":                 tftypes.NewValue(tftypes.String, "DS By ID"),
+		"description":          tftypes.NewValue(tftypes.String, "desc"),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, "lead-ds"),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"project_template_key": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"category_id":          tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"assignee_type":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -935,15 +995,19 @@ func TestJiraSpaceDataSourceByID(t *testing.T) {
 	dsType := dss.Type().TerraformType(ctx)
 
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, spaceID),
-		"key":             tftypes.NewValue(tftypes.String, nil),
-		"name":            tftypes.NewValue(tftypes.String, nil),
-		"description":     tftypes.NewValue(tftypes.String, nil),
-		"lead_account_id": tftypes.NewValue(tftypes.String, nil),
-		"space_type":      tftypes.NewValue(tftypes.String, nil),
-		"url":             tftypes.NewValue(tftypes.String, nil),
-		"self_url":        tftypes.NewValue(tftypes.String, nil),
-		"browse_url":      tftypes.NewValue(tftypes.String, nil),
+		"id":                   tftypes.NewValue(tftypes.String, spaceID),
+		"key":                  tftypes.NewValue(tftypes.String, nil),
+		"name":                 tftypes.NewValue(tftypes.String, nil),
+		"description":          tftypes.NewValue(tftypes.String, nil),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, nil),
+		"space_type":           tftypes.NewValue(tftypes.String, nil),
+		"url":                  tftypes.NewValue(tftypes.String, nil),
+		"self_url":             tftypes.NewValue(tftypes.String, nil),
+		"project_template_key": tftypes.NewValue(tftypes.String, nil),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, nil),
+		"category_id":          tftypes.NewValue(tftypes.Number, nil),
+		"assignee_type":        tftypes.NewValue(tftypes.String, nil),
+		"browse_url":           tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -971,15 +1035,19 @@ func TestJiraSpaceDataSourceByKey(t *testing.T) {
 	rsTfType := rs.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"key":             tftypes.NewValue(tftypes.String, "DSKEY"),
-		"name":            tftypes.NewValue(tftypes.String, "DS By Key"),
-		"description":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"lead_account_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"space_type":      tftypes.NewValue(tftypes.String, "next-gen"),
-		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"id":                   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"key":                  tftypes.NewValue(tftypes.String, "DSKEY"),
+		"name":                 tftypes.NewValue(tftypes.String, "DS By Key"),
+		"description":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"space_type":           tftypes.NewValue(tftypes.String, "next-gen"),
+		"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"project_template_key": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"category_id":          tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"assignee_type":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -994,15 +1062,19 @@ func TestJiraSpaceDataSourceByKey(t *testing.T) {
 	dsType := dss.Type().TerraformType(ctx)
 
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, nil),
-		"key":             tftypes.NewValue(tftypes.String, "DSKEY"),
-		"name":            tftypes.NewValue(tftypes.String, nil),
-		"description":     tftypes.NewValue(tftypes.String, nil),
-		"lead_account_id": tftypes.NewValue(tftypes.String, nil),
-		"space_type":      tftypes.NewValue(tftypes.String, nil),
-		"url":             tftypes.NewValue(tftypes.String, nil),
-		"self_url":        tftypes.NewValue(tftypes.String, nil),
-		"browse_url":      tftypes.NewValue(tftypes.String, nil),
+		"id":                   tftypes.NewValue(tftypes.String, nil),
+		"key":                  tftypes.NewValue(tftypes.String, "DSKEY"),
+		"name":                 tftypes.NewValue(tftypes.String, nil),
+		"description":          tftypes.NewValue(tftypes.String, nil),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, nil),
+		"space_type":           tftypes.NewValue(tftypes.String, nil),
+		"url":                  tftypes.NewValue(tftypes.String, nil),
+		"self_url":             tftypes.NewValue(tftypes.String, nil),
+		"project_template_key": tftypes.NewValue(tftypes.String, nil),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, nil),
+		"category_id":          tftypes.NewValue(tftypes.Number, nil),
+		"assignee_type":        tftypes.NewValue(tftypes.String, nil),
+		"browse_url":           tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1028,15 +1100,19 @@ func TestJiraSpaceDataSourceMissingBoth(t *testing.T) {
 	dsType := dss.Type().TerraformType(ctx)
 
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, nil),
-		"key":             tftypes.NewValue(tftypes.String, nil),
-		"name":            tftypes.NewValue(tftypes.String, nil),
-		"description":     tftypes.NewValue(tftypes.String, nil),
-		"lead_account_id": tftypes.NewValue(tftypes.String, nil),
-		"space_type":      tftypes.NewValue(tftypes.String, nil),
-		"url":             tftypes.NewValue(tftypes.String, nil),
-		"self_url":        tftypes.NewValue(tftypes.String, nil),
-		"browse_url":      tftypes.NewValue(tftypes.String, nil),
+		"id":                   tftypes.NewValue(tftypes.String, nil),
+		"key":                  tftypes.NewValue(tftypes.String, nil),
+		"name":                 tftypes.NewValue(tftypes.String, nil),
+		"description":          tftypes.NewValue(tftypes.String, nil),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, nil),
+		"space_type":           tftypes.NewValue(tftypes.String, nil),
+		"url":                  tftypes.NewValue(tftypes.String, nil),
+		"self_url":             tftypes.NewValue(tftypes.String, nil),
+		"project_template_key": tftypes.NewValue(tftypes.String, nil),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, nil),
+		"category_id":          tftypes.NewValue(tftypes.Number, nil),
+		"assignee_type":        tftypes.NewValue(tftypes.String, nil),
+		"browse_url":           tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1056,15 +1132,19 @@ func TestJiraSpaceDataSourceNotFound(t *testing.T) {
 	dsType := dss.Type().TerraformType(ctx)
 
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, "nonexistent"),
-		"key":             tftypes.NewValue(tftypes.String, nil),
-		"name":            tftypes.NewValue(tftypes.String, nil),
-		"description":     tftypes.NewValue(tftypes.String, nil),
-		"lead_account_id": tftypes.NewValue(tftypes.String, nil),
-		"space_type":      tftypes.NewValue(tftypes.String, nil),
-		"url":             tftypes.NewValue(tftypes.String, nil),
-		"self_url":        tftypes.NewValue(tftypes.String, nil),
-		"browse_url":      tftypes.NewValue(tftypes.String, nil),
+		"id":                   tftypes.NewValue(tftypes.String, "nonexistent"),
+		"key":                  tftypes.NewValue(tftypes.String, nil),
+		"name":                 tftypes.NewValue(tftypes.String, nil),
+		"description":          tftypes.NewValue(tftypes.String, nil),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, nil),
+		"space_type":           tftypes.NewValue(tftypes.String, nil),
+		"url":                  tftypes.NewValue(tftypes.String, nil),
+		"self_url":             tftypes.NewValue(tftypes.String, nil),
+		"project_template_key": tftypes.NewValue(tftypes.String, nil),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, nil),
+		"category_id":          tftypes.NewValue(tftypes.Number, nil),
+		"assignee_type":        tftypes.NewValue(tftypes.String, nil),
+		"browse_url":           tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1137,15 +1217,19 @@ func TestJiraSpaceResourceCreateServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"key":             tftypes.NewValue(tftypes.String, "ERR"),
-		"name":            tftypes.NewValue(tftypes.String, "Error"),
-		"description":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"lead_account_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"id":                   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"key":                  tftypes.NewValue(tftypes.String, "ERR"),
+		"name":                 tftypes.NewValue(tftypes.String, "Error"),
+		"description":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"project_template_key": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"category_id":          tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"assignee_type":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -1165,15 +1249,19 @@ func TestJiraSpaceResourceReadServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, "some-id"),
-		"key":             tftypes.NewValue(tftypes.String, "ERR"),
-		"name":            tftypes.NewValue(tftypes.String, "Error"),
-		"description":     tftypes.NewValue(tftypes.String, ""),
-		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, ""),
-		"self_url":        tftypes.NewValue(tftypes.String, ""),
-		"browse_url":      tftypes.NewValue(tftypes.String, ""),
+		"id":                   tftypes.NewValue(tftypes.String, "some-id"),
+		"key":                  tftypes.NewValue(tftypes.String, "ERR"),
+		"name":                 tftypes.NewValue(tftypes.String, "Error"),
+		"description":          tftypes.NewValue(tftypes.String, ""),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, ""),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, ""),
+		"self_url":             tftypes.NewValue(tftypes.String, ""),
+		"project_template_key": tftypes.NewValue(tftypes.String, ""),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, 0),
+		"category_id":          tftypes.NewValue(tftypes.Number, 0),
+		"assignee_type":        tftypes.NewValue(tftypes.String, ""),
+		"browse_url":           tftypes.NewValue(tftypes.String, ""),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -1193,15 +1281,19 @@ func TestJiraSpaceResourceUpdateServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, "some-id"),
-		"key":             tftypes.NewValue(tftypes.String, "ERR"),
-		"name":            tftypes.NewValue(tftypes.String, "Error"),
-		"description":     tftypes.NewValue(tftypes.String, ""),
-		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, ""),
-		"self_url":        tftypes.NewValue(tftypes.String, ""),
-		"browse_url":      tftypes.NewValue(tftypes.String, ""),
+		"id":                   tftypes.NewValue(tftypes.String, "some-id"),
+		"key":                  tftypes.NewValue(tftypes.String, "ERR"),
+		"name":                 tftypes.NewValue(tftypes.String, "Error"),
+		"description":          tftypes.NewValue(tftypes.String, ""),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, ""),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, ""),
+		"self_url":             tftypes.NewValue(tftypes.String, ""),
+		"project_template_key": tftypes.NewValue(tftypes.String, ""),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, 0),
+		"category_id":          tftypes.NewValue(tftypes.Number, 0),
+		"assignee_type":        tftypes.NewValue(tftypes.String, ""),
+		"browse_url":           tftypes.NewValue(tftypes.String, ""),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -1222,15 +1314,19 @@ func TestJiraSpaceResourceDeleteServerError(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, "some-id"),
-		"key":             tftypes.NewValue(tftypes.String, "ERR"),
-		"name":            tftypes.NewValue(tftypes.String, "Error"),
-		"description":     tftypes.NewValue(tftypes.String, ""),
-		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, ""),
-		"self_url":        tftypes.NewValue(tftypes.String, ""),
-		"browse_url":      tftypes.NewValue(tftypes.String, ""),
+		"id":                   tftypes.NewValue(tftypes.String, "some-id"),
+		"key":                  tftypes.NewValue(tftypes.String, "ERR"),
+		"name":                 tftypes.NewValue(tftypes.String, "Error"),
+		"description":          tftypes.NewValue(tftypes.String, ""),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, ""),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, ""),
+		"self_url":             tftypes.NewValue(tftypes.String, ""),
+		"project_template_key": tftypes.NewValue(tftypes.String, ""),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, 0),
+		"category_id":          tftypes.NewValue(tftypes.Number, 0),
+		"assignee_type":        tftypes.NewValue(tftypes.String, ""),
+		"browse_url":           tftypes.NewValue(tftypes.String, ""),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -1250,15 +1346,19 @@ func TestJiraSpaceDataSourceReadServerError(t *testing.T) {
 	dsType := dss.Type().TerraformType(ctx)
 
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, "some-id"),
-		"key":             tftypes.NewValue(tftypes.String, nil),
-		"name":            tftypes.NewValue(tftypes.String, nil),
-		"description":     tftypes.NewValue(tftypes.String, nil),
-		"lead_account_id": tftypes.NewValue(tftypes.String, nil),
-		"space_type":      tftypes.NewValue(tftypes.String, nil),
-		"url":             tftypes.NewValue(tftypes.String, nil),
-		"self_url":        tftypes.NewValue(tftypes.String, nil),
-		"browse_url":      tftypes.NewValue(tftypes.String, nil),
+		"id":                   tftypes.NewValue(tftypes.String, "some-id"),
+		"key":                  tftypes.NewValue(tftypes.String, nil),
+		"name":                 tftypes.NewValue(tftypes.String, nil),
+		"description":          tftypes.NewValue(tftypes.String, nil),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, nil),
+		"space_type":           tftypes.NewValue(tftypes.String, nil),
+		"url":                  tftypes.NewValue(tftypes.String, nil),
+		"self_url":             tftypes.NewValue(tftypes.String, nil),
+		"project_template_key": tftypes.NewValue(tftypes.String, nil),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, nil),
+		"category_id":          tftypes.NewValue(tftypes.Number, nil),
+		"assignee_type":        tftypes.NewValue(tftypes.String, nil),
+		"browse_url":           tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1315,15 +1415,19 @@ func TestJiraSpaceResourceUpdateBadPlan(t *testing.T) {
 	// Bad plan
 	badPlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tftypes.String, "invalid")}
 	goodState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, "x"),
-		"key":             tftypes.NewValue(tftypes.String, "X"),
-		"name":            tftypes.NewValue(tftypes.String, "X"),
-		"description":     tftypes.NewValue(tftypes.String, ""),
-		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, ""),
-		"self_url":        tftypes.NewValue(tftypes.String, ""),
-		"browse_url":      tftypes.NewValue(tftypes.String, ""),
+		"id":                   tftypes.NewValue(tftypes.String, "x"),
+		"key":                  tftypes.NewValue(tftypes.String, "X"),
+		"name":                 tftypes.NewValue(tftypes.String, "X"),
+		"description":          tftypes.NewValue(tftypes.String, ""),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, ""),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, ""),
+		"self_url":             tftypes.NewValue(tftypes.String, ""),
+		"project_template_key": tftypes.NewValue(tftypes.String, ""),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, 0),
+		"category_id":          tftypes.NewValue(tftypes.Number, 0),
+		"assignee_type":        tftypes.NewValue(tftypes.String, ""),
+		"browse_url":           tftypes.NewValue(tftypes.String, ""),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: badPlan, State: goodState}, resp)
@@ -1343,15 +1447,19 @@ func TestJiraSpaceResourceUpdateBadState(t *testing.T) {
 	tfType := s.Type().TerraformType(ctx)
 
 	goodPlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, "x"),
-		"key":             tftypes.NewValue(tftypes.String, "X"),
-		"name":            tftypes.NewValue(tftypes.String, "X"),
-		"description":     tftypes.NewValue(tftypes.String, ""),
-		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, ""),
-		"self_url":        tftypes.NewValue(tftypes.String, ""),
-		"browse_url":      tftypes.NewValue(tftypes.String, ""),
+		"id":                   tftypes.NewValue(tftypes.String, "x"),
+		"key":                  tftypes.NewValue(tftypes.String, "X"),
+		"name":                 tftypes.NewValue(tftypes.String, "X"),
+		"description":          tftypes.NewValue(tftypes.String, ""),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, ""),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, ""),
+		"self_url":             tftypes.NewValue(tftypes.String, ""),
+		"project_template_key": tftypes.NewValue(tftypes.String, ""),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, 0),
+		"category_id":          tftypes.NewValue(tftypes.Number, 0),
+		"assignee_type":        tftypes.NewValue(tftypes.String, ""),
+		"browse_url":           tftypes.NewValue(tftypes.String, ""),
 	})}
 	badState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tftypes.String, "invalid")}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -1407,15 +1515,19 @@ func TestJiraSpaceResourceReadByKeyFallback(t *testing.T) {
 
 	// First create a space
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"key":             tftypes.NewValue(tftypes.String, "KEYRD"),
-		"name":            tftypes.NewValue(tftypes.String, "Key Read"),
-		"description":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"lead_account_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"id":                   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"key":                  tftypes.NewValue(tftypes.String, "KEYRD"),
+		"name":                 tftypes.NewValue(tftypes.String, "Key Read"),
+		"description":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"project_template_key": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"category_id":          tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"assignee_type":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -1425,15 +1537,19 @@ func TestJiraSpaceResourceReadByKeyFallback(t *testing.T) {
 
 	// Read with empty ID but key set (import scenario)
 	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, ""),
-		"key":             tftypes.NewValue(tftypes.String, "KEYRD"),
-		"name":            tftypes.NewValue(tftypes.String, ""),
-		"description":     tftypes.NewValue(tftypes.String, ""),
-		"lead_account_id": tftypes.NewValue(tftypes.String, ""),
-		"space_type":      tftypes.NewValue(tftypes.String, ""),
-		"url":             tftypes.NewValue(tftypes.String, ""),
-		"self_url":        tftypes.NewValue(tftypes.String, ""),
-		"browse_url":      tftypes.NewValue(tftypes.String, ""),
+		"id":                   tftypes.NewValue(tftypes.String, ""),
+		"key":                  tftypes.NewValue(tftypes.String, "KEYRD"),
+		"name":                 tftypes.NewValue(tftypes.String, ""),
+		"description":          tftypes.NewValue(tftypes.String, ""),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, ""),
+		"space_type":           tftypes.NewValue(tftypes.String, ""),
+		"url":                  tftypes.NewValue(tftypes.String, ""),
+		"self_url":             tftypes.NewValue(tftypes.String, ""),
+		"project_template_key": tftypes.NewValue(tftypes.String, ""),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, 0),
+		"category_id":          tftypes.NewValue(tftypes.Number, 0),
+		"assignee_type":        tftypes.NewValue(tftypes.String, ""),
+		"browse_url":           tftypes.NewValue(tftypes.String, ""),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -1457,15 +1573,19 @@ func TestJiraSpaceDataSourceByName(t *testing.T) {
 	rs := getResourceSchema(t, r)
 	tfType := rs.Type().TerraformType(ctx)
 	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"key":             tftypes.NewValue(tftypes.String, "BYNAME"),
-		"name":            tftypes.NewValue(tftypes.String, "By Name Space"),
-		"description":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"lead_account_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"id":                   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"key":                  tftypes.NewValue(tftypes.String, "BYNAME"),
+		"name":                 tftypes.NewValue(tftypes.String, "By Name Space"),
+		"description":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"project_template_key": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"category_id":          tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"assignee_type":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -1479,15 +1599,19 @@ func TestJiraSpaceDataSourceByName(t *testing.T) {
 	dss := getDatasourceSchema(t, ds)
 	dsType := dss.Type().TerraformType(ctx)
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, nil),
-		"key":             tftypes.NewValue(tftypes.String, nil),
-		"name":            tftypes.NewValue(tftypes.String, "By Name Space"),
-		"description":     tftypes.NewValue(tftypes.String, nil),
-		"lead_account_id": tftypes.NewValue(tftypes.String, nil),
-		"space_type":      tftypes.NewValue(tftypes.String, nil),
-		"url":             tftypes.NewValue(tftypes.String, nil),
-		"self_url":        tftypes.NewValue(tftypes.String, nil),
-		"browse_url":      tftypes.NewValue(tftypes.String, nil),
+		"id":                   tftypes.NewValue(tftypes.String, nil),
+		"key":                  tftypes.NewValue(tftypes.String, nil),
+		"name":                 tftypes.NewValue(tftypes.String, "By Name Space"),
+		"description":          tftypes.NewValue(tftypes.String, nil),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, nil),
+		"space_type":           tftypes.NewValue(tftypes.String, nil),
+		"url":                  tftypes.NewValue(tftypes.String, nil),
+		"self_url":             tftypes.NewValue(tftypes.String, nil),
+		"project_template_key": tftypes.NewValue(tftypes.String, nil),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, nil),
+		"category_id":          tftypes.NewValue(tftypes.Number, nil),
+		"assignee_type":        tftypes.NewValue(tftypes.String, nil),
+		"browse_url":           tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1509,15 +1633,19 @@ func TestJiraSpaceDataSourceByNameNotFound(t *testing.T) {
 	dss := getDatasourceSchema(t, ds)
 	dsType := dss.Type().TerraformType(ctx)
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, nil),
-		"key":             tftypes.NewValue(tftypes.String, nil),
-		"name":            tftypes.NewValue(tftypes.String, "Nonexistent Space"),
-		"description":     tftypes.NewValue(tftypes.String, nil),
-		"lead_account_id": tftypes.NewValue(tftypes.String, nil),
-		"space_type":      tftypes.NewValue(tftypes.String, nil),
-		"url":             tftypes.NewValue(tftypes.String, nil),
-		"self_url":        tftypes.NewValue(tftypes.String, nil),
-		"browse_url":      tftypes.NewValue(tftypes.String, nil),
+		"id":                   tftypes.NewValue(tftypes.String, nil),
+		"key":                  tftypes.NewValue(tftypes.String, nil),
+		"name":                 tftypes.NewValue(tftypes.String, "Nonexistent Space"),
+		"description":          tftypes.NewValue(tftypes.String, nil),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, nil),
+		"space_type":           tftypes.NewValue(tftypes.String, nil),
+		"url":                  tftypes.NewValue(tftypes.String, nil),
+		"self_url":             tftypes.NewValue(tftypes.String, nil),
+		"project_template_key": tftypes.NewValue(tftypes.String, nil),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, nil),
+		"category_id":          tftypes.NewValue(tftypes.Number, nil),
+		"assignee_type":        tftypes.NewValue(tftypes.String, nil),
+		"browse_url":           tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1536,15 +1664,19 @@ func TestJiraSpaceDataSourceMissingAll(t *testing.T) {
 	dss := getDatasourceSchema(t, ds)
 	dsType := dss.Type().TerraformType(ctx)
 	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, nil),
-		"key":             tftypes.NewValue(tftypes.String, nil),
-		"name":            tftypes.NewValue(tftypes.String, nil),
-		"description":     tftypes.NewValue(tftypes.String, nil),
-		"lead_account_id": tftypes.NewValue(tftypes.String, nil),
-		"space_type":      tftypes.NewValue(tftypes.String, nil),
-		"url":             tftypes.NewValue(tftypes.String, nil),
-		"self_url":        tftypes.NewValue(tftypes.String, nil),
-		"browse_url":      tftypes.NewValue(tftypes.String, nil),
+		"id":                   tftypes.NewValue(tftypes.String, nil),
+		"key":                  tftypes.NewValue(tftypes.String, nil),
+		"name":                 tftypes.NewValue(tftypes.String, nil),
+		"description":          tftypes.NewValue(tftypes.String, nil),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, nil),
+		"space_type":           tftypes.NewValue(tftypes.String, nil),
+		"url":                  tftypes.NewValue(tftypes.String, nil),
+		"self_url":             tftypes.NewValue(tftypes.String, nil),
+		"project_template_key": tftypes.NewValue(tftypes.String, nil),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, nil),
+		"category_id":          tftypes.NewValue(tftypes.Number, nil),
+		"assignee_type":        tftypes.NewValue(tftypes.String, nil),
+		"browse_url":           tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1586,7 +1718,11 @@ func TestJiraSpaceDataSourceByNameSearchError(t *testing.T) {
 		"name": tftypes.NewValue(tftypes.String, "Test"), "description": tftypes.NewValue(tftypes.String, nil),
 		"lead_account_id": tftypes.NewValue(tftypes.String, nil), "space_type": tftypes.NewValue(tftypes.String, nil),
 		"url": tftypes.NewValue(tftypes.String, nil), "self_url": tftypes.NewValue(tftypes.String, nil),
-		"browse_url": tftypes.NewValue(tftypes.String, nil),
+		"project_template_key": tftypes.NewValue(tftypes.String, nil),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, nil),
+		"category_id":          tftypes.NewValue(tftypes.Number, nil),
+		"assignee_type":        tftypes.NewValue(tftypes.String, nil),
+		"browse_url":           tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1617,15 +1753,19 @@ func TestJiraSpaceBrowseURLEmpty(t *testing.T) {
 	s := getResourceSchema(t, r)
 	tfType := s.Type().TerraformType(ctx)
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-		"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"key":             tftypes.NewValue(tftypes.String, "TST"),
-		"name":            tftypes.NewValue(tftypes.String, "Test"),
-		"description":     tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"lead_account_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-		"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-		"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"id":                   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"key":                  tftypes.NewValue(tftypes.String, "TST"),
+		"name":                 tftypes.NewValue(tftypes.String, "Test"),
+		"description":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"project_template_key": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"category_id":          tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+		"assignee_type":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -1663,7 +1803,11 @@ func TestJiraSpaceDataSourceBrowseURLEmpty(t *testing.T) {
 		"name": tftypes.NewValue(tftypes.String, nil), "description": tftypes.NewValue(tftypes.String, nil),
 		"lead_account_id": tftypes.NewValue(tftypes.String, nil), "space_type": tftypes.NewValue(tftypes.String, nil),
 		"url": tftypes.NewValue(tftypes.String, nil), "self_url": tftypes.NewValue(tftypes.String, nil),
-		"browse_url": tftypes.NewValue(tftypes.String, nil),
+		"project_template_key": tftypes.NewValue(tftypes.String, nil),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, nil),
+		"category_id":          tftypes.NewValue(tftypes.Number, nil),
+		"assignee_type":        tftypes.NewValue(tftypes.String, nil),
+		"browse_url":           tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1699,7 +1843,11 @@ func TestJiraSpaceDataSourceByNameBadJSON(t *testing.T) {
 		"name": tftypes.NewValue(tftypes.String, "Test"), "description": tftypes.NewValue(tftypes.String, nil),
 		"lead_account_id": tftypes.NewValue(tftypes.String, nil), "space_type": tftypes.NewValue(tftypes.String, nil),
 		"url": tftypes.NewValue(tftypes.String, nil), "self_url": tftypes.NewValue(tftypes.String, nil),
-		"browse_url": tftypes.NewValue(tftypes.String, nil),
+		"project_template_key": tftypes.NewValue(tftypes.String, nil),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, nil),
+		"category_id":          tftypes.NewValue(tftypes.Number, nil),
+		"assignee_type":        tftypes.NewValue(tftypes.String, nil),
+		"browse_url":           tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1731,7 +1879,11 @@ func TestJiraSpaceDataSourceByNameBadEntry(t *testing.T) {
 		"name": tftypes.NewValue(tftypes.String, "Good Space"), "description": tftypes.NewValue(tftypes.String, nil),
 		"lead_account_id": tftypes.NewValue(tftypes.String, nil), "space_type": tftypes.NewValue(tftypes.String, nil),
 		"url": tftypes.NewValue(tftypes.String, nil), "self_url": tftypes.NewValue(tftypes.String, nil),
-		"browse_url": tftypes.NewValue(tftypes.String, nil),
+		"project_template_key": tftypes.NewValue(tftypes.String, nil),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, nil),
+		"category_id":          tftypes.NewValue(tftypes.Number, nil),
+		"assignee_type":        tftypes.NewValue(tftypes.String, nil),
+		"browse_url":           tftypes.NewValue(tftypes.String, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1740,5 +1892,103 @@ func TestJiraSpaceDataSourceByNameBadEntry(t *testing.T) {
 	}
 	if v := getStringAttr(t, dsResp.State, "key"); v != "GOOD" {
 		t.Errorf("expected key GOOD, got %s", v)
+	}
+}
+
+// TestJiraSpaceResourceCreateWithAllNewAttributes tests creating a space with all 4 new attributes set.
+func TestJiraSpaceResourceCreateWithAllNewAttributes(t *testing.T) {
+	t.Parallel()
+	_, client := testSpaceMockServer(t)
+	ctx := context.Background()
+	r := spaceresource.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":                   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"key":                  tftypes.NewValue(tftypes.String, "ALLNEW"),
+		"name":                 tftypes.NewValue(tftypes.String, "All New Attrs"),
+		"description":          tftypes.NewValue(tftypes.String, "Space with all new attributes"),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, "lead-all"),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"project_template_key": tftypes.NewValue(tftypes.String, "com.atlassian.jira-core-project-templates:jira-core-simplified-task-tracking"),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, 10200),
+		"category_id":          tftypes.NewValue(tftypes.Number, 42),
+		"assignee_type":        tftypes.NewValue(tftypes.String, "PROJECT_LEAD"),
+		"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+	spaceID := getStringAttr(t, createResp.State, "id")
+	if spaceID == "" {
+		t.Fatal("expected non-empty id")
+	}
+	if v := getStringAttr(t, createResp.State, "key"); v != "ALLNEW" {
+		t.Errorf("expected key 'ALLNEW', got %q", v)
+	}
+	if v := getStringAttr(t, createResp.State, "project_template_key"); v != "com.atlassian.jira-core-project-templates:jira-core-simplified-task-tracking" {
+		t.Errorf("expected project_template_key, got %q", v)
+	}
+	if v := getStringAttr(t, createResp.State, "assignee_type"); v != "PROJECT_LEAD" {
+		t.Errorf("expected assignee_type 'PROJECT_LEAD', got %q", v)
+	}
+
+	// Read back and verify all attributes persist
+	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":                   tftypes.NewValue(tftypes.String, spaceID),
+		"key":                  tftypes.NewValue(tftypes.String, "ALLNEW"),
+		"name":                 tftypes.NewValue(tftypes.String, "All New Attrs"),
+		"description":          tftypes.NewValue(tftypes.String, "Space with all new attributes"),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, "lead-all"),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"project_template_key": tftypes.NewValue(tftypes.String, ""),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, 0),
+		"category_id":          tftypes.NewValue(tftypes.Number, 0),
+		"assignee_type":        tftypes.NewValue(tftypes.String, ""),
+		"url":                  tftypes.NewValue(tftypes.String, ""),
+		"self_url":             tftypes.NewValue(tftypes.String, ""),
+		"browse_url":           tftypes.NewValue(tftypes.String, ""),
+	})}
+	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
+	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+	if v := getStringAttr(t, readResp.State, "name"); v != "All New Attrs" {
+		t.Errorf("Read name: got %q", v)
+	}
+
+	// Update with changed new attributes
+	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":                   tftypes.NewValue(tftypes.String, spaceID),
+		"key":                  tftypes.NewValue(tftypes.String, "ALLNEW"),
+		"name":                 tftypes.NewValue(tftypes.String, "All New Updated"),
+		"description":          tftypes.NewValue(tftypes.String, "Updated desc"),
+		"lead_account_id":      tftypes.NewValue(tftypes.String, "lead-all"),
+		"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+		"project_template_key": tftypes.NewValue(tftypes.String, "com.atlassian.jira-core-project-templates:jira-core-simplified-kanban"),
+		"avatar_id":            tftypes.NewValue(tftypes.Number, 10300),
+		"category_id":          tftypes.NewValue(tftypes.Number, 99),
+		"assignee_type":        tftypes.NewValue(tftypes.String, "UNASSIGNED"),
+		"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+	})}
+	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
+	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readResp.State}, updateResp)
+	if updateResp.Diagnostics.HasError() {
+		t.Fatalf("Update: %v", updateResp.Diagnostics.Errors())
+	}
+	if v := getStringAttr(t, updateResp.State, "assignee_type"); v != "UNASSIGNED" {
+		t.Errorf("Update assignee_type: got %q", v)
+	}
+	if v := getStringAttr(t, updateResp.State, "name"); v != "All New Updated" {
+		t.Errorf("Update name: got %q", v)
 	}
 }

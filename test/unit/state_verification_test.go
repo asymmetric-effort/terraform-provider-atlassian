@@ -428,15 +428,19 @@ func TestStateVerification_JiraSpace_CreateReadUpdateDelete(t *testing.T) {
 	createResp := &fwresource.CreateResponse{State: tfsdk.State{Schema: schemaResp.Schema, Raw: tftypes.NewValue(tfType, nil)}}
 	r.Create(context.Background(), fwresource.CreateRequest{
 		Plan: tfsdk.Plan{Schema: schemaResp.Schema, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-			"id":              tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-			"key":             tftypes.NewValue(tftypes.String, "TEST"),
-			"name":            tftypes.NewValue(tftypes.String, "Test Space"),
-			"description":     tftypes.NewValue(tftypes.String, "A test space"),
-			"lead_account_id": tftypes.NewValue(tftypes.String, ""),
-			"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-			"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-			"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-			"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"id":                   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"key":                  tftypes.NewValue(tftypes.String, "TEST"),
+			"name":                 tftypes.NewValue(tftypes.String, "Test Space"),
+			"description":          tftypes.NewValue(tftypes.String, "A test space"),
+			"lead_account_id":      tftypes.NewValue(tftypes.String, ""),
+			"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+			"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"project_template_key": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"avatar_id":            tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+			"category_id":          tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+			"assignee_type":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		})},
 	}, createResp)
 	if createResp.Diagnostics.HasError() {
@@ -458,15 +462,19 @@ func TestStateVerification_JiraSpace_CreateReadUpdateDelete(t *testing.T) {
 	updateResp := &fwresource.UpdateResponse{State: readResp.State}
 	r.Update(context.Background(), fwresource.UpdateRequest{
 		Plan: tfsdk.Plan{Schema: schemaResp.Schema, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
-			"id":              tftypes.NewValue(tftypes.String, "10001"),
-			"key":             tftypes.NewValue(tftypes.String, "TEST"),
-			"name":            tftypes.NewValue(tftypes.String, "Updated Space"),
-			"description":     tftypes.NewValue(tftypes.String, "Updated description"),
-			"lead_account_id": tftypes.NewValue(tftypes.String, ""),
-			"space_type":      tftypes.NewValue(tftypes.String, "classic"),
-			"url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-			"self_url":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
-			"browse_url":      tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"id":                   tftypes.NewValue(tftypes.String, "10001"),
+			"key":                  tftypes.NewValue(tftypes.String, "TEST"),
+			"name":                 tftypes.NewValue(tftypes.String, "Updated Space"),
+			"description":          tftypes.NewValue(tftypes.String, "Updated description"),
+			"lead_account_id":      tftypes.NewValue(tftypes.String, ""),
+			"space_type":           tftypes.NewValue(tftypes.String, "classic"),
+			"url":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"self_url":             tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"project_template_key": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"avatar_id":            tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+			"category_id":          tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+			"assignee_type":        tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"browse_url":           tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		})},
 		State: readResp.State,
 	}, updateResp)

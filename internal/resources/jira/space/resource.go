@@ -32,43 +32,59 @@ var (
 
 // apiSpace represents the JSON structure returned by the Atlassian project API.
 type apiSpace struct {
-	ID             string `json:"id"`
-	Key            string `json:"key"`
-	Name           string `json:"name"`
-	Description    string `json:"description"`
-	LeadAccountID  string `json:"leadAccountId,omitempty"`
-	ProjectTypeKey string `json:"projectTypeKey"`
-	Self           string `json:"self"`
+	ID                 string `json:"id"`
+	Key                string `json:"key"`
+	Name               string `json:"name"`
+	Description        string `json:"description"`
+	LeadAccountID      string `json:"leadAccountId,omitempty"`
+	ProjectTypeKey     string `json:"projectTypeKey"`
+	ProjectTemplateKey string `json:"projectTemplateKey,omitempty"`
+	AvatarID           int64  `json:"avatarId,omitempty"`
+	CategoryID         int64  `json:"categoryId,omitempty"`
+	AssigneeType       string `json:"assigneeType,omitempty"`
+	Self               string `json:"self"`
 }
 
 // apiSpaceCreate represents the JSON body for creating a space.
 type apiSpaceCreate struct {
-	Key            string `json:"key"`
-	Name           string `json:"name"`
-	Description    string `json:"description,omitempty"`
-	LeadAccountID  string `json:"leadAccountId,omitempty"`
-	ProjectTypeKey string `json:"projectTypeKey"`
+	Key                string `json:"key"`
+	Name               string `json:"name"`
+	Description        string `json:"description,omitempty"`
+	LeadAccountID      string `json:"leadAccountId,omitempty"`
+	ProjectTypeKey     string `json:"projectTypeKey"`
+	ProjectTemplateKey string `json:"projectTemplateKey,omitempty"`
+	AvatarID           int64  `json:"avatarId,omitempty"`
+	CategoryID         int64  `json:"categoryId,omitempty"`
+	AssigneeType       string `json:"assigneeType,omitempty"`
 }
 
 // apiSpaceUpdate represents the JSON body for updating a space.
 type apiSpaceUpdate struct {
-	Name           string `json:"name,omitempty"`
-	Description    string `json:"description,omitempty"`
-	LeadAccountID  string `json:"leadAccountId,omitempty"`
-	ProjectTypeKey string `json:"projectTypeKey,omitempty"`
+	Name               string `json:"name,omitempty"`
+	Description        string `json:"description,omitempty"`
+	LeadAccountID      string `json:"leadAccountId,omitempty"`
+	ProjectTypeKey     string `json:"projectTypeKey,omitempty"`
+	ProjectTemplateKey string `json:"projectTemplateKey,omitempty"`
+	AvatarID           int64  `json:"avatarId,omitempty"`
+	CategoryID         int64  `json:"categoryId,omitempty"`
+	AssigneeType       string `json:"assigneeType,omitempty"`
 }
 
 // ResourceModel describes the resource data model.
 type ResourceModel struct {
-	ID            types.String `tfsdk:"id"`
-	Key           types.String `tfsdk:"key"`
-	Name          types.String `tfsdk:"name"`
-	Description   types.String `tfsdk:"description"`
-	LeadAccountID types.String `tfsdk:"lead_account_id"`
-	SpaceType     types.String `tfsdk:"space_type"`
-	URL           types.String `tfsdk:"url"`
-	SelfURL       types.String `tfsdk:"self_url"`
-	BrowseURL     types.String `tfsdk:"browse_url"`
+	ID                 types.String `tfsdk:"id"`
+	Key                types.String `tfsdk:"key"`
+	Name               types.String `tfsdk:"name"`
+	Description        types.String `tfsdk:"description"`
+	LeadAccountID      types.String `tfsdk:"lead_account_id"`
+	SpaceType          types.String `tfsdk:"space_type"`
+	ProjectTemplateKey types.String `tfsdk:"project_template_key"`
+	AvatarID           types.Int64  `tfsdk:"avatar_id"`
+	CategoryID         types.Int64  `tfsdk:"category_id"`
+	AssigneeType       types.String `tfsdk:"assignee_type"`
+	URL                types.String `tfsdk:"url"`
+	SelfURL            types.String `tfsdk:"self_url"`
+	BrowseURL          types.String `tfsdk:"browse_url"`
 }
 
 // Resource implements the atlassian_jira_space managed resource.
@@ -128,6 +144,32 @@ func (r *Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp *res
 			"space_type": schema.StringAttribute{
 				Description: "The type of space. Must be \"classic\" or \"next-gen\".",
 				Required:    true,
+			},
+			"project_template_key": schema.StringAttribute{
+				Description: "The project template key used when creating the space.",
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"avatar_id": schema.Int64Attribute{
+				Description: "The ID of the avatar for the space.",
+				Optional:    true,
+				Computed:    true,
+			},
+			"category_id": schema.Int64Attribute{
+				Description: "The ID of the project category for the space.",
+				Optional:    true,
+				Computed:    true,
+			},
+			"assignee_type": schema.StringAttribute{
+				Description: "The default assignee type for the space. Must be \"PROJECT_LEAD\" or \"UNASSIGNED\".",
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"url": schema.StringAttribute{
 				Description: "The URL of the space in Atlassian Cloud.",
@@ -205,6 +247,18 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	if !plan.LeadAccountID.IsNull() && !plan.LeadAccountID.IsUnknown() {
 		body.LeadAccountID = plan.LeadAccountID.ValueString()
 	}
+	if !plan.ProjectTemplateKey.IsNull() && !plan.ProjectTemplateKey.IsUnknown() {
+		body.ProjectTemplateKey = plan.ProjectTemplateKey.ValueString()
+	}
+	if !plan.AvatarID.IsNull() && !plan.AvatarID.IsUnknown() {
+		body.AvatarID = plan.AvatarID.ValueInt64()
+	}
+	if !plan.CategoryID.IsNull() && !plan.CategoryID.IsUnknown() {
+		body.CategoryID = plan.CategoryID.ValueInt64()
+	}
+	if !plan.AssigneeType.IsNull() && !plan.AssigneeType.IsUnknown() {
+		body.AssigneeType = plan.AssigneeType.ValueString()
+	}
 	bodyBytes, _ := json.Marshal(body)
 
 	var created apiSpace
@@ -239,6 +293,10 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	plan.Description = types.StringValue(created.Description)
 	plan.LeadAccountID = types.StringValue(created.LeadAccountID)
 	plan.SpaceType = types.StringValue(projectTypeKeyToSpaceType(created.ProjectTypeKey))
+	plan.ProjectTemplateKey = types.StringValue(created.ProjectTemplateKey)
+	plan.AvatarID = types.Int64Value(created.AvatarID)
+	plan.CategoryID = types.Int64Value(created.CategoryID)
+	plan.AssigneeType = types.StringValue(created.AssigneeType)
 	plan.URL = types.StringValue(created.Self)
 	plan.SelfURL = types.StringValue(created.Self)
 	plan.BrowseURL = types.StringValue(browseURL(created.Self, created.Key))
@@ -280,6 +338,10 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	state.Description = types.StringValue(space.Description)
 	state.LeadAccountID = types.StringValue(space.LeadAccountID)
 	state.SpaceType = types.StringValue(projectTypeKeyToSpaceType(space.ProjectTypeKey))
+	state.ProjectTemplateKey = types.StringValue(space.ProjectTemplateKey)
+	state.AvatarID = types.Int64Value(space.AvatarID)
+	state.CategoryID = types.Int64Value(space.CategoryID)
+	state.AssigneeType = types.StringValue(space.AssigneeType)
 	state.URL = types.StringValue(space.Self)
 	state.SelfURL = types.StringValue(space.Self)
 	state.BrowseURL = types.StringValue(browseURL(space.Self, space.Key))
@@ -310,6 +372,18 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	}
 	if !plan.LeadAccountID.IsNull() && !plan.LeadAccountID.IsUnknown() {
 		body.LeadAccountID = plan.LeadAccountID.ValueString()
+	}
+	if !plan.ProjectTemplateKey.IsNull() && !plan.ProjectTemplateKey.IsUnknown() {
+		body.ProjectTemplateKey = plan.ProjectTemplateKey.ValueString()
+	}
+	if !plan.AvatarID.IsNull() && !plan.AvatarID.IsUnknown() {
+		body.AvatarID = plan.AvatarID.ValueInt64()
+	}
+	if !plan.CategoryID.IsNull() && !plan.CategoryID.IsUnknown() {
+		body.CategoryID = plan.CategoryID.ValueInt64()
+	}
+	if !plan.AssigneeType.IsNull() && !plan.AssigneeType.IsUnknown() {
+		body.AssigneeType = plan.AssigneeType.ValueString()
 	}
 	bodyBytes, _ := json.Marshal(body)
 
@@ -345,6 +419,10 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	plan.Description = types.StringValue(updated.Description)
 	plan.LeadAccountID = types.StringValue(updated.LeadAccountID)
 	plan.SpaceType = types.StringValue(projectTypeKeyToSpaceType(updated.ProjectTypeKey))
+	plan.ProjectTemplateKey = types.StringValue(updated.ProjectTemplateKey)
+	plan.AvatarID = types.Int64Value(updated.AvatarID)
+	plan.CategoryID = types.Int64Value(updated.CategoryID)
+	plan.AssigneeType = types.StringValue(updated.AssigneeType)
 	plan.URL = types.StringValue(updated.Self)
 	plan.SelfURL = types.StringValue(updated.Self)
 	plan.BrowseURL = types.StringValue(browseURL(updated.Self, updated.Key))

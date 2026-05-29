@@ -22,26 +22,34 @@ var _ datasource.DataSource = &DataSource{}
 
 // apiSpace represents the JSON structure returned by the Atlassian project API.
 type apiSpace struct {
-	ID             string `json:"id"`
-	Key            string `json:"key"`
-	Name           string `json:"name"`
-	Description    string `json:"description"`
-	LeadAccountID  string `json:"leadAccountId,omitempty"`
-	ProjectTypeKey string `json:"projectTypeKey"`
-	Self           string `json:"self"`
+	ID                 string `json:"id"`
+	Key                string `json:"key"`
+	Name               string `json:"name"`
+	Description        string `json:"description"`
+	LeadAccountID      string `json:"leadAccountId,omitempty"`
+	ProjectTypeKey     string `json:"projectTypeKey"`
+	ProjectTemplateKey string `json:"projectTemplateKey,omitempty"`
+	AvatarID           int64  `json:"avatarId,omitempty"`
+	CategoryID         int64  `json:"categoryId,omitempty"`
+	AssigneeType       string `json:"assigneeType,omitempty"`
+	Self               string `json:"self"`
 }
 
 // DataSourceModel describes the data source data model.
 type DataSourceModel struct {
-	ID            types.String `tfsdk:"id"`
-	Key           types.String `tfsdk:"key"`
-	Name          types.String `tfsdk:"name"`
-	Description   types.String `tfsdk:"description"`
-	LeadAccountID types.String `tfsdk:"lead_account_id"`
-	SpaceType     types.String `tfsdk:"space_type"`
-	URL           types.String `tfsdk:"url"`
-	SelfURL       types.String `tfsdk:"self_url"`
-	BrowseURL     types.String `tfsdk:"browse_url"`
+	ID                 types.String `tfsdk:"id"`
+	Key                types.String `tfsdk:"key"`
+	Name               types.String `tfsdk:"name"`
+	Description        types.String `tfsdk:"description"`
+	LeadAccountID      types.String `tfsdk:"lead_account_id"`
+	SpaceType          types.String `tfsdk:"space_type"`
+	ProjectTemplateKey types.String `tfsdk:"project_template_key"`
+	AvatarID           types.Int64  `tfsdk:"avatar_id"`
+	CategoryID         types.Int64  `tfsdk:"category_id"`
+	AssigneeType       types.String `tfsdk:"assignee_type"`
+	URL                types.String `tfsdk:"url"`
+	SelfURL            types.String `tfsdk:"self_url"`
+	BrowseURL          types.String `tfsdk:"browse_url"`
 }
 
 // DataSource implements the atlassian_jira_space data source.
@@ -89,6 +97,22 @@ func (d *DataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp 
 			},
 			"space_type": schema.StringAttribute{
 				Description: "The type of space (\"classic\" or \"next-gen\").",
+				Computed:    true,
+			},
+			"project_template_key": schema.StringAttribute{
+				Description: "The project template key used when creating the space.",
+				Computed:    true,
+			},
+			"avatar_id": schema.Int64Attribute{
+				Description: "The ID of the avatar for the space.",
+				Computed:    true,
+			},
+			"category_id": schema.Int64Attribute{
+				Description: "The ID of the project category for the space.",
+				Computed:    true,
+			},
+			"assignee_type": schema.StringAttribute{
+				Description: "The default assignee type for the space. Either \"PROJECT_LEAD\" or \"UNASSIGNED\".",
 				Computed:    true,
 			},
 			"url": schema.StringAttribute{
@@ -191,6 +215,10 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 	config.Description = types.StringValue(space.Description)
 	config.LeadAccountID = types.StringValue(space.LeadAccountID)
 	config.SpaceType = types.StringValue(projectTypeKeyToSpaceType(space.ProjectTypeKey))
+	config.ProjectTemplateKey = types.StringValue(space.ProjectTemplateKey)
+	config.AvatarID = types.Int64Value(space.AvatarID)
+	config.CategoryID = types.Int64Value(space.CategoryID)
+	config.AssigneeType = types.StringValue(space.AssigneeType)
 	config.URL = types.StringValue(space.Self)
 	config.SelfURL = types.StringValue(space.Self)
 	config.BrowseURL = types.StringValue(browseURL(space.Self, space.Key))
