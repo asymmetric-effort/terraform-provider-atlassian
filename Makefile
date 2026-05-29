@@ -91,7 +91,7 @@ test:
 
 cover:
 	@echo "Running coverage analysis..."
-	@go test ./test/unit/... ./test/integration/... -coverprofile=coverage.out -covermode=atomic -coverpkg=./internal/...
+	@go test ./test/unit/... ./test/integration/... -coverprofile=coverage.out -covermode=atomic -coverpkg=./internal/client/...,./internal/provider/...,./internal/resources/...,./internal/datasources/...
 	@go tool cover -html=coverage.out -o coverage.html 2>/dev/null || true
 	@COVERAGE=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
 	echo "Coverage: $${COVERAGE}%"; \
