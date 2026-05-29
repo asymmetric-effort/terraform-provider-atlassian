@@ -73,7 +73,7 @@ func TestProviderSchemaAttributeCount(t *testing.T) {
 	resp := &frameworkprovider.SchemaResponse{}
 	p.Schema(context.Background(), req, resp)
 
-	expected := 10
+	expected := 11
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)

@@ -4,6 +4,11 @@
 // dependencies. It handles pagination transparency, rate-limit resilience
 // with exponential backoff and jitter, and error translation to clear
 // user-facing messages.
+//
+// The client supports two base URLs: one for site-specific APIs
+// (e.g., https://site.atlassian.net) and one for the Atlassian Admin API
+// (e.g., https://api.atlassian.com). Site-specific operations use Get/Post/Put/Delete;
+// admin operations use AdminGet/AdminPost.
 package client
 
 import (
@@ -22,6 +27,7 @@ import (
 // Config holds the configuration for the Atlassian API client.
 type Config struct {
 	BaseURL        string
+	AdminBaseURL   string
 	RequestTimeout time.Duration
 	MaxRetries     int
 	RetryWaitMin   time.Duration
@@ -31,6 +37,7 @@ type Config struct {
 // DefaultConfig returns a Config with sensible defaults.
 func DefaultConfig() Config {
 	return Config{
+		AdminBaseURL:   "https://api.atlassian.com",
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     5,
 		RetryWaitMin:   1 * time.Second,
@@ -52,18 +59,16 @@ type Client struct {
 }
 
 // NewClient creates a new Atlassian API client.
+// BaseURL may be empty if only Admin API operations are needed.
 func NewClient(config Config, auth Authenticator) (*Client, error) {
-	if config.BaseURL == "" {
-		return nil, fmt.Errorf("atlassian provider configuration error: 'url' is required. " +
-			"Set the 'url' attribute in the provider block or the ATLASSIAN_URL environment variable")
-	}
-
-	parsed, err := url.Parse(config.BaseURL)
-	if err != nil {
-		return nil, fmt.Errorf("atlassian provider configuration error: invalid URL %q: %w", config.BaseURL, err)
-	}
-	if parsed.Scheme == "" || parsed.Host == "" {
-		return nil, fmt.Errorf("atlassian provider configuration error: URL must include scheme and host (e.g., https://example.atlassian.net)")
+	if config.BaseURL != "" {
+		parsed, err := url.Parse(config.BaseURL)
+		if err != nil {
+			return nil, fmt.Errorf("atlassian provider configuration error: invalid URL %q: %w", config.BaseURL, err)
+		}
+		if parsed.Scheme == "" || parsed.Host == "" {
+			return nil, fmt.Errorf("atlassian provider configuration error: URL must include scheme and host (e.g., https://example.atlassian.net)")
+		}
 	}
 
 	if auth == nil {
@@ -78,6 +83,11 @@ func NewClient(config Config, auth Authenticator) (*Client, error) {
 		config: config,
 		auth:   auth,
 	}, nil
+}
+
+// SetAdminBaseURL configures the Admin API base URL after client creation.
+func (c *Client) SetAdminBaseURL(adminURL string) {
+	c.config.AdminBaseURL = adminURL
 }
 
 // APIError represents a structured error from the Atlassian API.
@@ -102,9 +112,30 @@ func (e *APIError) Error() string {
 	return sb.String()
 }
 
-// Do executes an HTTP request with authentication, retry logic, and error translation.
+// Do executes an HTTP request against the site-specific API with authentication,
+// retry logic, and error translation.
 func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
-	fullURL := strings.TrimRight(c.config.BaseURL, "/") + "/" + strings.TrimLeft(path, "/")
+	if c.config.BaseURL == "" {
+		return nil, fmt.Errorf("atlassian provider configuration error: 'url' is required for site-specific API calls. " +
+			"Set the 'url' attribute in the provider block or the ATLASSIAN_URL environment variable")
+	}
+	return c.doWithBase(ctx, method, c.config.BaseURL, path, body)
+}
+
+// AdminDo executes an HTTP request against the Atlassian Admin API with authentication,
+// retry logic, and error translation.
+func (c *Client) AdminDo(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	if c.config.AdminBaseURL == "" {
+		return nil, fmt.Errorf("atlassian provider configuration error: admin API URL is not configured. " +
+			"Set the 'admin_url' attribute in the provider block or the ATLASSIAN_ADMIN_URL environment variable")
+	}
+	return c.doWithBase(ctx, method, c.config.AdminBaseURL, path, body)
+}
+
+// doWithBase executes an HTTP request against the specified base URL with authentication,
+// retry logic, and error translation.
+func (c *Client) doWithBase(ctx context.Context, method, baseURL, path string, body io.Reader) (*http.Response, error) {
+	fullURL := strings.TrimRight(baseURL, "/") + "/" + strings.TrimLeft(path, "/")
 
 	var lastErr error
 	for attempt := 0; attempt <= c.config.MaxRetries; attempt++ {
@@ -150,7 +181,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	return nil, fmt.Errorf("request to %s failed after %d retries: %w", path, c.config.MaxRetries, lastErr)
 }
 
-// Get performs an authenticated GET request and returns the parsed response.
+// Get performs an authenticated GET request against the site API and returns the parsed response.
 func (c *Client) Get(ctx context.Context, path string, result interface{}) error {
 	resp, err := c.Do(ctx, http.MethodGet, path, nil)
 	if err != nil {
@@ -165,7 +196,7 @@ func (c *Client) Get(ctx context.Context, path string, result interface{}) error
 	return json.NewDecoder(resp.Body).Decode(result)
 }
 
-// Post performs an authenticated POST request.
+// Post performs an authenticated POST request against the site API.
 func (c *Client) Post(ctx context.Context, path string, body io.Reader, result interface{}) error {
 	resp, err := c.Do(ctx, http.MethodPost, path, body)
 	if err != nil {
@@ -183,7 +214,7 @@ func (c *Client) Post(ctx context.Context, path string, body io.Reader, result i
 	return nil
 }
 
-// Put performs an authenticated PUT request.
+// Put performs an authenticated PUT request against the site API.
 func (c *Client) Put(ctx context.Context, path string, body io.Reader, result interface{}) error {
 	resp, err := c.Do(ctx, http.MethodPut, path, body)
 	if err != nil {
@@ -201,7 +232,7 @@ func (c *Client) Put(ctx context.Context, path string, body io.Reader, result in
 	return nil
 }
 
-// Delete performs an authenticated DELETE request.
+// Delete performs an authenticated DELETE request against the site API.
 func (c *Client) Delete(ctx context.Context, path string) error {
 	resp, err := c.Do(ctx, http.MethodDelete, path, nil)
 	if err != nil {
@@ -211,6 +242,39 @@ func (c *Client) Delete(ctx context.Context, path string) error {
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return c.translateError(resp, path, "delete")
+	}
+	return nil
+}
+
+// AdminGet performs an authenticated GET request against the Atlassian Admin API.
+func (c *Client) AdminGet(ctx context.Context, path string, result interface{}) error {
+	resp, err := c.AdminDo(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return c.translateError(resp, path, "read")
+	}
+
+	return json.NewDecoder(resp.Body).Decode(result)
+}
+
+// AdminPost performs an authenticated POST request against the Atlassian Admin API.
+func (c *Client) AdminPost(ctx context.Context, path string, body io.Reader, result interface{}) error {
+	resp, err := c.AdminDo(ctx, http.MethodPost, path, body)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return c.translateError(resp, path, "create")
+	}
+
+	if result != nil {
+		return json.NewDecoder(resp.Body).Decode(result)
 	}
 	return nil
 }

@@ -88,6 +88,7 @@ type AtlassianProvider struct {
 // AtlassianProviderModel describes the provider data model.
 type AtlassianProviderModel struct {
 	URL               types.String `tfsdk:"url"`
+	AdminURL          types.String `tfsdk:"admin_url"`
 	Username          types.String `tfsdk:"username"`
 	APIToken          types.String `tfsdk:"api_token"`
 	OAuthClientID     types.String `tfsdk:"oauth_client_id"`
@@ -120,7 +121,11 @@ func (p *AtlassianProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 		Description: "The Atlassian provider enables declarative management of Atlassian Cloud resources.",
 		Attributes: map[string]schema.Attribute{
 			"url": schema.StringAttribute{
-				Description: "Atlassian Cloud site URL (e.g., https://example.atlassian.net). May be set via ATLASSIAN_URL environment variable.",
+				Description: "Atlassian Cloud site URL (e.g., https://example.atlassian.net). Required for product-specific resources. May be set via ATLASSIAN_URL environment variable.",
+				Optional:    true,
+			},
+			"admin_url": schema.StringAttribute{
+				Description: "Atlassian Admin API URL. Defaults to https://api.atlassian.com. Used by organization and product provisioning resources. May be set via ATLASSIAN_ADMIN_URL environment variable.",
 				Optional:    true,
 			},
 			"username": schema.StringAttribute{
@@ -175,7 +180,8 @@ func (p *AtlassianProvider) Configure(ctx context.Context, req provider.Configur
 	}
 
 	// Resolve values with environment variable fallbacks
-	url := stringValueOrEnv(config.URL, "ATLASSIAN_URL")
+	siteURL := stringValueOrEnv(config.URL, "ATLASSIAN_URL")
+	adminURL := stringValueOrEnv(config.AdminURL, "ATLASSIAN_ADMIN_URL")
 	username := stringValueOrEnv(config.Username, "ATLASSIAN_USERNAME")
 	apiToken := stringValueOrEnv(config.APIToken, "ATLASSIAN_API_TOKEN")
 	oauthClientID := stringValueOrEnv(config.OAuthClientID, "ATLASSIAN_OAUTH_CLIENT_ID")
@@ -184,7 +190,10 @@ func (p *AtlassianProvider) Configure(ctx context.Context, req provider.Configur
 
 	// Build client config with retry parameters
 	clientConfig := atlassian.DefaultConfig()
-	clientConfig.BaseURL = url
+	clientConfig.BaseURL = siteURL
+	if adminURL != "" {
+		clientConfig.AdminBaseURL = adminURL
+	}
 
 	if !config.RequestTimeout.IsNull() && !config.RequestTimeout.IsUnknown() {
 		d, err := time.ParseDuration(config.RequestTimeout.ValueString())

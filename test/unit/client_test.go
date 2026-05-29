@@ -22,15 +22,23 @@ func (m *mockAuth) AuthenticateRequest(req *http.Request) error {
 }
 
 // TestNewClientRequiresURL verifies that NewClient requires a base URL.
-func TestNewClientRequiresURL(t *testing.T) {
+// TestNewClientAllowsEmptyURL verifies that NewClient allows empty BaseURL
+// for admin-only usage. The URL is validated lazily when Do() is called.
+func TestNewClientAllowsEmptyURL(t *testing.T) {
 	t.Parallel()
 
 	config := client.DefaultConfig()
 	config.BaseURL = ""
 
-	_, err := client.NewClient(config, &mockAuth{})
+	c, err := client.NewClient(config, &mockAuth{})
+	if err != nil {
+		t.Fatalf("NewClient with empty URL should succeed: %v", err)
+	}
+
+	// Site-specific calls should fail with a clear error
+	err = c.Get(context.Background(), "/rest/api/3/test", nil)
 	if err == nil {
-		t.Fatal("expected error for missing URL")
+		t.Fatal("expected error for site API call without URL")
 	}
 }
 

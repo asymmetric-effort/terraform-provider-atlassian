@@ -33,6 +33,7 @@ func buildProviderConfig(t *testing.T, attrs map[string]interface{}) tfsdk.Confi
 
 	values := map[string]tftypes.Value{
 		"url":                 tftypes.NewValue(tftypes.String, nil),
+		"admin_url":           tftypes.NewValue(tftypes.String, nil),
 		"username":            tftypes.NewValue(tftypes.String, nil),
 		"api_token":           tftypes.NewValue(tftypes.String, nil),
 		"oauth_client_id":     tftypes.NewValue(tftypes.String, nil),
@@ -167,7 +168,8 @@ func TestProviderConfigureNoAuth(t *testing.T) {
 	}
 }
 
-// TestProviderConfigureMissingURL tests Configure with missing URL.
+// TestProviderConfigureMissingURL tests Configure succeeds without URL.
+// URL is optional — lazy validation occurs when site-specific API calls are made.
 func TestProviderConfigureMissingURL(t *testing.T) {
 	t.Parallel()
 
@@ -181,8 +183,8 @@ func TestProviderConfigureMissingURL(t *testing.T) {
 	resp := &frameworkprovider.ConfigureResponse{}
 	p.Configure(context.Background(), req, resp)
 
-	if !resp.Diagnostics.HasError() {
-		t.Fatal("Expected error when URL is missing")
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("Configure without URL should succeed (lazy validation): %v", resp.Diagnostics.Errors())
 	}
 }
 
