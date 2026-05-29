@@ -3,7 +3,7 @@
 ## Project Overview
 
 Custom OpenTofu provider written in Go for managing Atlassian Cloud
-resources (Jira, Confluence, Bitbucket, Statuspage, Atlassian Guard).
+resources (Jira, Confluence, Bitbucket, Statuspage).
 This is a **Go provider binary**, not a collection of `.tf` modules.
 
 - **Repository:** `github.com/asymmetric-effort/terraform-provider-atlassian`
@@ -110,7 +110,6 @@ not shipped with the provider binary.
 | Confluence      | Spaces, pages, templates, permissions          |
 | Bitbucket       | Repositories, branch permissions, pipelines    |
 | Statuspage      | Pages, components, subscribers, permissions    |
-| Atlassian Guard | Security policies, org-level controls          |
 
 ### Resources and Data Sources
 
@@ -136,16 +135,6 @@ permissions (user/group), permissions and access controls.
 **Statuspage:** Pages and settings, components and component groups,
 subscribers, incidents and maintenance templates, permissions and access
 controls (team members, roles, page-level access).
-
-**Atlassian Guard (confirmed scope per API research):**
-
-- `atlassian_guard_app_access_policy` — managed resource (CRUD
-  on app access domain settings via /v2/orgs/{orgId}/app-access-settings)
-- `atlassian_guard_audit_event` — read-only data source (query
-  org audit events via /v1/orgs/{orgId}/events)
-- Security policies, audit log config, and data security policies
-  are **deferred** — Atlassian has not published CRUD endpoints.
-  See docs/guard-api-research.md for details.
 
 **Identity and Access:** Users and provisioning, groups and membership,
 org-level roles, product-level roles and permissions, API token
@@ -289,8 +278,16 @@ tests (>=98% threshold).
 
 ## CI/CD
 
-GitHub Actions: CI (lint/test/build on push/PR), CodeQL, Dependabot,
-release on version tags. Semver with `v` prefix, starting at `v0.0.1`.
+Single consolidated workflow (`ci.yml`) triggered on push to main,
+tagged push (`v[0-9]+.[0-9]+.[0-9]+`), and pull requests:
+
+- **Stage 1a** (lint) parallel with **Stage 1b** (unit/integration tests)
+- **Stage 2a** (coverage >=98%) parallel with **Stage 2b** (multi-platform build)
+- **Stage 3**: PDV — e2e tests with real OpenTofu plan/apply/destroy
+- **Stage 4**: Publish — only on tagged push, after PDV passes
+
+Additional workflows: CodeQL (security analysis), Dependabot (dependency updates).
+Semver with `v` prefix, tags match `^v[0-9]+\.[0-9]+\.[0-9]+$`.
 
 ## Coding Standards (from coding-standards.asymmetric-effort.com)
 
@@ -308,10 +305,9 @@ release on version tags. Semver with `v` prefix, starting at `v0.0.1`.
 - **Pre-push hooks**: tests and coverage threshold enforcement
 - **Git hooks** via symlink from `git-hooks/` to `.git/hooks/`
 - **GitHub Actions pinned to commit SHAs**, not tags
-- **CI pipeline**: lint → test → build → e2e → deploy
-  (lint blocks everything)
+- **CI pipeline**: see CI/CD section above for stage details
 - **Required repo files**: `SECURITY.md`, `CONTRIBUTING.md`,
-  `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, `ThirdPartyNotices.txt`
+  `CODE_OF_CONDUCT.md`, `ThirdPartyNotices.txt`
 - **PR review required** by at least one team member;
   all comments resolved
 - **SAST scanning**: no critical/high/medium vulnerabilities
