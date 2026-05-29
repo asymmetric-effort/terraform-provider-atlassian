@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -17,13 +18,20 @@ import (
 // Ensure the SchemeDataSource type satisfies the datasource.DataSource interface.
 var _ datasource.DataSource = &SchemeDataSource{}
 
+// apiIssueTypeMapping represents a single issue-type-to-workflow mapping in the API.
+type apiIssueTypeMapping struct {
+	IssueTypeID string `json:"issueType"`
+	WorkflowID  string `json:"workflow"`
+}
+
 // apiWorkflowScheme represents the JSON structure returned by the Atlassian workflow scheme API.
 type apiWorkflowScheme struct {
-	ID                string `json:"id"`
-	Name              string `json:"name"`
-	Description       string `json:"description"`
-	DefaultWorkflowID string `json:"defaultWorkflow,omitempty"`
-	Self              string `json:"self"`
+	ID                string                `json:"id"`
+	Name              string                `json:"name"`
+	Description       string                `json:"description"`
+	DefaultWorkflowID string                `json:"defaultWorkflow,omitempty"`
+	IssueTypeMappings []apiIssueTypeMapping `json:"issueTypeMappings,omitempty"`
+	Self              string                `json:"self"`
 }
 
 // SchemeDataSourceModel describes the workflow scheme data source data model.
@@ -32,6 +40,7 @@ type SchemeDataSourceModel struct {
 	Name              types.String `tfsdk:"name"`
 	Description       types.String `tfsdk:"description"`
 	DefaultWorkflowID types.String `tfsdk:"default_workflow_id"`
+	IssueTypeMappings types.List   `tfsdk:"issue_type_mappings"`
 }
 
 // SchemeDataSource implements the atlassian_jira_workflow_scheme data source.
@@ -69,6 +78,22 @@ func (d *SchemeDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 			"default_workflow_id": schema.StringAttribute{
 				Description: "The ID of the default workflow for this scheme.",
 				Computed:    true,
+			},
+			"issue_type_mappings": schema.ListNestedAttribute{
+				Description: "Mappings of issue types to workflows.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"issue_type_id": schema.StringAttribute{
+							Description: "The ID of the issue type.",
+							Computed:    true,
+						},
+						"workflow_id": schema.StringAttribute{
+							Description: "The ID of the workflow assigned to this issue type.",
+							Computed:    true,
+						},
+					},
+				},
 			},
 		},
 	}
@@ -121,6 +146,38 @@ func (d *SchemeDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	config.Name = types.StringValue(ws.Name)
 	config.Description = types.StringValue(ws.Description)
 	config.DefaultWorkflowID = types.StringValue(ws.DefaultWorkflowID)
+	config.IssueTypeMappings = dsIssueTypeMappingsToState(ws.IssueTypeMappings)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
+}
+
+// dsIssueTypeMappingObjectType is the attr.Type for the issue_type_mappings nested object.
+var dsIssueTypeMappingObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"issue_type_id": types.StringType,
+		"workflow_id":   types.StringType,
+	},
+}
+
+// dsIssueTypeMappingsToState converts API issue type mappings to the Terraform state list.
+func dsIssueTypeMappingsToState(mappings []apiIssueTypeMapping) types.List {
+	if len(mappings) == 0 {
+		return types.ListNull(dsIssueTypeMappingObjectType)
+	}
+	var elems []attr.Value
+	for _, m := range mappings {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"issue_type_id": types.StringType,
+				"workflow_id":   types.StringType,
+			},
+			map[string]attr.Value{
+				"issue_type_id": types.StringValue(m.IssueTypeID),
+				"workflow_id":   types.StringValue(m.WorkflowID),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(dsIssueTypeMappingObjectType, elems)
+	return list
 }

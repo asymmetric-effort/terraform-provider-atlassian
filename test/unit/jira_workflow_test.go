@@ -176,6 +176,9 @@ func testWorkflowMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) 
 			"defaultWorkflow": defaultWorkflow,
 			"self":            fmt.Sprintf("https://example.atlassian.net/rest/api/3/workflowscheme/%s", id),
 		}
+		if mappings, ok := req["issueTypeMappings"]; ok {
+			ws["issueTypeMappings"] = mappings
+		}
 		schemes[id] = ws
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
@@ -1193,7 +1196,7 @@ func TestJiraWorkflowSchemeResourceSchema(t *testing.T) {
 		t.Fatal("expected schema to have attributes")
 	}
 
-	expectedAttrs := []string{"id", "name", "description", "default_workflow_id"}
+	expectedAttrs := []string{"id", "name", "description", "default_workflow_id", "issue_type_mappings"}
 	for _, attr := range expectedAttrs {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected schema to have attribute %q", attr)
@@ -1210,7 +1213,7 @@ func TestJiraWorkflowSchemeResourceSchemaAttributeCount(t *testing.T) {
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), req, resp)
 
-	expected := 4
+	expected := 5
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -1248,7 +1251,7 @@ func TestJiraWorkflowSchemeResourceSchemaComputedAttributes(t *testing.T) {
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), req, resp)
 
-	computedAttrs := []string{"id", "description", "default_workflow_id"}
+	computedAttrs := []string{"id", "description", "default_workflow_id", "issue_type_mappings"}
 	for _, name := range computedAttrs {
 		attr, ok := resp.Schema.Attributes[name]
 		if !ok {
@@ -1270,7 +1273,7 @@ func TestJiraWorkflowSchemeResourceSchemaOptionalAttributes(t *testing.T) {
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), req, resp)
 
-	optionalAttrs := []string{"description", "default_workflow_id"}
+	optionalAttrs := []string{"description", "default_workflow_id", "issue_type_mappings"}
 	for _, name := range optionalAttrs {
 		attr, ok := resp.Schema.Attributes[name]
 		if !ok {
@@ -1337,6 +1340,7 @@ func TestJiraWorkflowSchemeResourceCRUDLifecycle(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "Test Scheme"),
 		"description":         tftypes.NewValue(tftypes.String, "A test scheme"),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, "wf-default"),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1363,6 +1367,7 @@ func TestJiraWorkflowSchemeResourceCRUDLifecycle(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "Test Scheme"),
 		"description":         tftypes.NewValue(tftypes.String, "A test scheme"),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, "wf-default"),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -1379,6 +1384,7 @@ func TestJiraWorkflowSchemeResourceCRUDLifecycle(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "Updated Scheme"),
 		"description":         tftypes.NewValue(tftypes.String, "Updated desc"),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, "wf-new"),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
@@ -1420,6 +1426,7 @@ func TestJiraWorkflowSchemeResourceCreateNoOptionals(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "Minimal Scheme"),
 		"description":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1446,6 +1453,7 @@ func TestJiraWorkflowSchemeResourceCreateDuplicateName(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "Dup Scheme"),
 		"description":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	resp1 := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp1)
@@ -1458,6 +1466,7 @@ func TestJiraWorkflowSchemeResourceCreateDuplicateName(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "Dup Scheme"),
 		"description":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	resp2 := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan2}, resp2)
@@ -1481,6 +1490,7 @@ func TestJiraWorkflowSchemeResourceUpdateNotFound(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "X"),
 		"description":         tftypes.NewValue(tftypes.String, ""),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, ""),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -1505,6 +1515,7 @@ func TestJiraWorkflowSchemeResourceDeleteNotFound(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "X"),
 		"description":         tftypes.NewValue(tftypes.String, ""),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, ""),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -1528,6 +1539,7 @@ func TestJiraWorkflowSchemeResourceReadNotFound(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "X"),
 		"description":         tftypes.NewValue(tftypes.String, ""),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, ""),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -1554,6 +1566,7 @@ func TestJiraWorkflowSchemeResourceCreateForbidden(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "Forbidden"),
 		"description":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -1577,6 +1590,7 @@ func TestJiraWorkflowSchemeResourceUpdateForbidden(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "Forbidden"),
 		"description":         tftypes.NewValue(tftypes.String, ""),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, ""),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -1601,6 +1615,7 @@ func TestJiraWorkflowSchemeResourceDeleteForbidden(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "Forbidden"),
 		"description":         tftypes.NewValue(tftypes.String, ""),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, ""),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -1661,6 +1676,7 @@ func TestJiraWorkflowSchemeResourceCreateServerError(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "Error"),
 		"description":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -1684,6 +1700,7 @@ func TestJiraWorkflowSchemeResourceReadServerError(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "Error"),
 		"description":         tftypes.NewValue(tftypes.String, ""),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, ""),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -1707,6 +1724,7 @@ func TestJiraWorkflowSchemeResourceUpdateServerError(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "Error"),
 		"description":         tftypes.NewValue(tftypes.String, ""),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, ""),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -1731,6 +1749,7 @@ func TestJiraWorkflowSchemeResourceDeleteServerError(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "Error"),
 		"description":         tftypes.NewValue(tftypes.String, ""),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, ""),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -1789,6 +1808,7 @@ func TestJiraWorkflowSchemeResourceUpdateBadPlan(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "X"),
 		"description":         tftypes.NewValue(tftypes.String, ""),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, ""),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: badPlan, State: goodState}, resp)
@@ -1812,6 +1832,7 @@ func TestJiraWorkflowSchemeResourceUpdateBadState(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "X"),
 		"description":         tftypes.NewValue(tftypes.String, ""),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, ""),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	badState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tftypes.String, "invalid")}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -1867,7 +1888,7 @@ func TestJiraWorkflowSchemeDataSourceSchema(t *testing.T) {
 		t.Fatal("expected schema to have attributes")
 	}
 
-	expectedAttrs := []string{"id", "name", "description", "default_workflow_id"}
+	expectedAttrs := []string{"id", "name", "description", "default_workflow_id", "issue_type_mappings"}
 	for _, attr := range expectedAttrs {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected schema to have attribute %q", attr)
@@ -1884,7 +1905,7 @@ func TestJiraWorkflowSchemeDataSourceSchemaAttributeCount(t *testing.T) {
 	resp := &datasource.SchemaResponse{}
 	ds.Schema(context.Background(), req, resp)
 
-	expected := 4
+	expected := 5
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -1918,6 +1939,7 @@ func TestJiraWorkflowSchemeDataSourceByID(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "DS Scheme"),
 		"description":         tftypes.NewValue(tftypes.String, "ds desc"),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, "wf-ds"),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -1937,6 +1959,7 @@ func TestJiraWorkflowSchemeDataSourceByID(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, nil),
 		"description":         tftypes.NewValue(tftypes.String, nil),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, nil),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1966,6 +1989,7 @@ func TestJiraWorkflowSchemeDataSourceNotFound(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, nil),
 		"description":         tftypes.NewValue(tftypes.String, nil),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, nil),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -2013,6 +2037,7 @@ func TestJiraWorkflowSchemeDataSourceReadServerError(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, nil),
 		"description":         tftypes.NewValue(tftypes.String, nil),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, nil),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -2035,5 +2060,111 @@ func TestJiraWorkflowSchemeDataSourceReadBadConfig(t *testing.T) {
 	ds.Read(ctx, datasource.ReadRequest{Config: badConfig}, resp)
 	if !resp.Diagnostics.HasError() {
 		t.Fatal("Expected error from bad config on data source read")
+	}
+}
+
+// ==================== WORKFLOW SCHEME ISSUE TYPE MAPPINGS TESTS ====================
+
+// TestJiraWorkflowSchemeWithIssueTypeMappings tests creating a scheme with issue type mappings.
+func TestJiraWorkflowSchemeWithIssueTypeMappings(t *testing.T) {
+	t.Parallel()
+	_, client := testWorkflowMockServer(t)
+	ctx := context.Background()
+	r := workflowresource.NewSchemeResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	mappingObjType := tftypes.Object{AttributeTypes: map[string]tftypes.Type{
+		"issue_type_id": tftypes.String, "workflow_id": tftypes.String,
+	}}
+	mappingsListType := tftypes.List{ElementType: mappingObjType}
+
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":                tftypes.NewValue(tftypes.String, "Mapped Scheme"),
+		"description":         tftypes.NewValue(tftypes.String, "With mappings"),
+		"default_workflow_id": tftypes.NewValue(tftypes.String, "wf-default"),
+		"issue_type_mappings": tftypes.NewValue(mappingsListType, []tftypes.Value{
+			tftypes.NewValue(mappingObjType, map[string]tftypes.Value{
+				"issue_type_id": tftypes.NewValue(tftypes.String, "10001"),
+				"workflow_id":   tftypes.NewValue(tftypes.String, "wf-bug"),
+			}),
+			tftypes.NewValue(mappingObjType, map[string]tftypes.Value{
+				"issue_type_id": tftypes.NewValue(tftypes.String, "10002"),
+				"workflow_id":   tftypes.NewValue(tftypes.String, "wf-task"),
+			}),
+		}),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create with mappings: %v", createResp.Diagnostics.Errors())
+	}
+	id := getStringAttr(t, createResp.State, "id")
+	if id == "" {
+		t.Fatal("expected non-empty ID")
+	}
+}
+
+// TestJiraWorkflowSchemeIssueTypeMappingsToStateNonEmpty exercises the non-empty
+// path of issueTypeMappingsToState via a Read that returns mappings.
+func TestJiraWorkflowSchemeIssueTypeMappingsToStateNonEmpty(t *testing.T) {
+	t.Parallel()
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /rest/api/3/workflowscheme/ws-1", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "ws-1", "name": "Test", "description": "desc", "defaultWorkflow": "wf-1",
+			"issueTypeMappings": []map[string]interface{}{
+				{"issueType": "10001", "workflow": "wf-bug"},
+				{"issueType": "10002", "workflow": "wf-task"},
+			},
+		})
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 5e9, MaxRetries: 0, RetryWaitMin: 1e9, RetryWaitMax: 1e9}
+	client, _ := atlassian.NewClient(cfg, &testNoopAuth{})
+	ctx := context.Background()
+
+	mappingObjType := tftypes.Object{AttributeTypes: map[string]tftypes.Type{
+		"issue_type_id": tftypes.String, "workflow_id": tftypes.String,
+	}}
+
+	// Test resource Read
+	r := workflowresource.NewSchemeResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":                  tftypes.NewValue(tftypes.String, "ws-1"),
+		"name":                tftypes.NewValue(tftypes.String, "Test"),
+		"description":         tftypes.NewValue(tftypes.String, "desc"),
+		"default_workflow_id": tftypes.NewValue(tftypes.String, "wf-1"),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: mappingObjType}, nil),
+	})}
+	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
+	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+
+	// Test data source Read
+	ds := workflowdatasource.NewSchemeDataSource()
+	configureDatasource(t, ds, client)
+	dss := getDatasourceSchema(t, ds)
+	dsType := dss.Type().TerraformType(ctx)
+	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
+		"id":                  tftypes.NewValue(tftypes.String, "ws-1"),
+		"name":                tftypes.NewValue(tftypes.String, nil),
+		"description":         tftypes.NewValue(tftypes.String, nil),
+		"default_workflow_id": tftypes.NewValue(tftypes.String, nil),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: mappingObjType}, nil),
+	})}
+	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
+	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
+	if dsResp.Diagnostics.HasError() {
+		t.Fatalf("DS Read: %v", dsResp.Diagnostics.Errors())
 	}
 }

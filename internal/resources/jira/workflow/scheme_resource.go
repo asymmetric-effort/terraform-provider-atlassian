@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -26,27 +27,42 @@ var (
 	_ resource.ResourceWithImportState = &SchemeResource{}
 )
 
+// apiIssueTypeMapping represents a single issue-type-to-workflow mapping in the API.
+type apiIssueTypeMapping struct {
+	IssueTypeID string `json:"issueType"`
+	WorkflowID  string `json:"workflow"`
+}
+
 // apiWorkflowScheme represents the JSON structure returned by the Atlassian workflow scheme API.
 type apiWorkflowScheme struct {
-	ID                string `json:"id"`
-	Name              string `json:"name"`
-	Description       string `json:"description"`
-	DefaultWorkflowID string `json:"defaultWorkflow,omitempty"`
-	Self              string `json:"self"`
+	ID                string                `json:"id"`
+	Name              string                `json:"name"`
+	Description       string                `json:"description"`
+	DefaultWorkflowID string                `json:"defaultWorkflow,omitempty"`
+	IssueTypeMappings []apiIssueTypeMapping `json:"issueTypeMappings,omitempty"`
+	Self              string                `json:"self"`
 }
 
 // apiWorkflowSchemeCreate represents the JSON body for creating a workflow scheme.
 type apiWorkflowSchemeCreate struct {
-	Name              string `json:"name"`
-	Description       string `json:"description,omitempty"`
-	DefaultWorkflowID string `json:"defaultWorkflow,omitempty"`
+	Name              string                `json:"name"`
+	Description       string                `json:"description,omitempty"`
+	DefaultWorkflowID string                `json:"defaultWorkflow,omitempty"`
+	IssueTypeMappings []apiIssueTypeMapping `json:"issueTypeMappings,omitempty"`
 }
 
 // apiWorkflowSchemeUpdate represents the JSON body for updating a workflow scheme.
 type apiWorkflowSchemeUpdate struct {
-	Name              string `json:"name,omitempty"`
-	Description       string `json:"description,omitempty"`
-	DefaultWorkflowID string `json:"defaultWorkflow,omitempty"`
+	Name              string                `json:"name,omitempty"`
+	Description       string                `json:"description,omitempty"`
+	DefaultWorkflowID string                `json:"defaultWorkflow,omitempty"`
+	IssueTypeMappings []apiIssueTypeMapping `json:"issueTypeMappings,omitempty"`
+}
+
+// IssueTypeMappingModel describes a single issue-type-to-workflow mapping in the Terraform model.
+type IssueTypeMappingModel struct {
+	IssueTypeID string `tfsdk:"issue_type_id"`
+	WorkflowID  string `tfsdk:"workflow_id"`
 }
 
 // SchemeResourceModel describes the workflow scheme resource data model.
@@ -55,6 +71,7 @@ type SchemeResourceModel struct {
 	Name              types.String `tfsdk:"name"`
 	Description       types.String `tfsdk:"description"`
 	DefaultWorkflowID types.String `tfsdk:"default_workflow_id"`
+	IssueTypeMappings types.List   `tfsdk:"issue_type_mappings"`
 }
 
 // SchemeResource implements the atlassian_jira_workflow_scheme managed resource.
@@ -104,6 +121,23 @@ func (r *SchemeResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"issue_type_mappings": schema.ListNestedAttribute{
+				Description: "Mappings of issue types to workflows.",
+				Optional:    true,
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"issue_type_id": schema.StringAttribute{
+							Description: "The ID of the issue type.",
+							Required:    true,
+						},
+						"workflow_id": schema.StringAttribute{
+							Description: "The ID of the workflow assigned to this issue type.",
+							Required:    true,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -141,6 +175,7 @@ func (r *SchemeResource) Create(ctx context.Context, req resource.CreateRequest,
 	if !plan.DefaultWorkflowID.IsNull() && !plan.DefaultWorkflowID.IsUnknown() {
 		body.DefaultWorkflowID = plan.DefaultWorkflowID.ValueString()
 	}
+	body.IssueTypeMappings = issueTypeMappingsFromPlan(ctx, plan.IssueTypeMappings)
 	bodyBytes, _ := json.Marshal(body)
 
 	var created apiWorkflowScheme
@@ -180,6 +215,7 @@ func (r *SchemeResource) Create(ctx context.Context, req resource.CreateRequest,
 	plan.Name = types.StringValue(created.Name)
 	plan.Description = types.StringValue(created.Description)
 	plan.DefaultWorkflowID = types.StringValue(created.DefaultWorkflowID)
+	plan.IssueTypeMappings = issueTypeMappingsToState(ctx, created.IssueTypeMappings)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -211,6 +247,7 @@ func (r *SchemeResource) Read(ctx context.Context, req resource.ReadRequest, res
 	state.Name = types.StringValue(ws.Name)
 	state.Description = types.StringValue(ws.Description)
 	state.DefaultWorkflowID = types.StringValue(ws.DefaultWorkflowID)
+	state.IssueTypeMappings = issueTypeMappingsToState(ctx, ws.IssueTypeMappings)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -238,6 +275,7 @@ func (r *SchemeResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if !plan.DefaultWorkflowID.IsNull() && !plan.DefaultWorkflowID.IsUnknown() {
 		body.DefaultWorkflowID = plan.DefaultWorkflowID.ValueString()
 	}
+	body.IssueTypeMappings = issueTypeMappingsFromPlan(ctx, plan.IssueTypeMappings)
 	bodyBytes, _ := json.Marshal(body)
 
 	var updated apiWorkflowScheme
@@ -277,6 +315,7 @@ func (r *SchemeResource) Update(ctx context.Context, req resource.UpdateRequest,
 	plan.Name = types.StringValue(updated.Name)
 	plan.Description = types.StringValue(updated.Description)
 	plan.DefaultWorkflowID = types.StringValue(updated.DefaultWorkflowID)
+	plan.IssueTypeMappings = issueTypeMappingsToState(ctx, updated.IssueTypeMappings)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -316,4 +355,52 @@ func (r *SchemeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 // ImportState imports an existing workflow scheme by ID.
 func (r *SchemeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// issueTypeMappingObjectType is the attr.Type for the issue_type_mappings nested object.
+var issueTypeMappingObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"issue_type_id": types.StringType,
+		"workflow_id":   types.StringType,
+	},
+}
+
+// issueTypeMappingsFromPlan converts the Terraform issue_type_mappings list to API format.
+func issueTypeMappingsFromPlan(ctx context.Context, mappings types.List) []apiIssueTypeMapping {
+	if mappings.IsNull() || mappings.IsUnknown() {
+		return nil
+	}
+	var models []IssueTypeMappingModel
+	mappings.ElementsAs(ctx, &models, false)
+	var result []apiIssueTypeMapping
+	for _, m := range models {
+		result = append(result, apiIssueTypeMapping{
+			IssueTypeID: m.IssueTypeID,
+			WorkflowID:  m.WorkflowID,
+		})
+	}
+	return result
+}
+
+// issueTypeMappingsToState converts API issue type mappings to the Terraform state list.
+func issueTypeMappingsToState(_ context.Context, mappings []apiIssueTypeMapping) types.List {
+	if len(mappings) == 0 {
+		return types.ListNull(issueTypeMappingObjectType)
+	}
+	var elems []attr.Value
+	for _, m := range mappings {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"issue_type_id": types.StringType,
+				"workflow_id":   types.StringType,
+			},
+			map[string]attr.Value{
+				"issue_type_id": types.StringValue(m.IssueTypeID),
+				"workflow_id":   types.StringValue(m.WorkflowID),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(issueTypeMappingObjectType, elems)
+	return list
 }

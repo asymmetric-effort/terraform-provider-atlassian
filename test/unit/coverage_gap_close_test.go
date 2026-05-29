@@ -1047,6 +1047,7 @@ func TestWorkflowSchemeCreateBadRequest(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "WS"),
 		"description":         tftypes.NewValue(tftypes.String, ""),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -1070,6 +1071,7 @@ func TestWorkflowSchemeUpdateBadRequest(t *testing.T) {
 		"name":                tftypes.NewValue(tftypes.String, "WS"),
 		"description":         tftypes.NewValue(tftypes.String, ""),
 		"default_workflow_id": tftypes.NewValue(tftypes.String, "wf-1"),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
