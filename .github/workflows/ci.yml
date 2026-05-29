@@ -125,7 +125,6 @@ jobs:
           PDV: "1"
           TF_ACC: "1"
           ATLASSIAN_URL: ${{ secrets.ATLASSIAN_URL }}
-          ATLASSIAN_ADMIN_URL: ${{ secrets.ATLASSIAN_ADMIN_URL }}
           ATLASSIAN_USERNAME: ${{ secrets.ATLASSIAN_USERNAME }}
           ATLASSIAN_API_TOKEN: ${{ secrets.ATLASSIAN_API_KEY }}
           ATLASSIAN_ORG_ID: ${{ secrets.ATLASSIAN_ORG_ID }}

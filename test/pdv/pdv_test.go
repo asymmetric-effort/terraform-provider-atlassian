@@ -32,14 +32,10 @@ func pdvProviderFactories() map[string]func() (tfprotov6.ProviderServer, error) 
 // pdvProviderConfig returns the provider HCL block using real credentials
 // from environment variables.
 func pdvProviderConfig() string {
-	adminURL := os.Getenv("ATLASSIAN_ADMIN_URL")
-	if adminURL == "" {
-		adminURL = "https://api.atlassian.com"
-	}
 	return fmt.Sprintf(`
 provider "atlassian" {
   url       = %q
-  admin_url = %q
+  admin_url = "https://api.atlassian.com"
   username  = %q
   api_token = %q
 
@@ -49,7 +45,6 @@ provider "atlassian" {
   retry_wait_max  = "15s"
 }
 `, os.Getenv("ATLASSIAN_URL"),
-		adminURL,
 		os.Getenv("ATLASSIAN_USERNAME"),
 		os.Getenv("ATLASSIAN_API_TOKEN"))
 }
