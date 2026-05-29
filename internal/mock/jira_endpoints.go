@@ -52,6 +52,7 @@ func RegisterJiraEndpoints(s *Server) {
 	registerFieldConfigurationEndpoints(s)
 	registerFieldConfigurationSchemeEndpoints(s)
 	registerIssueLinkTypeEndpoints(s)
+	registerWebhookEndpoints(s)
 }
 
 // registerCRUDEndpoints is a helper that registers standard CRUD endpoints for a resource type.
@@ -781,4 +782,9 @@ func registerFieldConfigurationSchemeEndpoints(s *Server) {
 // registerIssueLinkTypeEndpoints registers issue link type CRUD endpoints.
 func registerIssueLinkTypeEndpoints(s *Server) {
 	registerCRUDEndpoints(s, "issuelinktypes", "/rest/api/3/issueLinkType", "id", "Issue link type", []string{"name", "inward", "outward"}, "name")
+}
+
+// registerWebhookEndpoints registers Jira webhook CRUD endpoints.
+func registerWebhookEndpoints(s *Server) {
+	registerCRUDEndpoints(s, "webhooks", "/rest/api/3/webhook", "id", "Webhook", []string{"name", "url"}, "name")
 }

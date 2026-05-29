@@ -33,6 +33,7 @@ import (
 	screendatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/screen"
 	securityschemeds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/security_scheme"
 	spacedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/space"
+	webhookdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/webhook"
 	workflowdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/workflow"
 	spcomponentds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/statuspage/component"
 	sppageds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/statuspage/page"
@@ -64,6 +65,7 @@ import (
 	screenresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/screen"
 	securityschemers "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/security_scheme"
 	spaceresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/space"
+	webhookresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/webhook"
 	workflowresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/workflow"
 	spcomponentrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/statuspage/component"
 	sppagers "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/statuspage/page"
@@ -295,6 +297,7 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		customfieldresource.NewFieldConfigurationResource,
 		customfieldresource.NewFieldConfigurationSchemeResource,
 		issuelinkresource.NewTypeResource,
+		webhookresource.NewResource,
 		boardresource.NewResource,
 		priorityresource.NewResource,
 		priorityresource.NewSchemeResource,
@@ -350,6 +353,7 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 		customfielddatasource.NewFieldConfigurationDataSource,
 		customfielddatasource.NewFieldConfigurationSchemeDataSource,
 		issuelinkdatasource.NewTypeDataSource,
+		webhookdatasource.NewDataSource,
 		boarddatasource.NewDataSource,
 		prioritydatasource.NewDataSource,
 		prioritydatasource.NewSchemeDataSource,
