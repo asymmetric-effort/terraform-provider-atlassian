@@ -47,6 +47,7 @@ func RegisterJiraEndpoints(s *Server) {
 	registerCustomDomainEndpoints(s)
 	registerCustomEmailEndpoints(s)
 	registerIssueTypeScreenSchemeEndpoints(s)
+	registerProjectComponentEndpoints(s)
 }
 
 // registerCRUDEndpoints is a helper that registers standard CRUD endpoints for a resource type.
@@ -751,4 +752,9 @@ func registerCustomEmailEndpoints(s *Server) {
 // registerIssueTypeScreenSchemeEndpoints registers issue type screen scheme CRUD endpoints.
 func registerIssueTypeScreenSchemeEndpoints(s *Server) {
 	registerCRUDEndpoints(s, "issuetypescreenschemes", "/rest/api/3/issuetypescreenscheme", "id", "Issue type screen scheme", []string{"name"}, "name")
+}
+
+// registerProjectComponentEndpoints registers Jira project component CRUD endpoints.
+func registerProjectComponentEndpoints(s *Server) {
+	registerCRUDEndpoints(s, "components", "/rest/api/3/component", "id", "Component", []string{"name"}, "")
 }
