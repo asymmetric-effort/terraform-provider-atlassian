@@ -7,6 +7,8 @@ import (
 	"time"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	organizationdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/admin/organization"
+	productdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/admin/product"
 	bbbranchrestrictionds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/bitbucket/branch_restriction"
 	bbdeploymentds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/bitbucket/deployment"
 	bbpipelineds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/bitbucket/pipeline"
@@ -38,6 +40,8 @@ import (
 	spcomponentds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/statuspage/component"
 	sppageds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/statuspage/page"
 	spsubscriberds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/statuspage/subscriber"
+	organizationresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/admin/organization"
+	productresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/admin/product"
 	bbbranchrestrictionrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/bitbucket/branch_restriction"
 	bbdeploymentrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/bitbucket/deployment"
 	bbpipeliners "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/bitbucket/pipeline"
@@ -278,6 +282,8 @@ func stringValueOrEnv(val types.String, envVar string) string {
 // Resources defines the resources implemented in the provider.
 func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
+		organizationresource.NewResource,
+		productresource.NewResource,
 		userrs.NewResource,
 		groupresource.NewResource,
 		groupresource.NewMembershipResource,
@@ -337,6 +343,8 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 // DataSources defines the data sources implemented in the provider.
 func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
+		organizationdatasource.NewDataSource,
+		productdatasource.NewDataSource,
 		userds.NewDataSource,
 		groupdatasource.NewDataSource,
 		roledatasource.NewDataSource,

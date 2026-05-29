@@ -1,0 +1,193 @@
+openapi: 3.0.3
+info:
+  title: Atlassian Admin API (mock)
+  description: |
+    Mock of the Atlassian Admin API for organizations, workspaces,
+    and product provisioning.
+  version: 1.0.0
+
+paths:
+  /v1/orgs:
+    get:
+      operationId: getOrganizations
+      summary: Get organizations
+      responses:
+        '200':
+          description: List of organizations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Organization'
+
+  /v1/orgs/{orgId}:
+    get:
+      operationId: getOrganization
+      summary: Get an organization by ID
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Organization details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+
+  /admin/v2/orgs/{orgId}/workspaces:
+    post:
+      operationId: queryWorkspaces
+      summary: Query workspaces
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: object
+      responses:
+        '200':
+          description: List of workspaces
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Workspace'
+
+  /admin/installations/v2/orgs/{orgId}/products:
+    post:
+      operationId: provisionProduct
+      summary: Provision a product instance
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvisionRequest'
+      responses:
+        '202':
+          description: Provisioning started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvisionResponse'
+
+  /admin/installations/v2/orgs/{orgId}/products/status/{requestId}:
+    get:
+      operationId: getProvisioningStatus
+      summary: Get provisioning status
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Provisioning status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvisionStatus'
+
+components:
+  schemas:
+    Organization:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+
+    Workspace:
+      type: object
+      properties:
+        id:
+          type: string
+        attributes:
+          type: object
+          properties:
+            name:
+              type: string
+            url:
+              type: string
+
+    ProvisionRequest:
+      type: object
+      required:
+        - offerings
+        - parameters
+      properties:
+        offerings:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              location:
+                type: string
+        parameters:
+          type: object
+          properties:
+            adminEmail:
+              type: string
+            name:
+              type: string
+            timezone:
+              type: string
+
+    ProvisionResponse:
+      type: object
+      properties:
+        requestId:
+          type: string
+        statusUrl:
+          type: string
+
+    ProvisionStatus:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            requestId:
+              type: string
+            status:
+              type: string
