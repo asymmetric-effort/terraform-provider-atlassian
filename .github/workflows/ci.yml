@@ -127,10 +127,20 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
 
-      - name: PDV — e2e tests with OpenTofu
+      - name: E2E — mock-based tests with OpenTofu
         env:
           TF_ACC: "1"
         run: go test ./test/e2e/... -v -count=1 -timeout 300s
+
+      - name: PDV — live Atlassian Cloud verification
+        if: ${{ secrets.ATLASSIAN_API_KEY != '' }}
+        env:
+          PDV: "1"
+          TF_ACC: "1"
+          ATLASSIAN_URL: "https://terraform-example.atlassian.net"
+          ATLASSIAN_USERNAME: ${{ secrets.ATLASSIAN_USERNAME }}
+          ATLASSIAN_API_TOKEN: ${{ secrets.ATLASSIAN_API_KEY }}
+        run: go test ./test/pdv/... -v -count=1 -timeout 300s
 
   # Stage 4: Publish (only on tagged push, after PDV passes)
   publish:

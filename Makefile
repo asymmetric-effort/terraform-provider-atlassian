@@ -81,7 +81,11 @@ test:
 	fi
 	@echo ""
 	@echo "=== PDV tests ==="
-	@echo "  No PDV tests yet."
+	@if [ -n "$$PDV" ] && [ -n "$$ATLASSIAN_URL" ]; then \
+		go test ./test/pdv/... -v -count=1 -timeout 300s; \
+	else \
+		echo "  PDV tests skipped (set PDV=1 with ATLASSIAN_URL, ATLASSIAN_USERNAME, ATLASSIAN_API_TOKEN)"; \
+	fi
 	@echo ""
 	@echo "Test suite complete."
 
