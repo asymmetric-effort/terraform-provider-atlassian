@@ -1892,3 +1892,269 @@ func TestJiraIntegrationListEndpoints(t *testing.T) {
 		})
 	}
 }
+
+// --- Screen Tab CRUD ---
+
+func TestJiraIntegrationScreenTabCRUDLifecycle(t *testing.T) {
+	t.Parallel()
+	_, c := setupJiraMockServer(t)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	// First create a screen to host the tabs
+	var screen map[string]interface{}
+	err := c.Post(ctx, "/rest/api/3/screen", jiraBody(t, map[string]interface{}{
+		"name":        "Tab Test Screen",
+		"description": "Screen for tab testing",
+	}), &screen)
+	if err != nil {
+		t.Fatalf("create screen: %v", err)
+	}
+	screenID, _ := screen["id"].(string)
+	if screenID == "" {
+		t.Fatal("expected non-empty screen ID")
+	}
+
+	tabBase := fmt.Sprintf("/rest/api/3/screens/%s/tabs", screenID)
+
+	// Create tab
+	var created map[string]interface{}
+	err = c.Post(ctx, tabBase, jiraBody(t, map[string]interface{}{
+		"name": "Details Tab",
+	}), &created)
+	if err != nil {
+		t.Fatalf("create tab: %v", err)
+	}
+	tabID, _ := created["id"].(string)
+	if tabID == "" {
+		t.Fatal("expected non-empty tab ID")
+	}
+	if name, _ := created["name"].(string); name != "Details Tab" {
+		t.Errorf("expected name 'Details Tab', got %q", name)
+	}
+
+	// List tabs (there's no GET by individual tab ID, only list)
+	var tabs []map[string]interface{}
+	err = c.Get(ctx, tabBase, &tabs)
+	if err != nil {
+		t.Fatalf("list tabs: %v", err)
+	}
+	if len(tabs) != 1 {
+		t.Fatalf("expected 1 tab, got %d", len(tabs))
+	}
+	if name, _ := tabs[0]["name"].(string); name != "Details Tab" {
+		t.Errorf("list: expected name 'Details Tab', got %q", name)
+	}
+
+	// Update tab
+	var updated map[string]interface{}
+	err = c.Put(ctx, fmt.Sprintf("%s/%s", tabBase, tabID), jiraBody(t, map[string]interface{}{
+		"name": "Updated Tab",
+	}), &updated)
+	if err != nil {
+		t.Fatalf("update tab: %v", err)
+	}
+	if name, _ := updated["name"].(string); name != "Updated Tab" {
+		t.Errorf("update: expected name 'Updated Tab', got %q", name)
+	}
+
+	// Delete tab
+	err = c.Delete(ctx, fmt.Sprintf("%s/%s", tabBase, tabID))
+	if err != nil {
+		t.Fatalf("delete tab: %v", err)
+	}
+
+	// Verify gone via list
+	var remaining []map[string]interface{}
+	err = c.Get(ctx, tabBase, &remaining)
+	if err != nil {
+		t.Fatalf("list tabs after delete: %v", err)
+	}
+	if len(remaining) != 0 {
+		t.Errorf("expected 0 tabs after delete, got %d", len(remaining))
+	}
+}
+
+// TestJiraIntegrationScreenTabMoveAndErrors tests tab move and error paths.
+func TestJiraIntegrationScreenTabMoveAndErrors(t *testing.T) {
+	t.Parallel()
+	_, c := setupJiraMockServer(t)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	// Create screen
+	var screen map[string]interface{}
+	err := c.Post(ctx, "/rest/api/3/screen", jiraBody(t, map[string]interface{}{
+		"name": "Move Tab Screen",
+	}), &screen)
+	if err != nil {
+		t.Fatalf("create screen: %v", err)
+	}
+	screenID, _ := screen["id"].(string)
+	tabBase := fmt.Sprintf("/rest/api/3/screens/%s/tabs", screenID)
+
+	// Create two tabs
+	var tab1 map[string]interface{}
+	err = c.Post(ctx, tabBase, jiraBody(t, map[string]interface{}{"name": "Tab A"}), &tab1)
+	if err != nil {
+		t.Fatalf("create tab1: %v", err)
+	}
+	tab1ID, _ := tab1["id"].(string)
+
+	var tab2 map[string]interface{}
+	err = c.Post(ctx, tabBase, jiraBody(t, map[string]interface{}{"name": "Tab B"}), &tab2)
+	if err != nil {
+		t.Fatalf("create tab2: %v", err)
+	}
+
+	// Move tab1 to position 1
+	err = c.Post(ctx, fmt.Sprintf("%s/%s/move/1", tabBase, tab1ID), jiraBody(t, map[string]interface{}{}), nil)
+	if err != nil {
+		t.Fatalf("move tab: %v", err)
+	}
+
+	// Create tab with missing name — should fail
+	var badTab map[string]interface{}
+	err = c.Post(ctx, tabBase, jiraBody(t, map[string]interface{}{}), &badTab)
+	if err == nil {
+		t.Fatal("expected error creating tab without name")
+	}
+
+	// Update nonexistent tab — should fail
+	var noTab map[string]interface{}
+	err = c.Put(ctx, fmt.Sprintf("%s/99999", tabBase), jiraBody(t, map[string]interface{}{"name": "X"}), &noTab)
+	if err == nil {
+		t.Fatal("expected error updating nonexistent tab")
+	}
+
+	// Delete nonexistent tab — should fail
+	err = c.Delete(ctx, fmt.Sprintf("%s/99999", tabBase))
+	if err == nil {
+		t.Fatal("expected error deleting nonexistent tab")
+	}
+
+	// Move nonexistent tab — should fail
+	err = c.Post(ctx, fmt.Sprintf("%s/99999/move/0", tabBase), jiraBody(t, map[string]interface{}{}), nil)
+	if err == nil {
+		t.Fatal("expected error moving nonexistent tab")
+	}
+}
+
+// --- Issue Type Screen Scheme CRUD ---
+
+func TestJiraIntegrationIssueTypeScreenSchemeCRUDLifecycle(t *testing.T) {
+	t.Parallel()
+	_, c := setupJiraMockServer(t)
+	testCRUDLifecycle(t, c, crudResource{
+		name:         "IssueTypeScreenScheme",
+		basePath:     "/rest/api/3/issuetypescreenscheme",
+		idField:      "id",
+		createBody:   map[string]interface{}{"name": "Default ITSS", "description": "Default issue type screen scheme"},
+		updateBody:   map[string]interface{}{"name": "Updated ITSS"},
+		verifyField:  "name",
+		verifyCreate: "Default ITSS",
+		verifyUpdate: "Updated ITSS",
+	})
+}
+
+// --- Project Component CRUD ---
+
+func TestJiraIntegrationProjectComponentCRUDLifecycle(t *testing.T) {
+	t.Parallel()
+	_, c := setupJiraMockServer(t)
+	testCRUDLifecycle(t, c, crudResource{
+		name:         "ProjectComponent",
+		basePath:     "/rest/api/3/component",
+		idField:      "id",
+		createBody:   map[string]interface{}{"name": "Backend", "description": "Backend component"},
+		updateBody:   map[string]interface{}{"name": "Backend Core"},
+		verifyField:  "name",
+		verifyCreate: "Backend",
+		verifyUpdate: "Backend Core",
+	})
+}
+
+// --- Project Version CRUD ---
+
+func TestJiraIntegrationProjectVersionCRUDLifecycle(t *testing.T) {
+	t.Parallel()
+	_, c := setupJiraMockServer(t)
+	testCRUDLifecycle(t, c, crudResource{
+		name:         "ProjectVersion",
+		basePath:     "/rest/api/3/version",
+		idField:      "id",
+		createBody:   map[string]interface{}{"name": "v1.0", "description": "First release"},
+		updateBody:   map[string]interface{}{"name": "v1.0.1"},
+		verifyField:  "name",
+		verifyCreate: "v1.0",
+		verifyUpdate: "v1.0.1",
+	})
+}
+
+// --- Field Configuration CRUD ---
+
+func TestJiraIntegrationFieldConfigurationCRUDLifecycle(t *testing.T) {
+	t.Parallel()
+	_, c := setupJiraMockServer(t)
+	testCRUDLifecycle(t, c, crudResource{
+		name:         "FieldConfiguration",
+		basePath:     "/rest/api/3/fieldconfiguration",
+		idField:      "id",
+		createBody:   map[string]interface{}{"name": "Custom FC", "description": "Custom field configuration"},
+		updateBody:   map[string]interface{}{"name": "Updated FC"},
+		verifyField:  "name",
+		verifyCreate: "Custom FC",
+		verifyUpdate: "Updated FC",
+	})
+}
+
+// --- Field Configuration Scheme CRUD ---
+
+func TestJiraIntegrationFieldConfigurationSchemeCRUDLifecycle(t *testing.T) {
+	t.Parallel()
+	_, c := setupJiraMockServer(t)
+	testCRUDLifecycle(t, c, crudResource{
+		name:         "FieldConfigurationScheme",
+		basePath:     "/rest/api/3/fieldconfigurationscheme",
+		idField:      "id",
+		createBody:   map[string]interface{}{"name": "FC Scheme", "description": "Field config scheme"},
+		updateBody:   map[string]interface{}{"name": "Updated FC Scheme"},
+		verifyField:  "name",
+		verifyCreate: "FC Scheme",
+		verifyUpdate: "Updated FC Scheme",
+	})
+}
+
+// --- Issue Link Type CRUD ---
+
+func TestJiraIntegrationIssueLinkTypeCRUDLifecycle(t *testing.T) {
+	t.Parallel()
+	_, c := setupJiraMockServer(t)
+	testCRUDLifecycle(t, c, crudResource{
+		name:         "IssueLinkType",
+		basePath:     "/rest/api/3/issueLinkType",
+		idField:      "id",
+		createBody:   map[string]interface{}{"name": "Blocks", "inward": "is blocked by", "outward": "blocks"},
+		updateBody:   map[string]interface{}{"name": "Duplicates"},
+		verifyField:  "name",
+		verifyCreate: "Blocks",
+		verifyUpdate: "Duplicates",
+	})
+}
+
+// --- Webhook CRUD ---
+
+func TestJiraIntegrationWebhookCRUDLifecycle(t *testing.T) {
+	t.Parallel()
+	_, c := setupJiraMockServer(t)
+	testCRUDLifecycle(t, c, crudResource{
+		name:         "Webhook",
+		basePath:     "/rest/api/3/webhook",
+		idField:      "id",
+		createBody:   map[string]interface{}{"name": "My Hook", "url": "https://example.com/hook", "events": []string{"jira:issue_created"}, "enabled": true},
+		updateBody:   map[string]interface{}{"name": "Updated Hook"},
+		verifyField:  "name",
+		verifyCreate: "My Hook",
+		verifyUpdate: "Updated Hook",
+	})
+}
