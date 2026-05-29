@@ -6,7 +6,6 @@ package customfield
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -14,15 +13,25 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
+// idToString converts a JSON id field (string or number) to a string.
+func idToString(v interface{}) string {
+	return fmt.Sprintf("%v", v)
+}
+
 // Ensure the FieldConfigurationDataSource type satisfies the datasource.DataSource interface.
 var _ datasource.DataSource = &FieldConfigurationDataSource{}
 
 // apiFieldConfigurationDS represents the JSON structure returned by the Atlassian field configuration API.
 type apiFieldConfigurationDS struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Self        string `json:"self"`
+	ID          interface{} `json:"id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	Self        string      `json:"self"`
+}
+
+// apiFieldConfigurationDSList represents the paginated list response.
+type apiFieldConfigurationDSList struct {
+	Values []apiFieldConfigurationDS `json:"values"`
 }
 
 // FieldConfigurationDataSourceModel describes the field configuration data source data model.
@@ -94,16 +103,9 @@ func (d *FieldConfigurationDataSource) Read(ctx context.Context, req datasource.
 
 	identifier := config.ID.ValueString()
 
-	var fc apiFieldConfigurationDS
-	err := d.client.Get(ctx, fmt.Sprintf("/rest/api/3/fieldconfiguration/%s", identifier), &fc)
+	var list apiFieldConfigurationDSList
+	err := d.client.Get(ctx, fmt.Sprintf("/rest/api/3/fieldconfiguration?id=%s", identifier), &list)
 	if err != nil {
-		if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
-			resp.Diagnostics.AddError(
-				"Field configuration not found",
-				fmt.Sprintf("Jira field configuration %q not found. Verify the ID is correct.", identifier),
-			)
-			return
-		}
 		resp.Diagnostics.AddError(
 			"Failed to read field configuration",
 			fmt.Sprintf("Could not read Jira field configuration %q: %s", identifier, err.Error()),
@@ -111,7 +113,16 @@ func (d *FieldConfigurationDataSource) Read(ctx context.Context, req datasource.
 		return
 	}
 
-	config.ID = types.StringValue(fc.ID)
+	if len(list.Values) == 0 {
+		resp.Diagnostics.AddError(
+			"Field configuration not found",
+			fmt.Sprintf("Jira field configuration %q not found. Verify the ID is correct.", identifier),
+		)
+		return
+	}
+
+	fc := list.Values[0]
+	config.ID = types.StringValue(idToString(fc.ID))
 	config.Name = types.StringValue(fc.Name)
 	config.Description = types.StringValue(fc.Description)
 

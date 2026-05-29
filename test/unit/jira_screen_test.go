@@ -69,23 +69,26 @@ func testScreenMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
 	})
 
 	// Read screen by ID
-	mux.HandleFunc("GET /rest/api/3/screens/{id}", func(w http.ResponseWriter, r *http.Request) {
-		idStr := r.PathValue("id")
-		var id int
-		fmt.Sscanf(idStr, "%d", &id)
+	mux.HandleFunc("GET /rest/api/3/screens", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
-		screen, ok := screens[id]
-		if !ok {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(404)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"errorMessages": []string{"Screen not found"},
-			})
-			return
+		filterID := r.URL.Query().Get("id")
+		var values []map[string]interface{}
+		for id, screen := range screens {
+			if filterID == "" || fmt.Sprintf("%d", id) == filterID {
+				values = append(values, screen)
+			}
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(screen)
+		if values == nil {
+			values = []map[string]interface{}{}
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"values":     values,
+			"maxResults": len(values),
+			"startAt":    0,
+			"total":      len(values),
+			"isLast":     true,
+		})
 	})
 
 	// Update screen

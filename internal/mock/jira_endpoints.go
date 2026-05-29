@@ -145,12 +145,31 @@ func registerCRUDEndpoints(s *Server, storeName, basePath, idField, resourceName
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	// GET list
+	// GET list — supports ?id= query parameter filtering
 	s.RegisterEndpoint("GET "+basePath, func(w http.ResponseWriter, r *http.Request) {
 		items := store.List()
 		if items == nil {
 			items = []json.RawMessage{}
 		}
+
+		// Filter by id query parameter if provided
+		filterID := r.URL.Query().Get("id")
+		if filterID != "" {
+			var filtered []json.RawMessage
+			for _, item := range items {
+				var obj map[string]interface{}
+				json.Unmarshal(item, &obj)
+				itemID := fmt.Sprintf("%v", obj[idField])
+				if itemID == filterID {
+					filtered = append(filtered, item)
+				}
+			}
+			items = filtered
+			if items == nil {
+				items = []json.RawMessage{}
+			}
+		}
+
 		WriteJSON(w, http.StatusOK, map[string]interface{}{
 			"maxResults": len(items),
 			"startAt":    0,

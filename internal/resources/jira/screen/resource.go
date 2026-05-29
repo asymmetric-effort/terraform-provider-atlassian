@@ -33,6 +33,11 @@ type apiScreen struct {
 	Description string `json:"description"`
 }
 
+// apiScreenList represents the paginated list response from the screen API.
+type apiScreenList struct {
+	Values []apiScreen `json:"values"`
+}
+
 // apiScreenCreate represents the JSON body for creating a screen.
 type apiScreenCreate struct {
 	Name        string `json:"name"`
@@ -175,8 +180,8 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 		return
 	}
 
-	var screen apiScreen
-	err := r.client.Get(ctx, fmt.Sprintf("/rest/api/3/screens/%s", state.ID.ValueString()), &screen)
+	var list apiScreenList
+	err := r.client.Get(ctx, fmt.Sprintf("/rest/api/3/screens?id=%s", state.ID.ValueString()), &list)
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
 			resp.State.RemoveResource(ctx)
@@ -190,6 +195,12 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 		return
 	}
 
+	if len(list.Values) == 0 {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	screen := list.Values[0]
 	state.ID = types.StringValue(fmt.Sprintf("%d", screen.ID))
 	state.Name = types.StringValue(screen.Name)
 	state.Description = types.StringValue(screen.Description)

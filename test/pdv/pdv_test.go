@@ -158,9 +158,7 @@ data "atlassian_jira_issue_link_type" "lookup" {
 // ==================== FIELD CONFIGURATION ====================
 
 // TestPDV_FieldConfiguration_CRUD exercises field configuration create, destroy.
-// Skipped: real Jira Cloud API uses different endpoint path for field configurations.
 func TestPDV_FieldConfiguration_CRUD(t *testing.T) {
-	t.Skip("Skipped: Jira Cloud field configuration API endpoint differs from provider implementation")
 	skipIfNoPDV(t)
 	suffix := randomSuffix()
 
@@ -192,9 +190,7 @@ resource "atlassian_jira_field_configuration" "test" {
 // ==================== FIELD CONFIGURATION SCHEME ====================
 
 // TestPDV_FieldConfigurationScheme_CRUD exercises field configuration scheme lifecycle.
-// Skipped: real Jira Cloud API uses different endpoint path for field configuration schemes.
 func TestPDV_FieldConfigurationScheme_CRUD(t *testing.T) {
-	t.Skip("Skipped: Jira Cloud field configuration scheme API endpoint differs from provider implementation")
 	skipIfNoPDV(t)
 	suffix := randomSuffix()
 
@@ -277,9 +273,7 @@ resource "atlassian_jira_webhook" "test" {
 // ==================== SCREEN ====================
 
 // TestPDV_Screen_CRUD exercises screen create, destroy.
-// Skipped: real Jira Cloud API uses GET /screens (plural) not GET /screen/{id}.
 func TestPDV_Screen_CRUD(t *testing.T) {
-	t.Skip("Skipped: Jira Cloud screen API endpoint differs from provider implementation (405 on Read)")
 	skipIfNoPDV(t)
 	suffix := randomSuffix()
 
@@ -305,9 +299,9 @@ resource "atlassian_jira_screen" "test" {
 // ==================== BOARD ====================
 
 // TestPDV_Board_CRUD exercises board create, destroy.
-// Skipped: board resource requires filter_id which needs a pre-existing saved filter.
+// Skipped: board creation requires a pre-existing space and saved filter on the live instance.
 func TestPDV_Board_CRUD(t *testing.T) {
-	t.Skip("Skipped: board creation requires filter_id (missing required argument)")
+	t.Skip("Skipped: board creation requires pre-existing space_id and filter_id on live instance")
 	skipIfNoPDV(t)
 	suffix := randomSuffix()
 

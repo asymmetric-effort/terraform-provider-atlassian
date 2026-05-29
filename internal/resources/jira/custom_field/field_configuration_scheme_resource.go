@@ -28,10 +28,15 @@ var (
 
 // apiFieldConfigurationScheme represents the JSON structure returned by the Atlassian field configuration scheme API.
 type apiFieldConfigurationScheme struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	Self        string `json:"self"`
+	ID          interface{} `json:"id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description,omitempty"`
+	Self        string      `json:"self"`
+}
+
+// apiFieldConfigurationSchemeList represents the paginated list response from the field configuration scheme API.
+type apiFieldConfigurationSchemeList struct {
+	Values []apiFieldConfigurationScheme `json:"values"`
 }
 
 // apiFieldConfigurationSchemeCreate represents the JSON body for creating a field configuration scheme.
@@ -161,7 +166,7 @@ func (r *FieldConfigurationSchemeResource) Create(ctx context.Context, req resou
 		return
 	}
 
-	plan.ID = types.StringValue(created.ID)
+	plan.ID = types.StringValue(idToString(created.ID))
 	plan.Name = types.StringValue(created.Name)
 	plan.Description = types.StringValue(created.Description)
 
@@ -176,8 +181,8 @@ func (r *FieldConfigurationSchemeResource) Read(ctx context.Context, req resourc
 		return
 	}
 
-	var fcs apiFieldConfigurationScheme
-	err := r.client.Get(ctx, fmt.Sprintf("/rest/api/3/fieldconfigurationscheme/%s", state.ID.ValueString()), &fcs)
+	var list apiFieldConfigurationSchemeList
+	err := r.client.Get(ctx, fmt.Sprintf("/rest/api/3/fieldconfigurationscheme?id=%s", state.ID.ValueString()), &list)
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
 			resp.State.RemoveResource(ctx)
@@ -191,7 +196,13 @@ func (r *FieldConfigurationSchemeResource) Read(ctx context.Context, req resourc
 		return
 	}
 
-	state.ID = types.StringValue(fcs.ID)
+	if len(list.Values) == 0 {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	fcs := list.Values[0]
+	state.ID = types.StringValue(idToString(fcs.ID))
 	state.Name = types.StringValue(fcs.Name)
 	state.Description = types.StringValue(fcs.Description)
 
@@ -253,7 +264,7 @@ func (r *FieldConfigurationSchemeResource) Update(ctx context.Context, req resou
 		return
 	}
 
-	plan.ID = types.StringValue(updated.ID)
+	plan.ID = types.StringValue(idToString(updated.ID))
 	plan.Name = types.StringValue(updated.Name)
 	plan.Description = types.StringValue(updated.Description)
 

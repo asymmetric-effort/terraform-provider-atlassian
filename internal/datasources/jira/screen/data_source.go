@@ -6,7 +6,6 @@ package screen
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -22,6 +21,11 @@ type apiScreen struct {
 	ID          int    `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+}
+
+// apiScreenList represents the paginated list response from the screen API.
+type apiScreenList struct {
+	Values []apiScreen `json:"values"`
 }
 
 // DataSourceModel describes the data source data model.
@@ -93,16 +97,9 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 
 	identifier := config.ID.ValueString()
 
-	var screen apiScreen
-	err := d.client.Get(ctx, fmt.Sprintf("/rest/api/3/screens/%s", identifier), &screen)
+	var list apiScreenList
+	err := d.client.Get(ctx, fmt.Sprintf("/rest/api/3/screens?id=%s", identifier), &list)
 	if err != nil {
-		if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
-			resp.Diagnostics.AddError(
-				"Screen not found",
-				fmt.Sprintf("Jira screen %q not found. Verify the ID is correct.", identifier),
-			)
-			return
-		}
 		resp.Diagnostics.AddError(
 			"Failed to read screen",
 			fmt.Sprintf("Could not read Jira screen %q: %s", identifier, err.Error()),
@@ -110,6 +107,15 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 		return
 	}
 
+	if len(list.Values) == 0 {
+		resp.Diagnostics.AddError(
+			"Screen not found",
+			fmt.Sprintf("Jira screen %q not found. Verify the ID is correct.", identifier),
+		)
+		return
+	}
+
+	screen := list.Values[0]
 	config.ID = types.StringValue(fmt.Sprintf("%d", screen.ID))
 	config.Name = types.StringValue(screen.Name)
 	config.Description = types.StringValue(screen.Description)

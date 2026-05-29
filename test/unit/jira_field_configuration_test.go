@@ -67,19 +67,27 @@ func testFCMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
 		w.WriteHeader(201)
 		json.NewEncoder(w).Encode(fc)
 	})
-	mux.HandleFunc("GET /rest/api/3/fieldconfiguration/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
+	mux.HandleFunc("GET /rest/api/3/fieldconfiguration", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		fc, ok := fieldConfigs[id]
-		mu.Unlock()
-		if !ok {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(404)
-			json.NewEncoder(w).Encode(map[string]interface{}{"errorMessages": []string{"Not found"}})
-			return
+		defer mu.Unlock()
+		filterID := r.URL.Query().Get("id")
+		var values []map[string]interface{}
+		for id, fc := range fieldConfigs {
+			if filterID == "" || id == filterID {
+				values = append(values, fc)
+			}
+		}
+		if values == nil {
+			values = []map[string]interface{}{}
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(fc)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"values":     values,
+			"maxResults": len(values),
+			"startAt":    0,
+			"total":      len(values),
+			"isLast":     true,
+		})
 	})
 	mux.HandleFunc("PUT /rest/api/3/fieldconfiguration/{id}", func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
@@ -145,19 +153,27 @@ func testFCMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
 		w.WriteHeader(201)
 		json.NewEncoder(w).Encode(fcs)
 	})
-	mux.HandleFunc("GET /rest/api/3/fieldconfigurationscheme/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
+	mux.HandleFunc("GET /rest/api/3/fieldconfigurationscheme", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
-		fcs, ok := fieldConfigSchemes[id]
-		mu.Unlock()
-		if !ok {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(404)
-			json.NewEncoder(w).Encode(map[string]interface{}{"errorMessages": []string{"Not found"}})
-			return
+		defer mu.Unlock()
+		filterID := r.URL.Query().Get("id")
+		var values []map[string]interface{}
+		for id, fcs := range fieldConfigSchemes {
+			if filterID == "" || id == filterID {
+				values = append(values, fcs)
+			}
+		}
+		if values == nil {
+			values = []map[string]interface{}{}
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(fcs)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"values":     values,
+			"maxResults": len(values),
+			"startAt":    0,
+			"total":      len(values),
+			"isLast":     true,
+		})
 	})
 	mux.HandleFunc("PUT /rest/api/3/fieldconfigurationscheme/{id}", func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")

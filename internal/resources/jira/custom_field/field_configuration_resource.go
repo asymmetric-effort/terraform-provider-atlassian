@@ -28,10 +28,15 @@ var (
 
 // apiFieldConfiguration represents the JSON structure returned by the Atlassian field configuration API.
 type apiFieldConfiguration struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	Self        string `json:"self"`
+	ID          interface{} `json:"id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description,omitempty"`
+	Self        string      `json:"self"`
+}
+
+// apiFieldConfigurationList represents the paginated list response from the field configuration API.
+type apiFieldConfigurationList struct {
+	Values []apiFieldConfiguration `json:"values"`
 }
 
 // apiFieldConfigurationCreate represents the JSON body for creating a field configuration.
@@ -44,6 +49,13 @@ type apiFieldConfigurationCreate struct {
 type apiFieldConfigurationUpdate struct {
 	Name        string `json:"name,omitempty"`
 	Description string `json:"description,omitempty"`
+}
+
+// idToString converts a JSON id field (string or number) to a string.
+// The Jira Cloud API returns field configuration IDs as numbers, while the
+// mock server returns them as strings. This handles both representations.
+func idToString(v interface{}) string {
+	return fmt.Sprintf("%v", v)
 }
 
 // FieldConfigurationResourceModel describes the field configuration resource data model.
@@ -161,7 +173,7 @@ func (r *FieldConfigurationResource) Create(ctx context.Context, req resource.Cr
 		return
 	}
 
-	plan.ID = types.StringValue(created.ID)
+	plan.ID = types.StringValue(idToString(created.ID))
 	plan.Name = types.StringValue(created.Name)
 	plan.Description = types.StringValue(created.Description)
 
@@ -176,8 +188,8 @@ func (r *FieldConfigurationResource) Read(ctx context.Context, req resource.Read
 		return
 	}
 
-	var fc apiFieldConfiguration
-	err := r.client.Get(ctx, fmt.Sprintf("/rest/api/3/fieldconfiguration/%s", state.ID.ValueString()), &fc)
+	var list apiFieldConfigurationList
+	err := r.client.Get(ctx, fmt.Sprintf("/rest/api/3/fieldconfiguration?id=%s", state.ID.ValueString()), &list)
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
 			resp.State.RemoveResource(ctx)
@@ -191,7 +203,13 @@ func (r *FieldConfigurationResource) Read(ctx context.Context, req resource.Read
 		return
 	}
 
-	state.ID = types.StringValue(fc.ID)
+	if len(list.Values) == 0 {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	fc := list.Values[0]
+	state.ID = types.StringValue(idToString(fc.ID))
 	state.Name = types.StringValue(fc.Name)
 	state.Description = types.StringValue(fc.Description)
 
@@ -253,7 +271,7 @@ func (r *FieldConfigurationResource) Update(ctx context.Context, req resource.Up
 		return
 	}
 
-	plan.ID = types.StringValue(updated.ID)
+	plan.ID = types.StringValue(idToString(updated.ID))
 	plan.Name = types.StringValue(updated.Name)
 	plan.Description = types.StringValue(updated.Description)
 

@@ -6,7 +6,6 @@ package customfield
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -19,10 +18,15 @@ var _ datasource.DataSource = &FieldConfigurationSchemeDataSource{}
 
 // apiFieldConfigurationSchemeDS represents the JSON structure returned by the Atlassian field configuration scheme API.
 type apiFieldConfigurationSchemeDS struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Self        string `json:"self"`
+	ID          interface{} `json:"id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	Self        string      `json:"self"`
+}
+
+// apiFieldConfigurationSchemeDSList represents the paginated list response.
+type apiFieldConfigurationSchemeDSList struct {
+	Values []apiFieldConfigurationSchemeDS `json:"values"`
 }
 
 // FieldConfigurationSchemeDataSourceModel describes the field configuration scheme data source data model.
@@ -94,16 +98,9 @@ func (d *FieldConfigurationSchemeDataSource) Read(ctx context.Context, req datas
 
 	identifier := config.ID.ValueString()
 
-	var fcs apiFieldConfigurationSchemeDS
-	err := d.client.Get(ctx, fmt.Sprintf("/rest/api/3/fieldconfigurationscheme/%s", identifier), &fcs)
+	var list apiFieldConfigurationSchemeDSList
+	err := d.client.Get(ctx, fmt.Sprintf("/rest/api/3/fieldconfigurationscheme?id=%s", identifier), &list)
 	if err != nil {
-		if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
-			resp.Diagnostics.AddError(
-				"Field configuration scheme not found",
-				fmt.Sprintf("Jira field configuration scheme %q not found. Verify the ID is correct.", identifier),
-			)
-			return
-		}
 		resp.Diagnostics.AddError(
 			"Failed to read field configuration scheme",
 			fmt.Sprintf("Could not read Jira field configuration scheme %q: %s", identifier, err.Error()),
@@ -111,7 +108,16 @@ func (d *FieldConfigurationSchemeDataSource) Read(ctx context.Context, req datas
 		return
 	}
 
-	config.ID = types.StringValue(fcs.ID)
+	if len(list.Values) == 0 {
+		resp.Diagnostics.AddError(
+			"Field configuration scheme not found",
+			fmt.Sprintf("Jira field configuration scheme %q not found. Verify the ID is correct.", identifier),
+		)
+		return
+	}
+
+	fcs := list.Values[0]
+	config.ID = types.StringValue(idToString(fcs.ID))
 	config.Name = types.StringValue(fcs.Name)
 	config.Description = types.StringValue(fcs.Description)
 
