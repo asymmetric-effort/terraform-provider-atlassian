@@ -133,7 +133,6 @@ jobs:
         run: go test ./test/e2e/... -v -count=1 -timeout 300s
 
       - name: PDV — live Atlassian Cloud verification
-        if: ${{ secrets.ATLASSIAN_API_KEY != '' }}
         env:
           PDV: "1"
           TF_ACC: "1"
