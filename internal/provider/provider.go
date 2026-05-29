@@ -195,9 +195,10 @@ func (p *AtlassianProvider) Configure(ctx context.Context, req provider.Configur
 	// Build client config with retry parameters
 	clientConfig := atlassian.DefaultConfig()
 	clientConfig.BaseURL = siteURL
-	if adminURL != "" {
-		clientConfig.AdminBaseURL = adminURL
+	if adminURL == "" {
+		adminURL = "https://api.atlassian.com"
 	}
+	clientConfig.AdminBaseURL = adminURL
 
 	if !config.RequestTimeout.IsNull() && !config.RequestTimeout.IsUnknown() {
 		d, err := time.ParseDuration(config.RequestTimeout.ValueString())
