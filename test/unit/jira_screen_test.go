@@ -156,6 +156,9 @@ func testScreenMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
 			"name":        name,
 			"description": description,
 		}
+		if rawScreens, ok := req["screens"]; ok && rawScreens != nil {
+			scheme["screens"] = rawScreens
+		}
 		schemes[id] = scheme
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
@@ -202,6 +205,9 @@ func testScreenMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
 		json.NewDecoder(r.Body).Decode(&updates)
 		for k, v := range updates {
 			if k != "id" {
+				if k == "screens" && v == nil {
+					continue
+				}
 				scheme[k] = v
 			}
 		}
@@ -1005,7 +1011,7 @@ func TestJiraScreenSchemeResourceSchema(t *testing.T) {
 	if resp.Schema.Attributes == nil {
 		t.Fatal("expected schema to have attributes")
 	}
-	expectedAttrs := []string{"id", "name", "description"}
+	expectedAttrs := []string{"id", "name", "description", "screens"}
 	for _, attr := range expectedAttrs {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected schema to have attribute %q", attr)
@@ -1019,7 +1025,7 @@ func TestJiraScreenSchemeResourceSchemaAttributeCount(t *testing.T) {
 	r := screenresource.NewSchemeResource()
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), resource.SchemaRequest{}, resp)
-	expected := 3
+	expected := 4
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -1061,6 +1067,7 @@ func TestJiraScreenSchemeResourceCRUDLifecycle(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "Test Scheme"),
 		"description": tftypes.NewValue(tftypes.String, "A test scheme"),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1083,6 +1090,7 @@ func TestJiraScreenSchemeResourceCRUDLifecycle(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, schemeID),
 		"name":        tftypes.NewValue(tftypes.String, "Test Scheme"),
 		"description": tftypes.NewValue(tftypes.String, "A test scheme"),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -1098,6 +1106,7 @@ func TestJiraScreenSchemeResourceCRUDLifecycle(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, schemeID),
 		"name":        tftypes.NewValue(tftypes.String, "Updated Scheme"),
 		"description": tftypes.NewValue(tftypes.String, "Updated desc"),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
@@ -1124,6 +1133,173 @@ func TestJiraScreenSchemeResourceCRUDLifecycle(t *testing.T) {
 	}
 }
 
+// TestJiraScreenSchemeResourceCRUDWithScreenMappings tests full CRUD with non-empty screen mappings.
+func TestJiraScreenSchemeResourceCRUDWithScreenMappings(t *testing.T) {
+	t.Parallel()
+	_, client := testScreenMockServer(t)
+	ctx := context.Background()
+	r := screenresource.NewSchemeResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	screensMappingType := tftypes.Object{AttributeTypes: map[string]tftypes.Type{
+		"operation": tftypes.String,
+		"screen_id": tftypes.String,
+	}}
+	screensListType := tftypes.List{ElementType: screensMappingType}
+
+	// Create with screen mappings
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":        tftypes.NewValue(tftypes.String, "Scheme With Screens"),
+		"description": tftypes.NewValue(tftypes.String, "has screens"),
+		"screens": tftypes.NewValue(screensListType, []tftypes.Value{
+			tftypes.NewValue(screensMappingType, map[string]tftypes.Value{
+				"operation": tftypes.NewValue(tftypes.String, "default"),
+				"screen_id": tftypes.NewValue(tftypes.String, "1001"),
+			}),
+			tftypes.NewValue(screensMappingType, map[string]tftypes.Value{
+				"operation": tftypes.NewValue(tftypes.String, "create"),
+				"screen_id": tftypes.NewValue(tftypes.String, "1002"),
+			}),
+		}),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+	schemeID := getStringAttr(t, createResp.State, "id")
+	if schemeID == "" {
+		t.Fatal("expected non-empty id")
+	}
+
+	// Read
+	readState := tfsdk.State{Schema: s, Raw: createResp.State.Raw.Copy()}
+	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
+	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+
+	// Update with different screen mappings
+	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, schemeID),
+		"name":        tftypes.NewValue(tftypes.String, "Updated Scheme With Screens"),
+		"description": tftypes.NewValue(tftypes.String, "updated screens"),
+		"screens": tftypes.NewValue(screensListType, []tftypes.Value{
+			tftypes.NewValue(screensMappingType, map[string]tftypes.Value{
+				"operation": tftypes.NewValue(tftypes.String, "default"),
+				"screen_id": tftypes.NewValue(tftypes.String, "2001"),
+			}),
+			tftypes.NewValue(screensMappingType, map[string]tftypes.Value{
+				"operation": tftypes.NewValue(tftypes.String, "view"),
+				"screen_id": tftypes.NewValue(tftypes.String, "2002"),
+			}),
+			tftypes.NewValue(screensMappingType, map[string]tftypes.Value{
+				"operation": tftypes.NewValue(tftypes.String, "edit"),
+				"screen_id": tftypes.NewValue(tftypes.String, "2003"),
+			}),
+		}),
+	})}
+	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
+	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
+	if updateResp.Diagnostics.HasError() {
+		t.Fatalf("Update: %v", updateResp.Diagnostics.Errors())
+	}
+
+	// Delete
+	deleteState := tfsdk.State{Schema: s, Raw: updateResp.State.Raw.Copy()}
+	deleteResp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: deleteState.Raw.Copy()}}
+	r.Delete(ctx, resource.DeleteRequest{State: deleteState}, deleteResp)
+	if deleteResp.Diagnostics.HasError() {
+		t.Fatalf("Delete: %v", deleteResp.Diagnostics.Errors())
+	}
+}
+
+// TestJiraScreenSchemeResourceScreenMappingsFromPlanNullList tests screenMappingsFromPlan with null list.
+func TestJiraScreenSchemeResourceScreenMappingsFromPlanNullList(t *testing.T) {
+	t.Parallel()
+	_, client := testScreenMockServer(t)
+	ctx := context.Background()
+	r := screenresource.NewSchemeResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	// Create with null screens (default)
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":        tftypes.NewValue(tftypes.String, "Null Screens"),
+		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+}
+
+// TestJiraScreenSchemeDataSourceWithScreenMappings tests reading a screen scheme with non-empty screens.
+func TestJiraScreenSchemeDataSourceWithScreenMappings(t *testing.T) {
+	t.Parallel()
+	_, client := testScreenMockServer(t)
+	ctx := context.Background()
+
+	screensMappingType := tftypes.Object{AttributeTypes: map[string]tftypes.Type{
+		"operation": tftypes.String,
+		"screen_id": tftypes.String,
+	}}
+	screensListType := tftypes.List{ElementType: screensMappingType}
+
+	// Create a scheme with screens first via resource
+	r := screenresource.NewSchemeResource()
+	configureResource(t, r, client)
+	rs := getResourceSchema(t, r)
+	rsTfType := rs.Type().TerraformType(ctx)
+
+	plan := tfsdk.Plan{Schema: rs, Raw: tftypes.NewValue(rsTfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":        tftypes.NewValue(tftypes.String, "DS Scheme With Screens"),
+		"description": tftypes.NewValue(tftypes.String, "ds scheme with screens"),
+		"screens": tftypes.NewValue(screensListType, []tftypes.Value{
+			tftypes.NewValue(screensMappingType, map[string]tftypes.Value{
+				"operation": tftypes.NewValue(tftypes.String, "default"),
+				"screen_id": tftypes.NewValue(tftypes.String, "5001"),
+			}),
+		}),
+	})}
+	cResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
+	if cResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", cResp.Diagnostics.Errors())
+	}
+	schemeID := getStringAttr(t, cResp.State, "id")
+
+	// Read via data source
+	ds := screendatasource.NewSchemeDataSource()
+	configureDatasource(t, ds, client)
+	dss := getDatasourceSchema(t, ds)
+	dsType := dss.Type().TerraformType(ctx)
+
+	config := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, schemeID),
+		"name":        tftypes.NewValue(tftypes.String, nil),
+		"description": tftypes.NewValue(tftypes.String, nil),
+		"screens":     tftypes.NewValue(screensListType, nil),
+	})}
+	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
+	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
+	if dsResp.Diagnostics.HasError() {
+		t.Fatalf("DS Read: %v", dsResp.Diagnostics.Errors())
+	}
+	if name := getStringAttr(t, dsResp.State, "name"); name != "DS Scheme With Screens" {
+		t.Errorf("expected name 'DS Scheme With Screens', got %q", name)
+	}
+}
+
 // TestJiraScreenSchemeResourceCreateNoDescription tests creating a scheme without description.
 func TestJiraScreenSchemeResourceCreateNoDescription(t *testing.T) {
 	t.Parallel()
@@ -1138,6 +1314,7 @@ func TestJiraScreenSchemeResourceCreateNoDescription(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "No Desc"),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -1160,6 +1337,7 @@ func TestJiraScreenSchemeResourceUpdateNotFound(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "99999"),
 		"name":        tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -1183,6 +1361,7 @@ func TestJiraScreenSchemeResourceDeleteNotFound(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "99999"),
 		"name":        tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	deleteResp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -1205,6 +1384,7 @@ func TestJiraScreenSchemeResourceReadNotFound(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "99999"),
 		"name":        tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -1230,6 +1410,7 @@ func TestJiraScreenSchemeResourceCreateForbidden(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "Forbidden"),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -1252,6 +1433,7 @@ func TestJiraScreenSchemeResourceUpdateForbidden(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "1"),
 		"name":        tftypes.NewValue(tftypes.String, "Forbidden"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -1275,6 +1457,7 @@ func TestJiraScreenSchemeResourceDeleteForbidden(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "1"),
 		"name":        tftypes.NewValue(tftypes.String, "Forbidden"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -1369,6 +1552,7 @@ func TestJiraScreenSchemeResourceUpdateBadPlan(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "1"),
 		"name":        tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: badPlan, State: goodState}, resp)
@@ -1391,6 +1575,7 @@ func TestJiraScreenSchemeResourceUpdateBadState(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "1"),
 		"name":        tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	badState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tftypes.String, "invalid")}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -1431,6 +1616,7 @@ func TestJiraScreenSchemeResourceCreateServerError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "Error"),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -1453,6 +1639,7 @@ func TestJiraScreenSchemeResourceReadServerError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "1"),
 		"name":        tftypes.NewValue(tftypes.String, "Error"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -1475,6 +1662,7 @@ func TestJiraScreenSchemeResourceUpdateServerError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "1"),
 		"name":        tftypes.NewValue(tftypes.String, "Error"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -1498,6 +1686,7 @@ func TestJiraScreenSchemeResourceDeleteServerError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "1"),
 		"name":        tftypes.NewValue(tftypes.String, "Error"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -2141,7 +2330,7 @@ func TestJiraScreenSchemeDataSourceSchema(t *testing.T) {
 	if resp.Schema.Attributes == nil {
 		t.Fatal("expected schema to have attributes")
 	}
-	expectedAttrs := []string{"id", "name", "description"}
+	expectedAttrs := []string{"id", "name", "description", "screens"}
 	for _, attr := range expectedAttrs {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected schema to have attribute %q", attr)
@@ -2155,7 +2344,7 @@ func TestJiraScreenSchemeDataSourceSchemaAttributeCount(t *testing.T) {
 	ds := screendatasource.NewSchemeDataSource()
 	resp := &datasource.SchemaResponse{}
 	ds.Schema(context.Background(), datasource.SchemaRequest{}, resp)
-	expected := 3
+	expected := 4
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -2187,6 +2376,7 @@ func TestJiraScreenSchemeDataSourceByID(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "DS Scheme"),
 		"description": tftypes.NewValue(tftypes.String, "ds scheme desc"),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -2205,6 +2395,7 @@ func TestJiraScreenSchemeDataSourceByID(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, schemeID),
 		"name":        tftypes.NewValue(tftypes.String, nil),
 		"description": tftypes.NewValue(tftypes.String, nil),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -2230,6 +2421,7 @@ func TestJiraScreenSchemeDataSourceNotFound(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "99999"),
 		"name":        tftypes.NewValue(tftypes.String, nil),
 		"description": tftypes.NewValue(tftypes.String, nil),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -2293,6 +2485,7 @@ func TestJiraScreenSchemeDataSourceReadServerError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "1"),
 		"name":        tftypes.NewValue(tftypes.String, nil),
 		"description": tftypes.NewValue(tftypes.String, nil),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)

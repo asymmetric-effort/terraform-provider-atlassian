@@ -320,6 +320,7 @@ func TestScreenSchemeResourceCreate409Conflict(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "Scheme"),
 		"description": tftypes.NewValue(tftypes.String, nil),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)

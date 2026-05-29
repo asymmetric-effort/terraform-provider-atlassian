@@ -887,6 +887,7 @@ func TestScreenSchemeCreateBadRequest(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "SS"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -909,6 +910,7 @@ func TestScreenSchemeCreateForbidden(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "SS"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -931,6 +933,7 @@ func TestScreenSchemeUpdateBadRequest(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "ss-1"),
 		"name":        tftypes.NewValue(tftypes.String, "SS"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"screens":     tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"operation": tftypes.String, "screen_id": tftypes.String}}}, nil),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}

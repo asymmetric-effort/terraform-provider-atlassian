@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -17,11 +18,18 @@ import (
 // Ensure the SchemeDataSource type satisfies the datasource.DataSource interface.
 var _ datasource.DataSource = &SchemeDataSource{}
 
+// apiScreenMapping represents a single operation-to-screen mapping in the API.
+type apiScreenMapping struct {
+	Operation string `json:"operation"`
+	ScreenID  string `json:"screenId"`
+}
+
 // apiScreenScheme represents the JSON structure returned by the Atlassian screen scheme API.
 type apiScreenScheme struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	ID          int                `json:"id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Screens     []apiScreenMapping `json:"screens,omitempty"`
 }
 
 // SchemeDataSourceModel describes the data source data model for screen schemes.
@@ -29,6 +37,7 @@ type SchemeDataSourceModel struct {
 	ID          types.String `tfsdk:"id"`
 	Name        types.String `tfsdk:"name"`
 	Description types.String `tfsdk:"description"`
+	Screens     types.List   `tfsdk:"screens"`
 }
 
 // SchemeDataSource implements the atlassian_jira_screen_scheme data source.
@@ -62,6 +71,22 @@ func (d *SchemeDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 			"description": schema.StringAttribute{
 				Description: "A description of the screen scheme.",
 				Computed:    true,
+			},
+			"screens": schema.ListNestedAttribute{
+				Description: "Mappings of operations to screen IDs.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"operation": schema.StringAttribute{
+							Description: "The operation mapped to the screen (default, create, edit, or view).",
+							Computed:    true,
+						},
+						"screen_id": schema.StringAttribute{
+							Description: "The ID of the screen assigned to this operation.",
+							Computed:    true,
+						},
+					},
+				},
 			},
 		},
 	}
@@ -113,6 +138,38 @@ func (d *SchemeDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	config.ID = types.StringValue(fmt.Sprintf("%d", scheme.ID))
 	config.Name = types.StringValue(scheme.Name)
 	config.Description = types.StringValue(scheme.Description)
+	config.Screens = dsScreenMappingsToState(scheme.Screens)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
+}
+
+// dsScreenMappingObjectType is the attr.Type for the screens nested object.
+var dsScreenMappingObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"operation": types.StringType,
+		"screen_id": types.StringType,
+	},
+}
+
+// dsScreenMappingsToState converts API screen mappings to the Terraform state list.
+func dsScreenMappingsToState(mappings []apiScreenMapping) types.List {
+	if len(mappings) == 0 {
+		return types.ListNull(dsScreenMappingObjectType)
+	}
+	var elems []attr.Value
+	for _, m := range mappings {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"operation": types.StringType,
+				"screen_id": types.StringType,
+			},
+			map[string]attr.Value{
+				"operation": types.StringValue(m.Operation),
+				"screen_id": types.StringValue(m.ScreenID),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(dsScreenMappingObjectType, elems)
+	return list
 }

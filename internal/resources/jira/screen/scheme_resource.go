@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -26,23 +27,38 @@ var (
 	_ resource.ResourceWithImportState = &SchemeResource{}
 )
 
+// apiScreenMapping represents a single operation-to-screen mapping in the API.
+type apiScreenMapping struct {
+	Operation string `json:"operation"`
+	ScreenID  string `json:"screenId"`
+}
+
 // apiScreenScheme represents the JSON structure returned by the Atlassian screen scheme API.
 type apiScreenScheme struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	ID          int                `json:"id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Screens     []apiScreenMapping `json:"screens,omitempty"`
 }
 
 // apiScreenSchemeCreate represents the JSON body for creating a screen scheme.
 type apiScreenSchemeCreate struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
+	Name        string             `json:"name"`
+	Description string             `json:"description,omitempty"`
+	Screens     []apiScreenMapping `json:"screens,omitempty"`
 }
 
 // apiScreenSchemeUpdate represents the JSON body for updating a screen scheme.
 type apiScreenSchemeUpdate struct {
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
+	Name        string             `json:"name,omitempty"`
+	Description string             `json:"description,omitempty"`
+	Screens     []apiScreenMapping `json:"screens,omitempty"`
+}
+
+// ScreenMappingModel describes a single operation-to-screen mapping in the Terraform model.
+type ScreenMappingModel struct {
+	Operation string `tfsdk:"operation"`
+	ScreenID  string `tfsdk:"screen_id"`
 }
 
 // SchemeResourceModel describes the resource data model for screen schemes.
@@ -50,6 +66,7 @@ type SchemeResourceModel struct {
 	ID          types.String `tfsdk:"id"`
 	Name        types.String `tfsdk:"name"`
 	Description types.String `tfsdk:"description"`
+	Screens     types.List   `tfsdk:"screens"`
 }
 
 // SchemeResource implements the atlassian_jira_screen_scheme managed resource.
@@ -91,6 +108,23 @@ func (r *SchemeResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"screens": schema.ListNestedAttribute{
+				Description: "Mappings of operations to screen IDs.",
+				Optional:    true,
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"operation": schema.StringAttribute{
+							Description: "The operation mapped to the screen (default, create, edit, or view).",
+							Required:    true,
+						},
+						"screen_id": schema.StringAttribute{
+							Description: "The ID of the screen assigned to this operation.",
+							Required:    true,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -125,6 +159,7 @@ func (r *SchemeResource) Create(ctx context.Context, req resource.CreateRequest,
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
 	}
+	body.Screens = screenMappingsFromPlan(ctx, plan.Screens)
 	bodyBytes, _ := json.Marshal(body)
 
 	var created apiScreenScheme
@@ -163,6 +198,7 @@ func (r *SchemeResource) Create(ctx context.Context, req resource.CreateRequest,
 	plan.ID = types.StringValue(fmt.Sprintf("%d", created.ID))
 	plan.Name = types.StringValue(created.Name)
 	plan.Description = types.StringValue(created.Description)
+	plan.Screens = screenMappingsToState(ctx, created.Screens)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -193,6 +229,7 @@ func (r *SchemeResource) Read(ctx context.Context, req resource.ReadRequest, res
 	state.ID = types.StringValue(fmt.Sprintf("%d", scheme.ID))
 	state.Name = types.StringValue(scheme.Name)
 	state.Description = types.StringValue(scheme.Description)
+	state.Screens = screenMappingsToState(ctx, scheme.Screens)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -217,6 +254,7 @@ func (r *SchemeResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
 	}
+	body.Screens = screenMappingsFromPlan(ctx, plan.Screens)
 	bodyBytes, _ := json.Marshal(body)
 
 	var updated apiScreenScheme
@@ -255,6 +293,7 @@ func (r *SchemeResource) Update(ctx context.Context, req resource.UpdateRequest,
 	plan.ID = types.StringValue(fmt.Sprintf("%d", updated.ID))
 	plan.Name = types.StringValue(updated.Name)
 	plan.Description = types.StringValue(updated.Description)
+	plan.Screens = screenMappingsToState(ctx, updated.Screens)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -294,4 +333,52 @@ func (r *SchemeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 // ImportState imports an existing screen scheme by ID.
 func (r *SchemeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// screenMappingObjectType is the attr.Type for the screens nested object.
+var screenMappingObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"operation": types.StringType,
+		"screen_id": types.StringType,
+	},
+}
+
+// screenMappingsFromPlan converts the Terraform screens list to API format.
+func screenMappingsFromPlan(ctx context.Context, mappings types.List) []apiScreenMapping {
+	if mappings.IsNull() || mappings.IsUnknown() {
+		return nil
+	}
+	var models []ScreenMappingModel
+	mappings.ElementsAs(ctx, &models, false)
+	var result []apiScreenMapping
+	for _, m := range models {
+		result = append(result, apiScreenMapping{
+			Operation: m.Operation,
+			ScreenID:  m.ScreenID,
+		})
+	}
+	return result
+}
+
+// screenMappingsToState converts API screen mappings to the Terraform state list.
+func screenMappingsToState(_ context.Context, mappings []apiScreenMapping) types.List {
+	if len(mappings) == 0 {
+		return types.ListNull(screenMappingObjectType)
+	}
+	var elems []attr.Value
+	for _, m := range mappings {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"operation": types.StringType,
+				"screen_id": types.StringType,
+			},
+			map[string]attr.Value{
+				"operation": types.StringValue(m.Operation),
+				"screen_id": types.StringValue(m.ScreenID),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(screenMappingObjectType, elems)
+	return list
 }
