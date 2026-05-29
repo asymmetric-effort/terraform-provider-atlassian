@@ -298,10 +298,8 @@ resource "atlassian_jira_screen" "test" {
 
 // ==================== BOARD ====================
 
-// TestPDV_Board_CRUD exercises board create, destroy.
-// Skipped: board creation requires a pre-existing space and saved filter on the live instance.
+// TestPDV_Board_CRUD exercises board create, destroy with its own space and filter dependencies.
 func TestPDV_Board_CRUD(t *testing.T) {
-	t.Skip("Skipped: board creation requires pre-existing space_id and filter_id on live instance")
 	skipIfNoPDV(t)
 	suffix := randomSuffix()
 
@@ -310,15 +308,30 @@ func TestPDV_Board_CRUD(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: pdvProviderConfig() + fmt.Sprintf(`
-resource "atlassian_jira_board" "test" {
-  name = "PDV Board %s"
-  type = "scrum"
+resource "atlassian_jira_space" "board_test" {
+  key        = "BRD%s"
+  name       = "PDV Board Space %s"
+  space_type = "classic"
 }
-`, suffix),
+
+resource "atlassian_jira_filter" "board_test" {
+  name = "PDV Board Filter %s"
+  jql  = "project = BRD%s"
+}
+
+resource "atlassian_jira_board" "test" {
+  name      = "PDV Board %s"
+  type      = "scrum"
+  space_id  = atlassian_jira_space.board_test.id
+  filter_id = atlassian_jira_filter.board_test.id
+}
+`, suffix[:3], suffix, suffix, suffix[:3], suffix),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("atlassian_jira_board.test", "id"),
 					resource.TestCheckResourceAttr("atlassian_jira_board.test", "name", fmt.Sprintf("PDV Board %s", suffix)),
 					resource.TestCheckResourceAttr("atlassian_jira_board.test", "type", "scrum"),
+					resource.TestCheckResourceAttrSet("atlassian_jira_board.test", "space_id"),
+					resource.TestCheckResourceAttrSet("atlassian_jira_board.test", "filter_id"),
 				),
 			},
 		},
