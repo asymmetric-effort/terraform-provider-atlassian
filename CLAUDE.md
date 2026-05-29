@@ -203,10 +203,6 @@ internal/
       page/
       component/
       subscriber/
-    guard/
-      security_policy/
-      audit_log/
-      data_policy/
     identity/
       user/
       group/
@@ -287,7 +283,6 @@ delivers the framework; each subsequent phase adds its endpoints.
 | 3     | Confluence (spaces, pages, templates, permissions)      |
 | 4     | Bitbucket (repos, branches, pipelines, deployments)     |
 | 5     | Statuspage (pages, components, subscribers, perms)      |
-| 6     | Atlassian Guard (security policies, audit logging)      |
 
 Every phase after Phase 0 requires test coverage with passing
 tests (>=98% threshold).
