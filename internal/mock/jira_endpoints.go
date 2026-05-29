@@ -49,6 +49,8 @@ func RegisterJiraEndpoints(s *Server) {
 	registerIssueTypeScreenSchemeEndpoints(s)
 	registerProjectComponentEndpoints(s)
 	registerProjectVersionEndpoints(s)
+	registerFieldConfigurationEndpoints(s)
+	registerFieldConfigurationSchemeEndpoints(s)
 }
 
 // registerCRUDEndpoints is a helper that registers standard CRUD endpoints for a resource type.
@@ -763,4 +765,14 @@ func registerProjectComponentEndpoints(s *Server) {
 // registerProjectVersionEndpoints registers Jira project version CRUD endpoints.
 func registerProjectVersionEndpoints(s *Server) {
 	registerCRUDEndpoints(s, "versions", "/rest/api/3/version", "id", "Version", []string{"name"}, "")
+}
+
+// registerFieldConfigurationEndpoints registers field configuration CRUD endpoints.
+func registerFieldConfigurationEndpoints(s *Server) {
+	registerCRUDEndpoints(s, "fieldconfigurations", "/rest/api/3/fieldconfiguration", "id", "Field configuration", []string{"name"}, "name")
+}
+
+// registerFieldConfigurationSchemeEndpoints registers field configuration scheme CRUD endpoints.
+func registerFieldConfigurationSchemeEndpoints(s *Server) {
+	registerCRUDEndpoints(s, "fieldconfigurationschemes", "/rest/api/3/fieldconfigurationscheme", "id", "Field configuration scheme", []string{"name"}, "name")
 }
