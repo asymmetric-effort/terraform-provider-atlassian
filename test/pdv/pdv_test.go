@@ -32,9 +32,14 @@ func pdvProviderFactories() map[string]func() (tfprotov6.ProviderServer, error) 
 // pdvProviderConfig returns the provider HCL block using real credentials
 // from environment variables.
 func pdvProviderConfig() string {
+	adminURL := os.Getenv("ATLASSIAN_ADMIN_URL")
+	if adminURL == "" {
+		adminURL = "https://api.atlassian.com"
+	}
 	return fmt.Sprintf(`
 provider "atlassian" {
   url       = %q
+  admin_url = %q
   username  = %q
   api_token = %q
 
@@ -44,6 +49,7 @@ provider "atlassian" {
   retry_wait_max  = "15s"
 }
 `, os.Getenv("ATLASSIAN_URL"),
+		adminURL,
 		os.Getenv("ATLASSIAN_USERNAME"),
 		os.Getenv("ATLASSIAN_API_TOKEN"))
 }
@@ -68,6 +74,156 @@ func skipIfNoPDV(t *testing.T) {
 	if os.Getenv("ATLASSIAN_API_TOKEN") == "" {
 		t.Skip("PDV tests skipped: ATLASSIAN_API_TOKEN not set")
 	}
+}
+
+// skipIfNoAdminPDV skips admin-specific PDV tests when org ID is not configured.
+func skipIfNoAdminPDV(t *testing.T) {
+	t.Helper()
+	skipIfNoPDV(t)
+	if os.Getenv("ATLASSIAN_ORG_ID") == "" {
+		t.Skip("PDV admin tests skipped: ATLASSIAN_ORG_ID not set")
+	}
+}
+
+// numericSuffix returns a random 8-digit numeric string for unique site names.
+func numericSuffix() string {
+	return fmt.Sprintf("%08d", rand.Int31n(99999999))
+}
+
+// ==================== ORGANIZATION (ADOPT) ====================
+
+// TestPDV_Organization_Adopt exercises adopting an existing Atlassian organization
+// into Terraform state and reading it back.
+func TestPDV_Organization_Adopt(t *testing.T) {
+	skipIfNoAdminPDV(t)
+	orgID := os.Getenv("ATLASSIAN_ORG_ID")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: pdvProviderFactories(),
+		Steps: []resource.TestStep{
+			// Adopt existing organization
+			{
+				Config: pdvProviderConfig() + fmt.Sprintf(`
+resource "atlassian_organization" "test" {
+  id = %q
+}
+`, orgID),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("atlassian_organization.test", "id", orgID),
+					resource.TestCheckResourceAttrSet("atlassian_organization.test", "name"),
+				),
+			},
+			// Import
+			{
+				ResourceName:      "atlassian_organization.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+// TestPDV_Organization_DataSource exercises reading an organization via data source.
+func TestPDV_Organization_DataSource(t *testing.T) {
+	skipIfNoAdminPDV(t)
+	orgID := os.Getenv("ATLASSIAN_ORG_ID")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: pdvProviderFactories(),
+		Steps: []resource.TestStep{
+			{
+				Config: pdvProviderConfig() + fmt.Sprintf(`
+data "atlassian_organization" "test" {
+  id = %q
+}
+`, orgID),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.atlassian_organization.test", "id", orgID),
+					resource.TestCheckResourceAttrSet("data.atlassian_organization.test", "name"),
+				),
+			},
+		},
+	})
+}
+
+// ==================== PRODUCT PROVISIONING ====================
+
+// TestPDV_Product_Provision exercises provisioning a new Atlassian product instance.
+// This creates a real site with a unique numeric suffix.
+func TestPDV_Product_Provision(t *testing.T) {
+	skipIfNoAdminPDV(t)
+	orgID := os.Getenv("ATLASSIAN_ORG_ID")
+	suffix := numericSuffix()
+	siteName := fmt.Sprintf("tfpdv%s", suffix)
+
+	// Jira Software Cloud offering ID (from Atlassian Admin API)
+	jiraOfferingID := "39605741-b92f-4763-8229-7bba2d16433c"
+	adminEmail := os.Getenv("ATLASSIAN_USERNAME")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: pdvProviderFactories(),
+		Steps: []resource.TestStep{
+			// Provision
+			{
+				Config: pdvProviderConfig() + fmt.Sprintf(`
+resource "atlassian_product" "test" {
+  org_id      = %q
+  offering_id = %q
+  site_name   = %q
+  location    = "us"
+  admin_email = %q
+  timezone    = "UTC"
+}
+`, orgID, jiraOfferingID, siteName, adminEmail),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("atlassian_product.test", "id"),
+					resource.TestCheckResourceAttr("atlassian_product.test", "site_name", siteName),
+					resource.TestCheckResourceAttr("atlassian_product.test", "status", "COMPLETED"),
+					resource.TestCheckResourceAttrSet("atlassian_product.test", "site_url"),
+					resource.TestCheckResourceAttrSet("atlassian_product.test", "request_id"),
+				),
+			},
+		},
+	})
+}
+
+// TestPDV_Product_DataSource exercises reading a workspace via data source
+// after provisioning a product.
+func TestPDV_Product_DataSource(t *testing.T) {
+	skipIfNoAdminPDV(t)
+	orgID := os.Getenv("ATLASSIAN_ORG_ID")
+	suffix := numericSuffix()
+	siteName := fmt.Sprintf("tfpdvds%s", suffix)
+
+	jiraOfferingID := "39605741-b92f-4763-8229-7bba2d16433c"
+	adminEmail := os.Getenv("ATLASSIAN_USERNAME")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: pdvProviderFactories(),
+		Steps: []resource.TestStep{
+			{
+				Config: pdvProviderConfig() + fmt.Sprintf(`
+resource "atlassian_product" "src" {
+  org_id      = %q
+  offering_id = %q
+  site_name   = %q
+  location    = "us"
+  admin_email = %q
+  timezone    = "UTC"
+}
+
+data "atlassian_product" "lookup" {
+  org_id    = %q
+  site_name = atlassian_product.src.site_name
+}
+`, orgID, jiraOfferingID, siteName, adminEmail, orgID),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("data.atlassian_product.lookup", "id"),
+					resource.TestCheckResourceAttrSet("data.atlassian_product.lookup", "site_url"),
+				),
+			},
+		},
+	})
 }
 
 // ==================== ISSUE LINK TYPE ====================
