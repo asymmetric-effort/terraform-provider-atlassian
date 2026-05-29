@@ -32,59 +32,87 @@ var (
 
 // apiSpace represents the JSON structure returned by the Atlassian project API.
 type apiSpace struct {
-	ID                 string `json:"id"`
-	Key                string `json:"key"`
-	Name               string `json:"name"`
-	Description        string `json:"description"`
-	LeadAccountID      string `json:"leadAccountId,omitempty"`
-	ProjectTypeKey     string `json:"projectTypeKey"`
-	ProjectTemplateKey string `json:"projectTemplateKey,omitempty"`
-	AvatarID           int64  `json:"avatarId,omitempty"`
-	CategoryID         int64  `json:"categoryId,omitempty"`
-	AssigneeType       string `json:"assigneeType,omitempty"`
-	Self               string `json:"self"`
+	ID                    string `json:"id"`
+	Key                   string `json:"key"`
+	Name                  string `json:"name"`
+	Description           string `json:"description"`
+	LeadAccountID         string `json:"leadAccountId,omitempty"`
+	ProjectTypeKey        string `json:"projectTypeKey"`
+	ProjectTemplateKey    string `json:"projectTemplateKey,omitempty"`
+	AvatarID              int64  `json:"avatarId,omitempty"`
+	CategoryID            int64  `json:"categoryId,omitempty"`
+	AssigneeType          string `json:"assigneeType,omitempty"`
+	IssueTypeScheme       int64  `json:"issueTypeScheme,omitempty"`
+	IssueTypeScreenScheme int64  `json:"issueTypeScreenScheme,omitempty"`
+	WorkflowScheme        int64  `json:"workflowScheme,omitempty"`
+	NotificationScheme    int64  `json:"notificationScheme,omitempty"`
+	PermissionScheme      int64  `json:"permissionScheme,omitempty"`
+	IssueSecurityScheme   int64  `json:"issueSecurityScheme,omitempty"`
+	FieldScheme           int64  `json:"fieldScheme,omitempty"`
+	Self                  string `json:"self"`
 }
 
 // apiSpaceCreate represents the JSON body for creating a space.
 type apiSpaceCreate struct {
-	Key                string `json:"key"`
-	Name               string `json:"name"`
-	Description        string `json:"description,omitempty"`
-	LeadAccountID      string `json:"leadAccountId,omitempty"`
-	ProjectTypeKey     string `json:"projectTypeKey"`
-	ProjectTemplateKey string `json:"projectTemplateKey,omitempty"`
-	AvatarID           int64  `json:"avatarId,omitempty"`
-	CategoryID         int64  `json:"categoryId,omitempty"`
-	AssigneeType       string `json:"assigneeType,omitempty"`
+	Key                   string `json:"key"`
+	Name                  string `json:"name"`
+	Description           string `json:"description,omitempty"`
+	LeadAccountID         string `json:"leadAccountId,omitempty"`
+	ProjectTypeKey        string `json:"projectTypeKey"`
+	ProjectTemplateKey    string `json:"projectTemplateKey,omitempty"`
+	AvatarID              int64  `json:"avatarId,omitempty"`
+	CategoryID            int64  `json:"categoryId,omitempty"`
+	AssigneeType          string `json:"assigneeType,omitempty"`
+	IssueTypeScheme       int64  `json:"issueTypeScheme,omitempty"`
+	IssueTypeScreenScheme int64  `json:"issueTypeScreenScheme,omitempty"`
+	WorkflowScheme        int64  `json:"workflowScheme,omitempty"`
+	NotificationScheme    int64  `json:"notificationScheme,omitempty"`
+	PermissionScheme      int64  `json:"permissionScheme,omitempty"`
+	IssueSecurityScheme   int64  `json:"issueSecurityScheme,omitempty"`
+	FieldScheme           int64  `json:"fieldScheme,omitempty"`
 }
 
 // apiSpaceUpdate represents the JSON body for updating a space.
 type apiSpaceUpdate struct {
-	Name               string `json:"name,omitempty"`
-	Description        string `json:"description,omitempty"`
-	LeadAccountID      string `json:"leadAccountId,omitempty"`
-	ProjectTypeKey     string `json:"projectTypeKey,omitempty"`
-	ProjectTemplateKey string `json:"projectTemplateKey,omitempty"`
-	AvatarID           int64  `json:"avatarId,omitempty"`
-	CategoryID         int64  `json:"categoryId,omitempty"`
-	AssigneeType       string `json:"assigneeType,omitempty"`
+	Name                  string `json:"name,omitempty"`
+	Description           string `json:"description,omitempty"`
+	LeadAccountID         string `json:"leadAccountId,omitempty"`
+	ProjectTypeKey        string `json:"projectTypeKey,omitempty"`
+	ProjectTemplateKey    string `json:"projectTemplateKey,omitempty"`
+	AvatarID              int64  `json:"avatarId,omitempty"`
+	CategoryID            int64  `json:"categoryId,omitempty"`
+	AssigneeType          string `json:"assigneeType,omitempty"`
+	IssueTypeScheme       int64  `json:"issueTypeScheme,omitempty"`
+	IssueTypeScreenScheme int64  `json:"issueTypeScreenScheme,omitempty"`
+	WorkflowScheme        int64  `json:"workflowScheme,omitempty"`
+	NotificationScheme    int64  `json:"notificationScheme,omitempty"`
+	PermissionScheme      int64  `json:"permissionScheme,omitempty"`
+	IssueSecurityScheme   int64  `json:"issueSecurityScheme,omitempty"`
+	FieldScheme           int64  `json:"fieldScheme,omitempty"`
 }
 
 // ResourceModel describes the resource data model.
 type ResourceModel struct {
-	ID                 types.String `tfsdk:"id"`
-	Key                types.String `tfsdk:"key"`
-	Name               types.String `tfsdk:"name"`
-	Description        types.String `tfsdk:"description"`
-	LeadAccountID      types.String `tfsdk:"lead_account_id"`
-	SpaceType          types.String `tfsdk:"space_type"`
-	ProjectTemplateKey types.String `tfsdk:"project_template_key"`
-	AvatarID           types.Int64  `tfsdk:"avatar_id"`
-	CategoryID         types.Int64  `tfsdk:"category_id"`
-	AssigneeType       types.String `tfsdk:"assignee_type"`
-	URL                types.String `tfsdk:"url"`
-	SelfURL            types.String `tfsdk:"self_url"`
-	BrowseURL          types.String `tfsdk:"browse_url"`
+	ID                    types.String `tfsdk:"id"`
+	Key                   types.String `tfsdk:"key"`
+	Name                  types.String `tfsdk:"name"`
+	Description           types.String `tfsdk:"description"`
+	LeadAccountID         types.String `tfsdk:"lead_account_id"`
+	SpaceType             types.String `tfsdk:"space_type"`
+	ProjectTemplateKey    types.String `tfsdk:"project_template_key"`
+	AvatarID              types.Int64  `tfsdk:"avatar_id"`
+	CategoryID            types.Int64  `tfsdk:"category_id"`
+	AssigneeType          types.String `tfsdk:"assignee_type"`
+	IssueTypeScheme       types.Int64  `tfsdk:"issue_type_scheme"`
+	IssueTypeScreenScheme types.Int64  `tfsdk:"issue_type_screen_scheme"`
+	WorkflowScheme        types.Int64  `tfsdk:"workflow_scheme"`
+	NotificationScheme    types.Int64  `tfsdk:"notification_scheme"`
+	PermissionScheme      types.Int64  `tfsdk:"permission_scheme"`
+	IssueSecurityScheme   types.Int64  `tfsdk:"issue_security_scheme"`
+	FieldScheme           types.Int64  `tfsdk:"field_scheme"`
+	URL                   types.String `tfsdk:"url"`
+	SelfURL               types.String `tfsdk:"self_url"`
+	BrowseURL             types.String `tfsdk:"browse_url"`
 }
 
 // Resource implements the atlassian_jira_space managed resource.
@@ -170,6 +198,41 @@ func (r *Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp *res
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
+			},
+			"issue_type_scheme": schema.Int64Attribute{
+				Description: "The ID of the issue type scheme for the space.",
+				Optional:    true,
+				Computed:    true,
+			},
+			"issue_type_screen_scheme": schema.Int64Attribute{
+				Description: "The ID of the issue type screen scheme for the space.",
+				Optional:    true,
+				Computed:    true,
+			},
+			"workflow_scheme": schema.Int64Attribute{
+				Description: "The ID of the workflow scheme for the space.",
+				Optional:    true,
+				Computed:    true,
+			},
+			"notification_scheme": schema.Int64Attribute{
+				Description: "The ID of the notification scheme for the space.",
+				Optional:    true,
+				Computed:    true,
+			},
+			"permission_scheme": schema.Int64Attribute{
+				Description: "The ID of the permission scheme for the space.",
+				Optional:    true,
+				Computed:    true,
+			},
+			"issue_security_scheme": schema.Int64Attribute{
+				Description: "The ID of the issue security scheme for the space.",
+				Optional:    true,
+				Computed:    true,
+			},
+			"field_scheme": schema.Int64Attribute{
+				Description: "The ID of the field scheme for the space.",
+				Optional:    true,
+				Computed:    true,
 			},
 			"url": schema.StringAttribute{
 				Description: "The URL of the space in Atlassian Cloud.",
@@ -259,6 +322,27 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	if !plan.AssigneeType.IsNull() && !plan.AssigneeType.IsUnknown() {
 		body.AssigneeType = plan.AssigneeType.ValueString()
 	}
+	if !plan.IssueTypeScheme.IsNull() && !plan.IssueTypeScheme.IsUnknown() {
+		body.IssueTypeScheme = plan.IssueTypeScheme.ValueInt64()
+	}
+	if !plan.IssueTypeScreenScheme.IsNull() && !plan.IssueTypeScreenScheme.IsUnknown() {
+		body.IssueTypeScreenScheme = plan.IssueTypeScreenScheme.ValueInt64()
+	}
+	if !plan.WorkflowScheme.IsNull() && !plan.WorkflowScheme.IsUnknown() {
+		body.WorkflowScheme = plan.WorkflowScheme.ValueInt64()
+	}
+	if !plan.NotificationScheme.IsNull() && !plan.NotificationScheme.IsUnknown() {
+		body.NotificationScheme = plan.NotificationScheme.ValueInt64()
+	}
+	if !plan.PermissionScheme.IsNull() && !plan.PermissionScheme.IsUnknown() {
+		body.PermissionScheme = plan.PermissionScheme.ValueInt64()
+	}
+	if !plan.IssueSecurityScheme.IsNull() && !plan.IssueSecurityScheme.IsUnknown() {
+		body.IssueSecurityScheme = plan.IssueSecurityScheme.ValueInt64()
+	}
+	if !plan.FieldScheme.IsNull() && !plan.FieldScheme.IsUnknown() {
+		body.FieldScheme = plan.FieldScheme.ValueInt64()
+	}
 	bodyBytes, _ := json.Marshal(body)
 
 	var created apiSpace
@@ -297,6 +381,13 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	plan.AvatarID = types.Int64Value(created.AvatarID)
 	plan.CategoryID = types.Int64Value(created.CategoryID)
 	plan.AssigneeType = types.StringValue(created.AssigneeType)
+	plan.IssueTypeScheme = types.Int64Value(created.IssueTypeScheme)
+	plan.IssueTypeScreenScheme = types.Int64Value(created.IssueTypeScreenScheme)
+	plan.WorkflowScheme = types.Int64Value(created.WorkflowScheme)
+	plan.NotificationScheme = types.Int64Value(created.NotificationScheme)
+	plan.PermissionScheme = types.Int64Value(created.PermissionScheme)
+	plan.IssueSecurityScheme = types.Int64Value(created.IssueSecurityScheme)
+	plan.FieldScheme = types.Int64Value(created.FieldScheme)
 	plan.URL = types.StringValue(created.Self)
 	plan.SelfURL = types.StringValue(created.Self)
 	plan.BrowseURL = types.StringValue(browseURL(created.Self, created.Key))
@@ -342,6 +433,13 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	state.AvatarID = types.Int64Value(space.AvatarID)
 	state.CategoryID = types.Int64Value(space.CategoryID)
 	state.AssigneeType = types.StringValue(space.AssigneeType)
+	state.IssueTypeScheme = types.Int64Value(space.IssueTypeScheme)
+	state.IssueTypeScreenScheme = types.Int64Value(space.IssueTypeScreenScheme)
+	state.WorkflowScheme = types.Int64Value(space.WorkflowScheme)
+	state.NotificationScheme = types.Int64Value(space.NotificationScheme)
+	state.PermissionScheme = types.Int64Value(space.PermissionScheme)
+	state.IssueSecurityScheme = types.Int64Value(space.IssueSecurityScheme)
+	state.FieldScheme = types.Int64Value(space.FieldScheme)
 	state.URL = types.StringValue(space.Self)
 	state.SelfURL = types.StringValue(space.Self)
 	state.BrowseURL = types.StringValue(browseURL(space.Self, space.Key))
@@ -385,6 +483,27 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	if !plan.AssigneeType.IsNull() && !plan.AssigneeType.IsUnknown() {
 		body.AssigneeType = plan.AssigneeType.ValueString()
 	}
+	if !plan.IssueTypeScheme.IsNull() && !plan.IssueTypeScheme.IsUnknown() {
+		body.IssueTypeScheme = plan.IssueTypeScheme.ValueInt64()
+	}
+	if !plan.IssueTypeScreenScheme.IsNull() && !plan.IssueTypeScreenScheme.IsUnknown() {
+		body.IssueTypeScreenScheme = plan.IssueTypeScreenScheme.ValueInt64()
+	}
+	if !plan.WorkflowScheme.IsNull() && !plan.WorkflowScheme.IsUnknown() {
+		body.WorkflowScheme = plan.WorkflowScheme.ValueInt64()
+	}
+	if !plan.NotificationScheme.IsNull() && !plan.NotificationScheme.IsUnknown() {
+		body.NotificationScheme = plan.NotificationScheme.ValueInt64()
+	}
+	if !plan.PermissionScheme.IsNull() && !plan.PermissionScheme.IsUnknown() {
+		body.PermissionScheme = plan.PermissionScheme.ValueInt64()
+	}
+	if !plan.IssueSecurityScheme.IsNull() && !plan.IssueSecurityScheme.IsUnknown() {
+		body.IssueSecurityScheme = plan.IssueSecurityScheme.ValueInt64()
+	}
+	if !plan.FieldScheme.IsNull() && !plan.FieldScheme.IsUnknown() {
+		body.FieldScheme = plan.FieldScheme.ValueInt64()
+	}
 	bodyBytes, _ := json.Marshal(body)
 
 	var updated apiSpace
@@ -423,6 +542,13 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	plan.AvatarID = types.Int64Value(updated.AvatarID)
 	plan.CategoryID = types.Int64Value(updated.CategoryID)
 	plan.AssigneeType = types.StringValue(updated.AssigneeType)
+	plan.IssueTypeScheme = types.Int64Value(updated.IssueTypeScheme)
+	plan.IssueTypeScreenScheme = types.Int64Value(updated.IssueTypeScreenScheme)
+	plan.WorkflowScheme = types.Int64Value(updated.WorkflowScheme)
+	plan.NotificationScheme = types.Int64Value(updated.NotificationScheme)
+	plan.PermissionScheme = types.Int64Value(updated.PermissionScheme)
+	plan.IssueSecurityScheme = types.Int64Value(updated.IssueSecurityScheme)
+	plan.FieldScheme = types.Int64Value(updated.FieldScheme)
 	plan.URL = types.StringValue(updated.Self)
 	plan.SelfURL = types.StringValue(updated.Self)
 	plan.BrowseURL = types.StringValue(browseURL(updated.Self, updated.Key))

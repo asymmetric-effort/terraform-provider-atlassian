@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -501,20 +502,20 @@ func testConfluenceConflictMockServer(t *testing.T) (*httptest.Server, *atlassia
 // getInt64Attr reads an int64 attribute from state.
 func getInt64Attr(t *testing.T, state tfsdk.State, name string) int64 {
 	t.Helper()
-	var val int64
 	raw := state.Raw
-	tfType := raw.Type()
-	_ = tfType
 	var m map[string]tftypes.Value
 	if err := raw.As(&m); err != nil {
 		t.Fatalf("state.As: %v", err)
 	}
 	if v, ok := m[name]; ok {
-		if err := v.As(&val); err != nil {
+		var bf big.Float
+		if err := v.As(&bf); err != nil {
 			t.Fatalf("getInt64Attr %q: %v", name, err)
 		}
+		i, _ := bf.Int64()
+		return i
 	}
-	return val
+	return 0
 }
 
 // ==================== PAGE RESOURCE SCHEMA TESTS ====================

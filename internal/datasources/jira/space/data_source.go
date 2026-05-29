@@ -22,34 +22,48 @@ var _ datasource.DataSource = &DataSource{}
 
 // apiSpace represents the JSON structure returned by the Atlassian project API.
 type apiSpace struct {
-	ID                 string `json:"id"`
-	Key                string `json:"key"`
-	Name               string `json:"name"`
-	Description        string `json:"description"`
-	LeadAccountID      string `json:"leadAccountId,omitempty"`
-	ProjectTypeKey     string `json:"projectTypeKey"`
-	ProjectTemplateKey string `json:"projectTemplateKey,omitempty"`
-	AvatarID           int64  `json:"avatarId,omitempty"`
-	CategoryID         int64  `json:"categoryId,omitempty"`
-	AssigneeType       string `json:"assigneeType,omitempty"`
-	Self               string `json:"self"`
+	ID                    string `json:"id"`
+	Key                   string `json:"key"`
+	Name                  string `json:"name"`
+	Description           string `json:"description"`
+	LeadAccountID         string `json:"leadAccountId,omitempty"`
+	ProjectTypeKey        string `json:"projectTypeKey"`
+	ProjectTemplateKey    string `json:"projectTemplateKey,omitempty"`
+	AvatarID              int64  `json:"avatarId,omitempty"`
+	CategoryID            int64  `json:"categoryId,omitempty"`
+	AssigneeType          string `json:"assigneeType,omitempty"`
+	IssueTypeScheme       int64  `json:"issueTypeScheme,omitempty"`
+	IssueTypeScreenScheme int64  `json:"issueTypeScreenScheme,omitempty"`
+	WorkflowScheme        int64  `json:"workflowScheme,omitempty"`
+	NotificationScheme    int64  `json:"notificationScheme,omitempty"`
+	PermissionScheme      int64  `json:"permissionScheme,omitempty"`
+	IssueSecurityScheme   int64  `json:"issueSecurityScheme,omitempty"`
+	FieldScheme           int64  `json:"fieldScheme,omitempty"`
+	Self                  string `json:"self"`
 }
 
 // DataSourceModel describes the data source data model.
 type DataSourceModel struct {
-	ID                 types.String `tfsdk:"id"`
-	Key                types.String `tfsdk:"key"`
-	Name               types.String `tfsdk:"name"`
-	Description        types.String `tfsdk:"description"`
-	LeadAccountID      types.String `tfsdk:"lead_account_id"`
-	SpaceType          types.String `tfsdk:"space_type"`
-	ProjectTemplateKey types.String `tfsdk:"project_template_key"`
-	AvatarID           types.Int64  `tfsdk:"avatar_id"`
-	CategoryID         types.Int64  `tfsdk:"category_id"`
-	AssigneeType       types.String `tfsdk:"assignee_type"`
-	URL                types.String `tfsdk:"url"`
-	SelfURL            types.String `tfsdk:"self_url"`
-	BrowseURL          types.String `tfsdk:"browse_url"`
+	ID                    types.String `tfsdk:"id"`
+	Key                   types.String `tfsdk:"key"`
+	Name                  types.String `tfsdk:"name"`
+	Description           types.String `tfsdk:"description"`
+	LeadAccountID         types.String `tfsdk:"lead_account_id"`
+	SpaceType             types.String `tfsdk:"space_type"`
+	ProjectTemplateKey    types.String `tfsdk:"project_template_key"`
+	AvatarID              types.Int64  `tfsdk:"avatar_id"`
+	CategoryID            types.Int64  `tfsdk:"category_id"`
+	AssigneeType          types.String `tfsdk:"assignee_type"`
+	IssueTypeScheme       types.Int64  `tfsdk:"issue_type_scheme"`
+	IssueTypeScreenScheme types.Int64  `tfsdk:"issue_type_screen_scheme"`
+	WorkflowScheme        types.Int64  `tfsdk:"workflow_scheme"`
+	NotificationScheme    types.Int64  `tfsdk:"notification_scheme"`
+	PermissionScheme      types.Int64  `tfsdk:"permission_scheme"`
+	IssueSecurityScheme   types.Int64  `tfsdk:"issue_security_scheme"`
+	FieldScheme           types.Int64  `tfsdk:"field_scheme"`
+	URL                   types.String `tfsdk:"url"`
+	SelfURL               types.String `tfsdk:"self_url"`
+	BrowseURL             types.String `tfsdk:"browse_url"`
 }
 
 // DataSource implements the atlassian_jira_space data source.
@@ -113,6 +127,34 @@ func (d *DataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp 
 			},
 			"assignee_type": schema.StringAttribute{
 				Description: "The default assignee type for the space. Either \"PROJECT_LEAD\" or \"UNASSIGNED\".",
+				Computed:    true,
+			},
+			"issue_type_scheme": schema.Int64Attribute{
+				Description: "The ID of the issue type scheme for the space.",
+				Computed:    true,
+			},
+			"issue_type_screen_scheme": schema.Int64Attribute{
+				Description: "The ID of the issue type screen scheme for the space.",
+				Computed:    true,
+			},
+			"workflow_scheme": schema.Int64Attribute{
+				Description: "The ID of the workflow scheme for the space.",
+				Computed:    true,
+			},
+			"notification_scheme": schema.Int64Attribute{
+				Description: "The ID of the notification scheme for the space.",
+				Computed:    true,
+			},
+			"permission_scheme": schema.Int64Attribute{
+				Description: "The ID of the permission scheme for the space.",
+				Computed:    true,
+			},
+			"issue_security_scheme": schema.Int64Attribute{
+				Description: "The ID of the issue security scheme for the space.",
+				Computed:    true,
+			},
+			"field_scheme": schema.Int64Attribute{
+				Description: "The ID of the field scheme for the space.",
 				Computed:    true,
 			},
 			"url": schema.StringAttribute{
@@ -219,6 +261,13 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 	config.AvatarID = types.Int64Value(space.AvatarID)
 	config.CategoryID = types.Int64Value(space.CategoryID)
 	config.AssigneeType = types.StringValue(space.AssigneeType)
+	config.IssueTypeScheme = types.Int64Value(space.IssueTypeScheme)
+	config.IssueTypeScreenScheme = types.Int64Value(space.IssueTypeScreenScheme)
+	config.WorkflowScheme = types.Int64Value(space.WorkflowScheme)
+	config.NotificationScheme = types.Int64Value(space.NotificationScheme)
+	config.PermissionScheme = types.Int64Value(space.PermissionScheme)
+	config.IssueSecurityScheme = types.Int64Value(space.IssueSecurityScheme)
+	config.FieldScheme = types.Int64Value(space.FieldScheme)
 	config.URL = types.StringValue(space.Self)
 	config.SelfURL = types.StringValue(space.Self)
 	config.BrowseURL = types.StringValue(browseURL(space.Self, space.Key))
