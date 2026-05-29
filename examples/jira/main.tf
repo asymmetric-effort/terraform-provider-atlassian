@@ -8,7 +8,7 @@ terraform {
 }
 
 provider "atlassian" {
-  url       = "https://terraform-example.atlassian.net"
+  url       = var.atlassian_url
   username  = var.atlassian_username
   api_token = var.atlassian_api_token
 }

@@ -136,7 +136,7 @@ jobs:
         env:
           PDV: "1"
           TF_ACC: "1"
-          ATLASSIAN_URL: "https://terraform-example.atlassian.net"
+          ATLASSIAN_URL: ${{ secrets.ATLASSIAN_URL }}
           ATLASSIAN_USERNAME: ${{ secrets.ATLASSIAN_USERNAME }}
           ATLASSIAN_API_TOKEN: ${{ secrets.ATLASSIAN_API_KEY }}
         run: go test ./test/pdv/... -v -count=1 -timeout 300s
