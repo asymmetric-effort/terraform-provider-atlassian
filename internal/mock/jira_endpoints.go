@@ -51,6 +51,7 @@ func RegisterJiraEndpoints(s *Server) {
 	registerProjectVersionEndpoints(s)
 	registerFieldConfigurationEndpoints(s)
 	registerFieldConfigurationSchemeEndpoints(s)
+	registerIssueLinkTypeEndpoints(s)
 }
 
 // registerCRUDEndpoints is a helper that registers standard CRUD endpoints for a resource type.
@@ -775,4 +776,9 @@ func registerFieldConfigurationEndpoints(s *Server) {
 // registerFieldConfigurationSchemeEndpoints registers field configuration scheme CRUD endpoints.
 func registerFieldConfigurationSchemeEndpoints(s *Server) {
 	registerCRUDEndpoints(s, "fieldconfigurationschemes", "/rest/api/3/fieldconfigurationscheme", "id", "Field configuration scheme", []string{"name"}, "name")
+}
+
+// registerIssueLinkTypeEndpoints registers issue link type CRUD endpoints.
+func registerIssueLinkTypeEndpoints(s *Server) {
+	registerCRUDEndpoints(s, "issuelinktypes", "/rest/api/3/issueLinkType", "id", "Issue link type", []string{"name", "inward", "outward"}, "name")
 }

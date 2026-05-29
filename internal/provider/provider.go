@@ -24,6 +24,7 @@ import (
 	customdomainds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/custom_domain"
 	customfielddatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/custom_field"
 	dashboarddatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/dashboard"
+	issuelinkdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/issue_link"
 	issuetypedatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/issue_type"
 	mailhandlerdatasource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/mail_handler"
 	notificationschemeds "github.com/asymmetric-effort/terraform-provider-atlassian/internal/datasources/jira/notification_scheme"
@@ -54,6 +55,7 @@ import (
 	customdomainrs "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/custom_domain"
 	customfieldresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/custom_field"
 	dashboardresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/dashboard"
+	issuelinkresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/issue_link"
 	issuetyperesource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/issue_type"
 	mailhandlerresource "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/mail_handler"
 	notificationschemers "github.com/asymmetric-effort/terraform-provider-atlassian/internal/resources/jira/notification_scheme"
@@ -292,6 +294,7 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		customfieldresource.NewResource,
 		customfieldresource.NewFieldConfigurationResource,
 		customfieldresource.NewFieldConfigurationSchemeResource,
+		issuelinkresource.NewTypeResource,
 		boardresource.NewResource,
 		priorityresource.NewResource,
 		priorityresource.NewSchemeResource,
@@ -346,6 +349,7 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 		customfielddatasource.NewDataSource,
 		customfielddatasource.NewFieldConfigurationDataSource,
 		customfielddatasource.NewFieldConfigurationSchemeDataSource,
+		issuelinkdatasource.NewTypeDataSource,
 		boarddatasource.NewDataSource,
 		prioritydatasource.NewDataSource,
 		prioritydatasource.NewSchemeDataSource,
