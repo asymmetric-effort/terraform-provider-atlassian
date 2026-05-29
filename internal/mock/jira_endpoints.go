@@ -31,6 +31,7 @@ func RegisterJiraEndpoints(s *Server) {
 	registerWorkflowSchemeEndpoints(s)
 	registerScreenEndpoints(s)
 	registerScreenSchemeEndpoints(s)
+	registerScreenTabEndpoints(s)
 	registerScreenTabFieldEndpoints(s)
 	registerPermissionSchemeEndpoints(s)
 	registerSecuritySchemeEndpoints(s)
@@ -323,6 +324,130 @@ func registerScreenEndpoints(s *Server) {
 // registerScreenSchemeEndpoints registers screen scheme CRUD endpoints.
 func registerScreenSchemeEndpoints(s *Server) {
 	registerCRUDEndpoints(s, "screenschemes", "/rest/api/3/screenscheme", "id", "Screen scheme", []string{"name"}, "name")
+}
+
+// registerScreenTabEndpoints registers screen tab CRUD endpoints.
+func registerScreenTabEndpoints(s *Server) {
+	store := s.GetStore("screentabs")
+
+	// POST /rest/api/3/screens/{screenId}/tabs — create tab
+	s.RegisterEndpoint("POST /rest/api/3/screens/{screenId}/tabs", func(w http.ResponseWriter, r *http.Request) {
+		var req map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			WriteError(w, http.StatusBadRequest, "Could not parse request body")
+			return
+		}
+
+		name, _ := req["name"].(string)
+		if name == "" {
+			WriteError(w, http.StatusBadRequest, "name is required")
+			return
+		}
+
+		screenID := r.PathValue("screenId")
+		id := nextID("screentab")
+		tab := map[string]interface{}{
+			"id":       id,
+			"name":     name,
+			"screenId": screenID,
+			"position": 0,
+		}
+		// Count existing tabs for this screen to determine position
+		pos := 0
+		for _, item := range store.List() {
+			var existing map[string]interface{}
+			json.Unmarshal(item, &existing)
+			if existing["screenId"] == screenID {
+				pos++
+			}
+		}
+		tab["position"] = pos
+
+		compositeKey := fmt.Sprintf("%s/%s", screenID, id)
+		data, _ := json.Marshal(tab)
+		store.Set(compositeKey, data)
+		WriteJSON(w, http.StatusCreated, tab)
+	})
+
+	// GET /rest/api/3/screens/{screenId}/tabs — list tabs
+	s.RegisterEndpoint("GET /rest/api/3/screens/{screenId}/tabs", func(w http.ResponseWriter, r *http.Request) {
+		screenID := r.PathValue("screenId")
+		var tabs []json.RawMessage
+		for _, item := range store.List() {
+			var existing map[string]interface{}
+			json.Unmarshal(item, &existing)
+			if existing["screenId"] == screenID {
+				tabs = append(tabs, item)
+			}
+		}
+		if tabs == nil {
+			tabs = []json.RawMessage{}
+		}
+		WriteJSON(w, http.StatusOK, tabs)
+	})
+
+	// PUT /rest/api/3/screens/{screenId}/tabs/{tabId} — update tab
+	s.RegisterEndpoint("PUT /rest/api/3/screens/{screenId}/tabs/{tabId}", func(w http.ResponseWriter, r *http.Request) {
+		screenID := r.PathValue("screenId")
+		tabID := r.PathValue("tabId")
+		compositeKey := fmt.Sprintf("%s/%s", screenID, tabID)
+
+		existing, ok := store.Get(compositeKey)
+		if !ok {
+			WriteError(w, http.StatusNotFound, "Screen tab not found")
+			return
+		}
+		var current map[string]interface{}
+		json.Unmarshal(existing, &current)
+
+		var updates map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
+			WriteError(w, http.StatusBadRequest, "Could not parse request body")
+			return
+		}
+		for k, v := range updates {
+			if k != "id" && k != "screenId" {
+				current[k] = v
+			}
+		}
+		data, _ := json.Marshal(current)
+		store.Set(compositeKey, data)
+		WriteJSON(w, http.StatusOK, current)
+	})
+
+	// DELETE /rest/api/3/screens/{screenId}/tabs/{tabId}
+	s.RegisterEndpoint("DELETE /rest/api/3/screens/{screenId}/tabs/{tabId}", func(w http.ResponseWriter, r *http.Request) {
+		screenID := r.PathValue("screenId")
+		tabID := r.PathValue("tabId")
+		compositeKey := fmt.Sprintf("%s/%s", screenID, tabID)
+		if !store.Delete(compositeKey) {
+			WriteError(w, http.StatusNotFound, "Screen tab not found")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// POST /rest/api/3/screens/{screenId}/tabs/{tabId}/move/{pos} — move tab
+	s.RegisterEndpoint("POST /rest/api/3/screens/{screenId}/tabs/{tabId}/move/{pos}", func(w http.ResponseWriter, r *http.Request) {
+		screenID := r.PathValue("screenId")
+		tabID := r.PathValue("tabId")
+		compositeKey := fmt.Sprintf("%s/%s", screenID, tabID)
+
+		existing, ok := store.Get(compositeKey)
+		if !ok {
+			WriteError(w, http.StatusNotFound, "Screen tab not found")
+			return
+		}
+		var current map[string]interface{}
+		json.Unmarshal(existing, &current)
+
+		var pos int
+		fmt.Sscanf(r.PathValue("pos"), "%d", &pos)
+		current["position"] = pos
+		data, _ := json.Marshal(current)
+		store.Set(compositeKey, data)
+		w.WriteHeader(http.StatusNoContent)
+	})
 }
 
 // registerScreenTabFieldEndpoints registers screen tab field CRUD endpoints.
