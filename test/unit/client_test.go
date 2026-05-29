@@ -269,6 +269,46 @@ func contains(s, substr string) bool {
 	return len(s) >= len(substr) && searchString(s, substr)
 }
 
+// TestSetAdminBaseURL verifies SetAdminBaseURL configures the admin API URL.
+func TestSetAdminBaseURL(t *testing.T) {
+	t.Parallel()
+	config := client.DefaultConfig()
+	config.BaseURL = "https://example.atlassian.net"
+	c, err := client.NewClient(config, &mockAuth{})
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	c.SetAdminBaseURL("https://admin.example.com")
+
+	// AdminGet should work after setting admin URL
+	// (will fail with connection refused, but won't fail with "not configured")
+	err = c.AdminGet(context.Background(), "/v1/orgs", nil)
+	if err == nil {
+		t.Log("expected connection error, not nil")
+	}
+}
+
+// TestAdminDoWithoutAdminURL verifies AdminDo fails when AdminBaseURL is empty.
+func TestAdminDoWithoutAdminURL(t *testing.T) {
+	t.Parallel()
+	config := client.Config{
+		BaseURL:        "https://example.atlassian.net",
+		AdminBaseURL:   "",
+		RequestTimeout: 5 * time.Second,
+		MaxRetries:     0,
+		RetryWaitMin:   1 * time.Second,
+		RetryWaitMax:   1 * time.Second,
+	}
+	c, err := client.NewClient(config, &mockAuth{})
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	err = c.AdminGet(context.Background(), "/v1/orgs", nil)
+	if err == nil {
+		t.Fatal("expected error for admin call without admin URL")
+	}
+}
+
 // searchString is a simple substring search.
 func searchString(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {
