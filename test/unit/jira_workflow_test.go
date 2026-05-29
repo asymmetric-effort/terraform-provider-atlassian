@@ -21,6 +21,32 @@ import (
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
+// statusObjTfType is the tftypes.Object for a workflow status.
+var statusObjTfType = tftypes.Object{AttributeTypes: map[string]tftypes.Type{
+	"name": tftypes.String, "category": tftypes.String,
+}}
+
+// transitionObjTfType is the tftypes.Object for a workflow transition.
+var transitionObjTfType = tftypes.Object{AttributeTypes: map[string]tftypes.Type{
+	"name": tftypes.String, "from_status": tftypes.String, "to_status": tftypes.String,
+}}
+
+// statusesListTfType is the tftypes.List for workflow statuses.
+var statusesListTfType = tftypes.List{ElementType: statusObjTfType}
+
+// transitionsListTfType is the tftypes.List for workflow transitions.
+var transitionsListTfType = tftypes.List{ElementType: transitionObjTfType}
+
+// nullStatuses returns a null tftypes value for the statuses list.
+func nullStatuses() tftypes.Value {
+	return tftypes.NewValue(statusesListTfType, nil)
+}
+
+// nullTransitions returns a null tftypes value for the transitions list.
+func nullTransitions() tftypes.Value {
+	return tftypes.NewValue(transitionsListTfType, nil)
+}
+
 // workflowIDCounter provides unique IDs for workflow mock server tests.
 var workflowIDCounter uint64
 
@@ -72,6 +98,12 @@ func testWorkflowMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) 
 			"name":        name,
 			"description": description,
 			"self":        fmt.Sprintf("https://example.atlassian.net/rest/api/3/workflow/%s", id),
+		}
+		if statuses, ok := req["statuses"]; ok {
+			wf["statuses"] = statuses
+		}
+		if transitions, ok := req["transitions"]; ok {
+			wf["transitions"] = transitions
 		}
 		workflows[id] = wf
 		w.Header().Set("Content-Type", "application/json")
@@ -321,6 +353,35 @@ func testWorkflowServerErrorMockServer(t *testing.T) (*httptest.Server, *atlassi
 	return ts, client
 }
 
+// testWorkflowBadRequestMockServer creates a mock that returns 400 for all workflow endpoints.
+func testWorkflowBadRequestMockServer(t *testing.T) (*httptest.Server, *atlassian.Client) {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"errorMessages": []string{"Invalid request"},
+			"errors":        map[string]string{},
+		})
+	})
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+
+	cfg := atlassian.Config{
+		BaseURL:        ts.URL,
+		RequestTimeout: 5000000000,
+		MaxRetries:     0,
+		RetryWaitMin:   1000000000,
+		RetryWaitMax:   1000000000,
+	}
+	client, err := atlassian.NewClient(cfg, &testNoopAuth{})
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	return ts, client
+}
+
 // ==================== WORKFLOW RESOURCE SCHEMA TESTS ====================
 
 // TestJiraWorkflowResourceMetadata verifies the resource type name.
@@ -350,7 +411,7 @@ func TestJiraWorkflowResourceSchema(t *testing.T) {
 		t.Fatal("expected schema to have attributes")
 	}
 
-	expectedAttrs := []string{"id", "name", "description"}
+	expectedAttrs := []string{"id", "name", "description", "statuses", "transitions"}
 	for _, attr := range expectedAttrs {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected schema to have attribute %q", attr)
@@ -367,7 +428,7 @@ func TestJiraWorkflowResourceSchemaAttributeCount(t *testing.T) {
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), req, resp)
 
-	expected := 3
+	expected := 5
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -405,7 +466,7 @@ func TestJiraWorkflowResourceSchemaComputedAttributes(t *testing.T) {
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), req, resp)
 
-	computedAttrs := []string{"id", "description"}
+	computedAttrs := []string{"id", "description", "statuses", "transitions"}
 	for _, name := range computedAttrs {
 		attr, ok := resp.Schema.Attributes[name]
 		if !ok {
@@ -427,7 +488,7 @@ func TestJiraWorkflowResourceSchemaOptionalAttributes(t *testing.T) {
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), req, resp)
 
-	optionalAttrs := []string{"description"}
+	optionalAttrs := []string{"description", "statuses", "transitions"}
 	for _, name := range optionalAttrs {
 		attr, ok := resp.Schema.Attributes[name]
 		if !ok {
@@ -493,6 +554,8 @@ func TestJiraWorkflowResourceCRUDLifecycle(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "Test Workflow"),
 		"description": tftypes.NewValue(tftypes.String, "A test workflow"),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -515,6 +578,8 @@ func TestJiraWorkflowResourceCRUDLifecycle(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, wfID),
 		"name":        tftypes.NewValue(tftypes.String, "Test Workflow"),
 		"description": tftypes.NewValue(tftypes.String, "A test workflow"),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
@@ -530,6 +595,8 @@ func TestJiraWorkflowResourceCRUDLifecycle(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, wfID),
 		"name":        tftypes.NewValue(tftypes.String, "Updated Workflow"),
 		"description": tftypes.NewValue(tftypes.String, "Updated desc"),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
@@ -570,6 +637,8 @@ func TestJiraWorkflowResourceCreateNoDescription(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "No Desc Workflow"),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
@@ -595,6 +664,8 @@ func TestJiraWorkflowResourceCreateDuplicateName(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "Dup Workflow"),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	resp1 := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp1)
@@ -606,6 +677,8 @@ func TestJiraWorkflowResourceCreateDuplicateName(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "Dup Workflow"),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	resp2 := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan2}, resp2)
@@ -628,6 +701,8 @@ func TestJiraWorkflowResourceUpdateNotFound(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
 		"name":        tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -651,6 +726,8 @@ func TestJiraWorkflowResourceDeleteNotFound(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
 		"name":        tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	deleteResp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -673,6 +750,8 @@ func TestJiraWorkflowResourceReadNotFound(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
 		"name":        tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -698,6 +777,8 @@ func TestJiraWorkflowResourceCreateForbidden(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "Forbidden"),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -720,6 +801,8 @@ func TestJiraWorkflowResourceUpdateForbidden(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "some-id"),
 		"name":        tftypes.NewValue(tftypes.String, "Forbidden"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -743,6 +826,8 @@ func TestJiraWorkflowResourceDeleteForbidden(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "some-id"),
 		"name":        tftypes.NewValue(tftypes.String, "Forbidden"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -802,6 +887,8 @@ func TestJiraWorkflowResourceCreateServerError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "Error"),
 		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -824,6 +911,8 @@ func TestJiraWorkflowResourceReadServerError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "some-id"),
 		"name":        tftypes.NewValue(tftypes.String, "Error"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
@@ -846,6 +935,8 @@ func TestJiraWorkflowResourceUpdateServerError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "some-id"),
 		"name":        tftypes.NewValue(tftypes.String, "Error"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -869,6 +960,8 @@ func TestJiraWorkflowResourceDeleteServerError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "some-id"),
 		"name":        tftypes.NewValue(tftypes.String, "Error"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	resp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
@@ -926,6 +1019,8 @@ func TestJiraWorkflowResourceUpdateBadPlan(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "x"),
 		"name":        tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: badPlan, State: goodState}, resp)
@@ -948,6 +1043,8 @@ func TestJiraWorkflowResourceUpdateBadState(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "x"),
 		"name":        tftypes.NewValue(tftypes.String, "X"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	badState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tftypes.String, "invalid")}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -1003,7 +1100,7 @@ func TestJiraWorkflowDataSourceSchema(t *testing.T) {
 		t.Fatal("expected schema to have attributes")
 	}
 
-	expectedAttrs := []string{"id", "name", "description"}
+	expectedAttrs := []string{"id", "name", "description", "statuses", "transitions"}
 	for _, attr := range expectedAttrs {
 		if _, ok := resp.Schema.Attributes[attr]; !ok {
 			t.Errorf("expected schema to have attribute %q", attr)
@@ -1020,7 +1117,7 @@ func TestJiraWorkflowDataSourceSchemaAttributeCount(t *testing.T) {
 	resp := &datasource.SchemaResponse{}
 	ds.Schema(context.Background(), req, resp)
 
-	expected := 3
+	expected := 5
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)
@@ -1053,6 +1150,8 @@ func TestJiraWorkflowDataSourceByID(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "DS Workflow"),
 		"description": tftypes.NewValue(tftypes.String, "ds desc"),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	cResp := &resource.CreateResponse{State: emptyState(ctx, rs)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, cResp)
@@ -1071,6 +1170,8 @@ func TestJiraWorkflowDataSourceByID(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, wfID),
 		"name":        tftypes.NewValue(tftypes.String, nil),
 		"description": tftypes.NewValue(tftypes.String, nil),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1096,6 +1197,8 @@ func TestJiraWorkflowDataSourceNotFound(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "nonexistent"),
 		"name":        tftypes.NewValue(tftypes.String, nil),
 		"description": tftypes.NewValue(tftypes.String, nil),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1142,6 +1245,8 @@ func TestJiraWorkflowDataSourceReadServerError(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "some-id"),
 		"name":        tftypes.NewValue(tftypes.String, nil),
 		"description": tftypes.NewValue(tftypes.String, nil),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
 	ds.Read(ctx, datasource.ReadRequest{Config: config}, dsResp)
@@ -1164,6 +1269,356 @@ func TestJiraWorkflowDataSourceReadBadConfig(t *testing.T) {
 	ds.Read(ctx, datasource.ReadRequest{Config: badConfig}, resp)
 	if !resp.Diagnostics.HasError() {
 		t.Fatal("Expected error from bad config on data source read")
+	}
+}
+
+// TestJiraWorkflowResourceCreateBadRequest tests 400 on create.
+func TestJiraWorkflowResourceCreateBadRequest(t *testing.T) {
+	t.Parallel()
+	_, client := testWorkflowBadRequestMockServer(t)
+	ctx := context.Background()
+	r := workflowresource.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":        tftypes.NewValue(tftypes.String, "BadRequest"),
+		"description": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
+	})}
+	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
+	if !resp.Diagnostics.HasError() {
+		t.Fatal("Expected bad request error on create")
+	}
+}
+
+// TestJiraWorkflowResourceUpdateBadRequest tests 400 on update.
+func TestJiraWorkflowResourceUpdateBadRequest(t *testing.T) {
+	t.Parallel()
+	_, client := testWorkflowBadRequestMockServer(t)
+	ctx := context.Background()
+	r := workflowresource.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, "some-id"),
+		"name":        tftypes.NewValue(tftypes.String, "BadRequest"),
+		"description": tftypes.NewValue(tftypes.String, ""),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
+	})}
+	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
+	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
+	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, resp)
+	if !resp.Diagnostics.HasError() {
+		t.Fatal("Expected bad request error on update")
+	}
+}
+
+// TestJiraWorkflowSchemeResourceCreateBadRequest tests 400 on scheme create.
+func TestJiraWorkflowSchemeResourceCreateBadRequest(t *testing.T) {
+	t.Parallel()
+	_, client := testWorkflowBadRequestMockServer(t)
+	ctx := context.Background()
+	r := workflowresource.NewSchemeResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":                  tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":                tftypes.NewValue(tftypes.String, "BadRequest"),
+		"description":         tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"default_workflow_id": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
+	})}
+	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
+	if !resp.Diagnostics.HasError() {
+		t.Fatal("Expected bad request error on scheme create")
+	}
+}
+
+// TestJiraWorkflowSchemeResourceUpdateBadRequest tests 400 on scheme update.
+func TestJiraWorkflowSchemeResourceUpdateBadRequest(t *testing.T) {
+	t.Parallel()
+	_, client := testWorkflowBadRequestMockServer(t)
+	ctx := context.Background()
+	r := workflowresource.NewSchemeResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":                  tftypes.NewValue(tftypes.String, "some-id"),
+		"name":                tftypes.NewValue(tftypes.String, "BadRequest"),
+		"description":         tftypes.NewValue(tftypes.String, ""),
+		"default_workflow_id": tftypes.NewValue(tftypes.String, ""),
+		"issue_type_mappings": tftypes.NewValue(tftypes.List{ElementType: tftypes.Object{AttributeTypes: map[string]tftypes.Type{"issue_type_id": tftypes.String, "workflow_id": tftypes.String}}}, nil),
+	})}
+	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
+	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
+	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, resp)
+	if !resp.Diagnostics.HasError() {
+		t.Fatal("Expected bad request error on scheme update")
+	}
+}
+
+// ==================== WORKFLOW STATUSES AND TRANSITIONS TESTS ====================
+
+// TestJiraWorkflowResourceCompleteWorkflow tests a full workflow with statuses and transitions.
+func TestJiraWorkflowResourceCompleteWorkflow(t *testing.T) {
+	t.Parallel()
+	_, client := testWorkflowMockServer(t)
+	ctx := context.Background()
+	r := workflowresource.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+
+	statusesList := tftypes.NewValue(statusesListTfType, []tftypes.Value{
+		tftypes.NewValue(statusObjTfType, map[string]tftypes.Value{
+			"name":     tftypes.NewValue(tftypes.String, "Open"),
+			"category": tftypes.NewValue(tftypes.String, "new"),
+		}),
+		tftypes.NewValue(statusObjTfType, map[string]tftypes.Value{
+			"name":     tftypes.NewValue(tftypes.String, "In Progress"),
+			"category": tftypes.NewValue(tftypes.String, "indeterminate"),
+		}),
+		tftypes.NewValue(statusObjTfType, map[string]tftypes.Value{
+			"name":     tftypes.NewValue(tftypes.String, "Done"),
+			"category": tftypes.NewValue(tftypes.String, "done"),
+		}),
+	})
+
+	transitionsList := tftypes.NewValue(transitionsListTfType, []tftypes.Value{
+		tftypes.NewValue(transitionObjTfType, map[string]tftypes.Value{
+			"name":        tftypes.NewValue(tftypes.String, "Create"),
+			"from_status": tftypes.NewValue(tftypes.String, ""),
+			"to_status":   tftypes.NewValue(tftypes.String, "Open"),
+		}),
+		tftypes.NewValue(transitionObjTfType, map[string]tftypes.Value{
+			"name":        tftypes.NewValue(tftypes.String, "Start Work"),
+			"from_status": tftypes.NewValue(tftypes.String, "Open"),
+			"to_status":   tftypes.NewValue(tftypes.String, "In Progress"),
+		}),
+		tftypes.NewValue(transitionObjTfType, map[string]tftypes.Value{
+			"name":        tftypes.NewValue(tftypes.String, "Complete"),
+			"from_status": tftypes.NewValue(tftypes.String, "In Progress"),
+			"to_status":   tftypes.NewValue(tftypes.String, "Done"),
+		}),
+	})
+
+	// Create
+	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"name":        tftypes.NewValue(tftypes.String, "Complete Workflow"),
+		"description": tftypes.NewValue(tftypes.String, "A workflow with statuses and transitions"),
+		"statuses":    statusesList,
+		"transitions": transitionsList,
+	})}
+	createResp := &resource.CreateResponse{State: emptyState(ctx, s)}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics.Errors())
+	}
+	wfID := getStringAttr(t, createResp.State, "id")
+	if wfID == "" {
+		t.Fatal("expected non-empty id")
+	}
+	if name := getStringAttr(t, createResp.State, "name"); name != "Complete Workflow" {
+		t.Errorf("expected name 'Complete Workflow', got %q", name)
+	}
+
+	// Read
+	readState := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, wfID),
+		"name":        tftypes.NewValue(tftypes.String, "Complete Workflow"),
+		"description": tftypes.NewValue(tftypes.String, "A workflow with statuses and transitions"),
+		"statuses":    statusesList,
+		"transitions": transitionsList,
+	})}
+	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: readState.Raw.Copy()}}
+	r.Read(ctx, resource.ReadRequest{State: readState}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+	if name := getStringAttr(t, readResp.State, "name"); name != "Complete Workflow" {
+		t.Errorf("Read name: got %q", name)
+	}
+
+	// Update with modified transitions
+	updatedTransitions := tftypes.NewValue(transitionsListTfType, []tftypes.Value{
+		tftypes.NewValue(transitionObjTfType, map[string]tftypes.Value{
+			"name":        tftypes.NewValue(tftypes.String, "Create"),
+			"from_status": tftypes.NewValue(tftypes.String, ""),
+			"to_status":   tftypes.NewValue(tftypes.String, "Open"),
+		}),
+		tftypes.NewValue(transitionObjTfType, map[string]tftypes.Value{
+			"name":        tftypes.NewValue(tftypes.String, "Finish"),
+			"from_status": tftypes.NewValue(tftypes.String, "Open"),
+			"to_status":   tftypes.NewValue(tftypes.String, "Done"),
+		}),
+	})
+	updatePlan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, wfID),
+		"name":        tftypes.NewValue(tftypes.String, "Complete Workflow"),
+		"description": tftypes.NewValue(tftypes.String, "Updated workflow"),
+		"statuses":    statusesList,
+		"transitions": updatedTransitions,
+	})}
+	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
+	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: readState}, updateResp)
+	if updateResp.Diagnostics.HasError() {
+		t.Fatalf("Update: %v", updateResp.Diagnostics.Errors())
+	}
+
+	// Delete
+	deleteState := tfsdk.State{Schema: s, Raw: updateResp.State.Raw.Copy()}
+	deleteResp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: deleteState.Raw.Copy()}}
+	r.Delete(ctx, resource.DeleteRequest{State: deleteState}, deleteResp)
+	if deleteResp.Diagnostics.HasError() {
+		t.Fatalf("Delete: %v", deleteResp.Diagnostics.Errors())
+	}
+}
+
+// TestJiraWorkflowResourceStatusesFromPlanNonEmpty exercises statusesFromPlan with data.
+func TestJiraWorkflowResourceStatusesFromPlanNonEmpty(t *testing.T) {
+	t.Parallel()
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /rest/api/3/workflow/wf-st", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "wf-st", "name": "Status WF", "description": "with statuses",
+			"statuses": []map[string]interface{}{
+				{"name": "Open", "category": "new"},
+				{"name": "Done", "category": "done"},
+			},
+			"transitions": []map[string]interface{}{
+				{"name": "Start", "fromStatus": "Open", "toStatus": "Done"},
+			},
+		})
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+	cfg := atlassian.Config{BaseURL: ts.URL, RequestTimeout: 5e9, MaxRetries: 0, RetryWaitMin: 1e9, RetryWaitMax: 1e9}
+	client, _ := atlassian.NewClient(cfg, &testNoopAuth{})
+	ctx := context.Background()
+
+	// Test resource Read
+	r := workflowresource.NewResource()
+	configureResource(t, r, client)
+	s := getResourceSchema(t, r)
+	tfType := s.Type().TerraformType(ctx)
+	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, "wf-st"),
+		"name":        tftypes.NewValue(tftypes.String, "Status WF"),
+		"description": tftypes.NewValue(tftypes.String, "with statuses"),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
+	})}
+	readResp := &resource.ReadResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
+	r.Read(ctx, resource.ReadRequest{State: state}, readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics.Errors())
+	}
+
+	// Test data source Read
+	ds := workflowdatasource.NewDataSource()
+	configureDatasource(t, ds, client)
+	dss := getDatasourceSchema(t, ds)
+	dsType := dss.Type().TerraformType(ctx)
+	dsConfig := tfsdk.Config{Schema: dss, Raw: tftypes.NewValue(dsType, map[string]tftypes.Value{
+		"id":          tftypes.NewValue(tftypes.String, "wf-st"),
+		"name":        tftypes.NewValue(tftypes.String, nil),
+		"description": tftypes.NewValue(tftypes.String, nil),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
+	})}
+	dsResp := &datasource.ReadResponse{State: emptyDSState(ctx, dss)}
+	ds.Read(ctx, datasource.ReadRequest{Config: dsConfig}, dsResp)
+	if dsResp.Diagnostics.HasError() {
+		t.Fatalf("DS Read: %v", dsResp.Diagnostics.Errors())
+	}
+}
+
+// TestJiraWorkflowResourceStatusesNestedAttributes verifies nested attribute properties for statuses.
+func TestJiraWorkflowResourceStatusesNestedAttributes(t *testing.T) {
+	t.Parallel()
+	r := workflowresource.NewResource()
+	req := resource.SchemaRequest{}
+	resp := &resource.SchemaResponse{}
+	r.Schema(context.Background(), req, resp)
+
+	statusesAttr, ok := resp.Schema.Attributes["statuses"]
+	if !ok {
+		t.Fatal("expected statuses attribute to exist")
+	}
+	if !statusesAttr.IsOptional() {
+		t.Error("expected statuses to be optional")
+	}
+	if !statusesAttr.IsComputed() {
+		t.Error("expected statuses to be computed")
+	}
+}
+
+// TestJiraWorkflowResourceTransitionsNestedAttributes verifies nested attribute properties for transitions.
+func TestJiraWorkflowResourceTransitionsNestedAttributes(t *testing.T) {
+	t.Parallel()
+	r := workflowresource.NewResource()
+	req := resource.SchemaRequest{}
+	resp := &resource.SchemaResponse{}
+	r.Schema(context.Background(), req, resp)
+
+	transitionsAttr, ok := resp.Schema.Attributes["transitions"]
+	if !ok {
+		t.Fatal("expected transitions attribute to exist")
+	}
+	if !transitionsAttr.IsOptional() {
+		t.Error("expected transitions to be optional")
+	}
+	if !transitionsAttr.IsComputed() {
+		t.Error("expected transitions to be computed")
+	}
+}
+
+// TestJiraWorkflowDataSourceStatusesNestedAttributes verifies nested attribute properties for statuses.
+func TestJiraWorkflowDataSourceStatusesNestedAttributes(t *testing.T) {
+	t.Parallel()
+	ds := workflowdatasource.NewDataSource()
+	req := datasource.SchemaRequest{}
+	resp := &datasource.SchemaResponse{}
+	ds.Schema(context.Background(), req, resp)
+
+	statusesAttr, ok := resp.Schema.Attributes["statuses"]
+	if !ok {
+		t.Fatal("expected statuses attribute to exist")
+	}
+	if !statusesAttr.IsComputed() {
+		t.Error("expected statuses to be computed")
+	}
+}
+
+// TestJiraWorkflowDataSourceTransitionsNestedAttributes verifies nested attribute properties for transitions.
+func TestJiraWorkflowDataSourceTransitionsNestedAttributes(t *testing.T) {
+	t.Parallel()
+	ds := workflowdatasource.NewDataSource()
+	req := datasource.SchemaRequest{}
+	resp := &datasource.SchemaResponse{}
+	ds.Schema(context.Background(), req, resp)
+
+	transitionsAttr, ok := resp.Schema.Attributes["transitions"]
+	if !ok {
+		t.Fatal("expected transitions attribute to exist")
+	}
+	if !transitionsAttr.IsComputed() {
+		t.Error("expected transitions to be computed")
 	}
 }
 

@@ -200,6 +200,8 @@ func TestWorkflowInvalidTransitionCreate(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "Bad Workflow"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	resp := &resource.CreateResponse{State: emptyState(ctx, s)}
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
@@ -231,6 +233,8 @@ func TestWorkflowInvalidTransitionUpdate(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, "wf-123"),
 		"name":        tftypes.NewValue(tftypes.String, "Existing Workflow"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	plan := tfsdk.Plan{Schema: s, Raw: state.Raw.Copy()}
 	resp := &resource.UpdateResponse{State: emptyState(ctx, s)}
@@ -747,6 +751,8 @@ func TestErrorMessageConsistency(t *testing.T) {
 		"id":          tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"name":        tftypes.NewValue(tftypes.String, "Consistent WF"),
 		"description": tftypes.NewValue(tftypes.String, ""),
+		"statuses":    nullStatuses(),
+		"transitions": nullTransitions(),
 	})}
 	wResp := &resource.CreateResponse{State: emptyState(ctx, ws)}
 	wr.Create(ctx, resource.CreateRequest{Plan: wPlan}, wResp)

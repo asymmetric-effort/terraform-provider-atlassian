@@ -17,6 +17,8 @@ clean:
 	@echo "Cleaning build artifacts..."
 	@rm -rf $(BUILD_DIR)
 	@mkdir -p $(BUILD_DIR)
+	@echo "Cleaning Go build cache..."
+	@go clean -cache
 	@echo "Stopping and removing mock API containers..."
 	@docker stop $(MOCK_CONTAINER) 2>/dev/null || true
 	@docker rm $(MOCK_CONTAINER) 2>/dev/null || true

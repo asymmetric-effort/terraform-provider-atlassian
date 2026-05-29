@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	atlassian "github.com/asymmetric-effort/terraform-provider-atlassian/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -26,24 +27,56 @@ var (
 	_ resource.ResourceWithImportState = &Resource{}
 )
 
+// apiWorkflowStatus represents a single status in a workflow.
+type apiWorkflowStatus struct {
+	Name     string `json:"name"`
+	Category string `json:"category,omitempty"`
+}
+
+// apiWorkflowTransition represents a single transition in a workflow.
+type apiWorkflowTransition struct {
+	Name       string `json:"name"`
+	FromStatus string `json:"fromStatus,omitempty"`
+	ToStatus   string `json:"toStatus"`
+}
+
 // apiWorkflow represents the JSON structure returned by the Atlassian workflow API.
 type apiWorkflow struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Self        string `json:"self"`
+	ID          string                  `json:"id"`
+	Name        string                  `json:"name"`
+	Description string                  `json:"description"`
+	Self        string                  `json:"self"`
+	Statuses    []apiWorkflowStatus     `json:"statuses,omitempty"`
+	Transitions []apiWorkflowTransition `json:"transitions,omitempty"`
 }
 
 // apiWorkflowCreate represents the JSON body for creating a workflow.
 type apiWorkflowCreate struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
+	Name        string                  `json:"name"`
+	Description string                  `json:"description,omitempty"`
+	Statuses    []apiWorkflowStatus     `json:"statuses,omitempty"`
+	Transitions []apiWorkflowTransition `json:"transitions,omitempty"`
 }
 
 // apiWorkflowUpdate represents the JSON body for updating a workflow.
 type apiWorkflowUpdate struct {
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
+	Name        string                  `json:"name,omitempty"`
+	Description string                  `json:"description,omitempty"`
+	Statuses    []apiWorkflowStatus     `json:"statuses,omitempty"`
+	Transitions []apiWorkflowTransition `json:"transitions,omitempty"`
+}
+
+// StatusModel describes a single workflow status in the Terraform model.
+type StatusModel struct {
+	Name     string `tfsdk:"name"`
+	Category string `tfsdk:"category"`
+}
+
+// TransitionModel describes a single workflow transition in the Terraform model.
+type TransitionModel struct {
+	Name       string `tfsdk:"name"`
+	FromStatus string `tfsdk:"from_status"`
+	ToStatus   string `tfsdk:"to_status"`
 }
 
 // ResourceModel describes the resource data model.
@@ -51,6 +84,8 @@ type ResourceModel struct {
 	ID          types.String `tfsdk:"id"`
 	Name        types.String `tfsdk:"name"`
 	Description types.String `tfsdk:"description"`
+	Statuses    types.List   `tfsdk:"statuses"`
+	Transitions types.List   `tfsdk:"transitions"`
 }
 
 // Resource implements the atlassian_jira_workflow managed resource.
@@ -92,6 +127,44 @@ func (r *Resource) Schema(_ context.Context, _ resource.SchemaRequest, resp *res
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"statuses": schema.ListNestedAttribute{
+				Description: "The statuses defined in the workflow.",
+				Optional:    true,
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Description: "The name of the status.",
+							Required:    true,
+						},
+						"category": schema.StringAttribute{
+							Description: "The status category (e.g., \"new\", \"indeterminate\", \"done\").",
+							Optional:    true,
+						},
+					},
+				},
+			},
+			"transitions": schema.ListNestedAttribute{
+				Description: "The transitions defined in the workflow.",
+				Optional:    true,
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Description: "The name of the transition.",
+							Required:    true,
+						},
+						"from_status": schema.StringAttribute{
+							Description: "The source status name. Empty or omitted for the initial transition.",
+							Optional:    true,
+						},
+						"to_status": schema.StringAttribute{
+							Description: "The target status name.",
+							Required:    true,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -126,6 +199,8 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
 	}
+	body.Statuses = statusesFromPlan(ctx, plan.Statuses)
+	body.Transitions = transitionsFromPlan(ctx, plan.Transitions)
 	bodyBytes, _ := json.Marshal(body)
 
 	var created apiWorkflow
@@ -164,6 +239,8 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	plan.ID = types.StringValue(created.ID)
 	plan.Name = types.StringValue(created.Name)
 	plan.Description = types.StringValue(created.Description)
+	plan.Statuses = statusesToState(created.Statuses)
+	plan.Transitions = transitionsToState(created.Transitions)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -194,6 +271,8 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 	state.ID = types.StringValue(wf.ID)
 	state.Name = types.StringValue(wf.Name)
 	state.Description = types.StringValue(wf.Description)
+	state.Statuses = statusesToState(wf.Statuses)
+	state.Transitions = transitionsToState(wf.Transitions)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -218,6 +297,8 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		body.Description = plan.Description.ValueString()
 	}
+	body.Statuses = statusesFromPlan(ctx, plan.Statuses)
+	body.Transitions = transitionsFromPlan(ctx, plan.Transitions)
 	bodyBytes, _ := json.Marshal(body)
 
 	var updated apiWorkflow
@@ -256,6 +337,8 @@ func (r *Resource) Update(ctx context.Context, req resource.UpdateRequest, resp 
 	plan.ID = types.StringValue(updated.ID)
 	plan.Name = types.StringValue(updated.Name)
 	plan.Description = types.StringValue(updated.Description)
+	plan.Statuses = statusesToState(updated.Statuses)
+	plan.Transitions = transitionsToState(updated.Transitions)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -295,4 +378,104 @@ func (r *Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp 
 // ImportState imports an existing workflow by ID.
 func (r *Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// statusObjectType is the attr.Type for the status nested object.
+var statusObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"name":     types.StringType,
+		"category": types.StringType,
+	},
+}
+
+// transitionObjectType is the attr.Type for the transition nested object.
+var transitionObjectType = types.ObjectType{
+	AttrTypes: map[string]attr.Type{
+		"name":        types.StringType,
+		"from_status": types.StringType,
+		"to_status":   types.StringType,
+	},
+}
+
+// statusesFromPlan converts the Terraform statuses list to API format.
+func statusesFromPlan(ctx context.Context, statuses types.List) []apiWorkflowStatus {
+	if statuses.IsNull() || statuses.IsUnknown() {
+		return nil
+	}
+	var models []StatusModel
+	statuses.ElementsAs(ctx, &models, false)
+	var result []apiWorkflowStatus
+	for _, m := range models {
+		result = append(result, apiWorkflowStatus{
+			Name:     m.Name,
+			Category: m.Category,
+		})
+	}
+	return result
+}
+
+// transitionsFromPlan converts the Terraform transitions list to API format.
+func transitionsFromPlan(ctx context.Context, transitions types.List) []apiWorkflowTransition {
+	if transitions.IsNull() || transitions.IsUnknown() {
+		return nil
+	}
+	var models []TransitionModel
+	transitions.ElementsAs(ctx, &models, false)
+	var result []apiWorkflowTransition
+	for _, m := range models {
+		result = append(result, apiWorkflowTransition{
+			Name:       m.Name,
+			FromStatus: m.FromStatus,
+			ToStatus:   m.ToStatus,
+		})
+	}
+	return result
+}
+
+// statusesToState converts API statuses to the Terraform state list.
+func statusesToState(statuses []apiWorkflowStatus) types.List {
+	if len(statuses) == 0 {
+		return types.ListNull(statusObjectType)
+	}
+	var elems []attr.Value
+	for _, s := range statuses {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"name":     types.StringType,
+				"category": types.StringType,
+			},
+			map[string]attr.Value{
+				"name":     types.StringValue(s.Name),
+				"category": types.StringValue(s.Category),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(statusObjectType, elems)
+	return list
+}
+
+// transitionsToState converts API transitions to the Terraform state list.
+func transitionsToState(transitions []apiWorkflowTransition) types.List {
+	if len(transitions) == 0 {
+		return types.ListNull(transitionObjectType)
+	}
+	var elems []attr.Value
+	for _, t := range transitions {
+		obj, _ := types.ObjectValue(
+			map[string]attr.Type{
+				"name":        types.StringType,
+				"from_status": types.StringType,
+				"to_status":   types.StringType,
+			},
+			map[string]attr.Value{
+				"name":        types.StringValue(t.Name),
+				"from_status": types.StringValue(t.FromStatus),
+				"to_status":   types.StringValue(t.ToStatus),
+			},
+		)
+		elems = append(elems, obj)
+	}
+	list, _ := types.ListValue(transitionObjectType, elems)
+	return list
 }
