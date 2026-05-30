@@ -26,6 +26,11 @@ var (
 )
 
 // apiOrganization represents the JSON structure returned by the Atlassian organization API.
+// apiOrganizationResponse represents the JSON envelope from the Admin API.
+type apiOrganizationResponse struct {
+	Data apiOrganization `json:"data"`
+}
+
 type apiOrganization struct {
 	ID         string `json:"id"`
 	Type       string `json:"type"`
@@ -106,8 +111,8 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 		return
 	}
 
-	var org apiOrganization
-	err := r.client.AdminGet(ctx, fmt.Sprintf("/v1/orgs/%s", plan.ID.ValueString()), &org)
+	var apiResp apiOrganizationResponse
+	err := r.client.AdminGet(ctx, fmt.Sprintf("/v1/orgs/%s", plan.ID.ValueString()), &apiResp)
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
 			resp.Diagnostics.AddError(
@@ -124,6 +129,7 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 		return
 	}
 
+	org := apiResp.Data
 	plan.ID = types.StringValue(org.ID)
 	plan.Name = types.StringValue(org.Attributes.Name)
 	plan.Type = types.StringValue(org.Type)
@@ -139,8 +145,8 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 		return
 	}
 
-	var org apiOrganization
-	err := r.client.AdminGet(ctx, fmt.Sprintf("/v1/orgs/%s", state.ID.ValueString()), &org)
+	var readResp apiOrganizationResponse
+	err := r.client.AdminGet(ctx, fmt.Sprintf("/v1/orgs/%s", state.ID.ValueString()), &readResp)
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
 			resp.State.RemoveResource(ctx)
@@ -153,6 +159,7 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 		return
 	}
 
+	org := readResp.Data
 	state.ID = types.StringValue(org.ID)
 	state.Name = types.StringValue(org.Attributes.Name)
 	state.Type = types.StringValue(org.Type)

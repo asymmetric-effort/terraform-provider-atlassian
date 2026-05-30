@@ -67,7 +67,7 @@ func testAdminMockServer(t *testing.T) *httptest.Server {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(org)
+		json.NewEncoder(w).Encode(map[string]interface{}{"data": org})
 	})
 
 	// POST /admin/installations/v2/orgs/{orgID}/products - provision product
