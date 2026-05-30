@@ -120,6 +120,49 @@ jobs:
           TF_ACC: "1"
         run: go test ./test/e2e/... -v -count=1 -timeout 300s -failfast
 
+      - name: API connectivity test
+        env:
+          ATLASSIAN_URL: ${{ secrets.ATLASSIAN_URL }}
+          ATLASSIAN_API_KEY: ${{ secrets.ATLASSIAN_ADMIN_API_KEY }}
+          ATLASSIAN_ORG_ID: ${{ secrets.ATLASSIAN_ORG_ID }}
+          ATLASSIAN_USERNAME: ${{ secrets.ATLASSIAN_USERNAME }}
+        run: |
+          echo "=== Test 1: Admin API - Get Organization ==="
+          curl -s -w "\nHTTP %{http_code}\n" \
+            -H "Authorization: Bearer ${ATLASSIAN_API_KEY}" \
+            -H "Accept: application/json" \
+            "https://api.atlassian.com/admin/v1/orgs/${ATLASSIAN_ORG_ID}"
+
+          echo ""
+          echo "=== Test 2: Admin API - List Organizations ==="
+          curl -s -w "\nHTTP %{http_code}\n" \
+            -H "Authorization: Bearer ${ATLASSIAN_API_KEY}" \
+            -H "Accept: application/json" \
+            "https://api.atlassian.com/admin/v1/orgs"
+
+          echo ""
+          echo "=== Test 3: Site API - Issue Link Types (Admin API Key as Bearer) ==="
+          curl -s -w "\nHTTP %{http_code}\n" \
+            -H "Authorization: Bearer ${ATLASSIAN_API_KEY}" \
+            -H "Accept: application/json" \
+            "${ATLASSIAN_URL}/rest/api/3/issueLinkType"
+
+          echo ""
+          echo "=== Test 4: Site API - Issue Link Types (Basic Auth with username) ==="
+          curl -s -w "\nHTTP %{http_code}\n" \
+            -u "${ATLASSIAN_USERNAME}:${ATLASSIAN_API_KEY}" \
+            -H "Accept: application/json" \
+            "${ATLASSIAN_URL}/rest/api/3/issueLinkType"
+
+          echo ""
+          echo "=== Test 5: Admin API - Installations endpoint ==="
+          curl -s -w "\nHTTP %{http_code}\n" \
+            -H "Authorization: Bearer ${ATLASSIAN_API_KEY}" \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            "https://api.atlassian.com/admin/installations/v2/orgs/${ATLASSIAN_ORG_ID}/products"
+
       - name: PDV — live Atlassian Cloud verification
         env:
           PDV: "1"
