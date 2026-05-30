@@ -230,7 +230,7 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	// Submit provisioning request
 	var provResp apiProvisionResponse
 	err := r.client.AdminPost(ctx,
-		fmt.Sprintf("/installations/v2/orgs/%s/products", orgID),
+		fmt.Sprintf("/admin/installations/v2/orgs/%s/products", orgID),
 		bytes.NewReader(bodyBytes), &provResp)
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok {
@@ -264,7 +264,7 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 	for time.Now().Before(deadline) {
 		var status apiProvisionStatus
 		statusErr := r.client.AdminGet(ctx,
-			fmt.Sprintf("/installations/v2/orgs/%s/products/status/%s", orgID, provResp.RequestID),
+			fmt.Sprintf("/admin/installations/v2/orgs/%s/products/status/%s", orgID, provResp.RequestID),
 			&status)
 		if statusErr != nil {
 			resp.Diagnostics.AddError(
@@ -390,7 +390,7 @@ func (r *Resource) findWorkspace(ctx context.Context, orgID, siteName string) (s
 
 	var wsResp apiWorkspaceResponse
 	err := r.client.AdminPost(ctx,
-		fmt.Sprintf("/v2/orgs/%s/workspaces", orgID),
+		fmt.Sprintf("/admin/v2/orgs/%s/workspaces", orgID),
 		bytes.NewReader(bodyBytes), &wsResp)
 	if err != nil {
 		return "", ""

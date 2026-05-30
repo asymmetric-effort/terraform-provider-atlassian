@@ -25,16 +25,13 @@ var (
 	_ resource.ResourceWithImportState = &Resource{}
 )
 
-// apiOrganizationResponse represents the JSON envelope from the Atlassian Admin API.
-type apiOrganizationResponse struct {
-	Data apiOrganization `json:"data"`
-}
-
-// apiOrganization represents an organization in the Atlassian Admin API.
+// apiOrganization represents the JSON structure returned by the Atlassian organization API.
 type apiOrganization struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Type string `json:"type"`
+	ID         string `json:"id"`
+	Type       string `json:"type"`
+	Attributes struct {
+		Name string `json:"name"`
+	} `json:"attributes"`
 }
 
 // ResourceModel describes the organization resource data model.
@@ -109,8 +106,8 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 		return
 	}
 
-	var apiResp apiOrganizationResponse
-	err := r.client.AdminGet(ctx, fmt.Sprintf("/v1/orgs/%s", plan.ID.ValueString()), &apiResp)
+	var org apiOrganization
+	err := r.client.AdminGet(ctx, fmt.Sprintf("/v1/orgs/%s", plan.ID.ValueString()), &org)
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
 			resp.Diagnostics.AddError(
@@ -127,9 +124,8 @@ func (r *Resource) Create(ctx context.Context, req resource.CreateRequest, resp 
 		return
 	}
 
-	org := apiResp.Data
 	plan.ID = types.StringValue(org.ID)
-	plan.Name = types.StringValue(org.Name)
+	plan.Name = types.StringValue(org.Attributes.Name)
 	plan.Type = types.StringValue(org.Type)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -143,8 +139,8 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 		return
 	}
 
-	var readResp apiOrganizationResponse
-	err := r.client.AdminGet(ctx, fmt.Sprintf("/v1/orgs/%s", state.ID.ValueString()), &readResp)
+	var org apiOrganization
+	err := r.client.AdminGet(ctx, fmt.Sprintf("/v1/orgs/%s", state.ID.ValueString()), &org)
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
 			resp.State.RemoveResource(ctx)
@@ -157,9 +153,8 @@ func (r *Resource) Read(ctx context.Context, req resource.ReadRequest, resp *res
 		return
 	}
 
-	org := readResp.Data
 	state.ID = types.StringValue(org.ID)
-	state.Name = types.StringValue(org.Name)
+	state.Name = types.StringValue(org.Attributes.Name)
 	state.Type = types.StringValue(org.Type)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)

@@ -17,16 +17,14 @@ import (
 // Ensure the DataSource type satisfies the datasource.DataSource interface.
 var _ datasource.DataSource = &DataSource{}
 
-// apiOrganizationDSResponse represents the JSON envelope from the Atlassian Admin API.
-type apiOrganizationDSResponse struct {
-	Data apiOrganizationDS `json:"data"`
-}
-
-// apiOrganizationDS represents an organization in the Atlassian Admin API.
+// apiOrganizationDS represents the JSON structure from the Atlassian organization API.
 type apiOrganizationDS struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Type string `json:"type"`
+	ID string `json:"id"`
+
+	Type       string `json:"type"`
+	Attributes struct {
+		Name string `json:"name"`
+	} `json:"attributes"`
 }
 
 // DataSourceModel describes the organization data source data model.
@@ -96,8 +94,8 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 		return
 	}
 
-	var apiResp apiOrganizationDSResponse
-	err := d.client.AdminGet(ctx, fmt.Sprintf("/v1/orgs/%s", config.ID.ValueString()), &apiResp)
+	var org apiOrganizationDS
+	err := d.client.AdminGet(ctx, fmt.Sprintf("/v1/orgs/%s", config.ID.ValueString()), &org)
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
 			resp.Diagnostics.AddError(
@@ -113,9 +111,8 @@ func (d *DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp 
 		return
 	}
 
-	org := apiResp.Data
 	config.ID = types.StringValue(org.ID)
-	config.Name = types.StringValue(org.Name)
+	config.Name = types.StringValue(org.Attributes.Name)
 	config.Type = types.StringValue(org.Type)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)

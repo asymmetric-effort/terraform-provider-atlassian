@@ -37,7 +37,7 @@ type Config struct {
 // DefaultConfig returns a Config with sensible defaults.
 func DefaultConfig() Config {
 	return Config{
-		AdminBaseURL:   "https://api.atlassian.com/admin",
+		AdminBaseURL:   "https://api.atlassian.com",
 		RequestTimeout: 30 * time.Second,
 		MaxRetries:     5,
 		RetryWaitMin:   1 * time.Second,
@@ -56,6 +56,7 @@ type Client struct {
 	httpClient *http.Client
 	config     Config
 	auth       Authenticator
+	adminAuth  Authenticator
 }
 
 // NewClient creates a new Atlassian API client.
@@ -73,16 +74,22 @@ func NewClient(config Config, auth Authenticator) (*Client, error) {
 
 	if auth == nil {
 		return nil, fmt.Errorf("atlassian provider configuration error: no authentication method configured. " +
-			"Configure either API token auth (username + api_token) or OAuth 2.0 (oauth_client_id + oauth_client_secret)")
+			"Configure either an API key (api_key + username) or OAuth 2.0 (oauth_client_id + oauth_client_secret)")
 	}
 
 	return &Client{
 		httpClient: &http.Client{
 			Timeout: config.RequestTimeout,
 		},
-		config: config,
-		auth:   auth,
+		config:    config,
+		auth:      auth,
+		adminAuth: auth,
 	}, nil
+}
+
+// SetAdminAuth sets a separate authenticator for Admin API calls.
+func (c *Client) SetAdminAuth(auth Authenticator) {
+	c.adminAuth = auth
 }
 
 // SetAdminBaseURL configures the Admin API base URL after client creation.
@@ -119,7 +126,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		return nil, fmt.Errorf("atlassian provider configuration error: 'url' is required for site-specific API calls. " +
 			"Set the 'url' attribute in the provider block or the ATLASSIAN_URL environment variable")
 	}
-	return c.doWithBase(ctx, method, c.config.BaseURL, path, body)
+	return c.doWithBase(ctx, method, c.config.BaseURL, path, body, c.auth)
 }
 
 // AdminDo executes an HTTP request against the Atlassian Admin API with authentication,
@@ -129,12 +136,12 @@ func (c *Client) AdminDo(ctx context.Context, method, path string, body io.Reade
 		return nil, fmt.Errorf("atlassian provider configuration error: admin API URL is not configured. " +
 			"Set the 'admin_url' attribute in the provider block or the ATLASSIAN_ADMIN_URL environment variable")
 	}
-	return c.doWithBase(ctx, method, c.config.AdminBaseURL, path, body)
+	return c.doWithBase(ctx, method, c.config.AdminBaseURL, path, body, c.adminAuth)
 }
 
 // doWithBase executes an HTTP request against the specified base URL with authentication,
 // retry logic, and error translation.
-func (c *Client) doWithBase(ctx context.Context, method, baseURL, path string, body io.Reader) (*http.Response, error) {
+func (c *Client) doWithBase(ctx context.Context, method, baseURL, path string, body io.Reader, auth Authenticator) (*http.Response, error) {
 	fullURL := strings.TrimRight(baseURL, "/") + "/" + strings.TrimLeft(path, "/")
 
 	var lastErr error
@@ -156,7 +163,7 @@ func (c *Client) doWithBase(ctx context.Context, method, baseURL, path string, b
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
 
-		if err := c.auth.AuthenticateRequest(req); err != nil {
+		if err := auth.AuthenticateRequest(req); err != nil {
 			return nil, fmt.Errorf("authentication failed: %w", err)
 		}
 

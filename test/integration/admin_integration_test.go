@@ -80,7 +80,7 @@ func TestAdminIntegrationProductProvisioningLifecycle(t *testing.T) {
 	bodyBytes, _ := json.Marshal(provBody)
 
 	var provResp map[string]interface{}
-	err := c.AdminPost(ctx, "/installations/v2/orgs/"+orgID+"/products", bytes.NewReader(bodyBytes), &provResp)
+	err := c.AdminPost(ctx, "/admin/installations/v2/orgs/"+orgID+"/products", bytes.NewReader(bodyBytes), &provResp)
 	if err != nil {
 		t.Fatalf("provision: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestAdminIntegrationProductProvisioningLifecycle(t *testing.T) {
 
 	// Check provisioning status
 	var statusResp map[string]interface{}
-	err = c.AdminGet(ctx, "/installations/v2/orgs/"+orgID+"/products/status/"+requestID, &statusResp)
+	err = c.AdminGet(ctx, "/admin/installations/v2/orgs/"+orgID+"/products/status/"+requestID, &statusResp)
 	if err != nil {
 		t.Fatalf("status check: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestAdminIntegrationProductProvisioningLifecycle(t *testing.T) {
 	wsBytes, _ := json.Marshal(wsQuery)
 
 	var wsResp map[string]interface{}
-	err = c.AdminPost(ctx, "/v2/orgs/"+orgID+"/workspaces", bytes.NewReader(wsBytes), &wsResp)
+	err = c.AdminPost(ctx, "/admin/v2/orgs/"+orgID+"/workspaces", bytes.NewReader(wsBytes), &wsResp)
 	if err != nil {
 		t.Fatalf("workspace query: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestAdminIntegrationProvisioningBadRequest(t *testing.T) {
 	bodyBytes, _ := json.Marshal(provBody)
 
 	var provResp map[string]interface{}
-	err := c.AdminPost(ctx, "/installations/v2/orgs/test-org/products", bytes.NewReader(bodyBytes), &provResp)
+	err := c.AdminPost(ctx, "/admin/installations/v2/orgs/test-org/products", bytes.NewReader(bodyBytes), &provResp)
 	if err == nil {
 		t.Fatal("expected error for missing offerings")
 	}
@@ -162,7 +162,7 @@ func TestAdminIntegrationProvisioningStatusNotFound(t *testing.T) {
 	defer cancel()
 
 	var statusResp map[string]interface{}
-	err := c.AdminGet(ctx, "/installations/v2/orgs/test-org/products/status/nonexistent", &statusResp)
+	err := c.AdminGet(ctx, "/admin/installations/v2/orgs/test-org/products/status/nonexistent", &statusResp)
 	if err == nil {
 		t.Fatal("expected error for nonexistent request ID")
 	}
@@ -219,7 +219,7 @@ func TestAdminIntegrationWorkspaceQueryEmpty(t *testing.T) {
 	wsBytes, _ := json.Marshal(wsQuery)
 
 	var wsResp map[string]interface{}
-	err := c.AdminPost(ctx, "/v2/orgs/test-org/workspaces", bytes.NewReader(wsBytes), &wsResp)
+	err := c.AdminPost(ctx, "/admin/v2/orgs/test-org/workspaces", bytes.NewReader(wsBytes), &wsResp)
 	if err != nil {
 		t.Fatalf("workspace query: %v", err)
 	}

@@ -93,6 +93,7 @@ type AtlassianProvider struct {
 type AtlassianProviderModel struct {
 	URL               types.String `tfsdk:"url"`
 	AdminURL          types.String `tfsdk:"admin_url"`
+	Username          types.String `tfsdk:"username"`
 	APIKey            types.String `tfsdk:"api_key"`
 	OAuthClientID     types.String `tfsdk:"oauth_client_id"`
 	OAuthClientSecret types.String `tfsdk:"oauth_client_secret"`
@@ -128,7 +129,11 @@ func (p *AtlassianProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 				Optional:    true,
 			},
 			"admin_url": schema.StringAttribute{
-				Description: "Atlassian Admin API URL. Defaults to https://api.atlassian.com/admin. Used by organization and product provisioning resources. May be set via ATLASSIAN_ADMIN_URL environment variable.",
+				Description: "Atlassian Admin API URL. Defaults to https://api.atlassian.com. Used by organization and product provisioning resources. May be set via ATLASSIAN_ADMIN_URL environment variable.",
+				Optional:    true,
+			},
+			"username": schema.StringAttribute{
+				Description: "Atlassian account email for site API authentication (Basic Auth). Required when using api_key for site-specific resources. May be set via ATLASSIAN_USERNAME environment variable.",
 				Optional:    true,
 			},
 			"api_key": schema.StringAttribute{
@@ -181,6 +186,7 @@ func (p *AtlassianProvider) Configure(ctx context.Context, req provider.Configur
 	// Resolve values with environment variable fallbacks
 	siteURL := stringValueOrEnv(config.URL, "ATLASSIAN_URL")
 	adminURL := stringValueOrEnv(config.AdminURL, "ATLASSIAN_ADMIN_URL")
+	username := stringValueOrEnv(config.Username, "ATLASSIAN_USERNAME")
 	apiKey := stringValueOrEnv(config.APIKey, "ATLASSIAN_API_KEY")
 	oauthClientID := stringValueOrEnv(config.OAuthClientID, "ATLASSIAN_OAUTH_CLIENT_ID")
 	oauthClientSecret := stringValueOrEnv(config.OAuthClientSecret, "ATLASSIAN_OAUTH_CLIENT_SECRET")
@@ -190,7 +196,7 @@ func (p *AtlassianProvider) Configure(ctx context.Context, req provider.Configur
 	clientConfig := atlassian.DefaultConfig()
 	clientConfig.BaseURL = siteURL
 	if adminURL == "" {
-		adminURL = "https://api.atlassian.com/admin"
+		adminURL = "https://api.atlassian.com"
 	}
 	clientConfig.AdminBaseURL = adminURL
 
@@ -225,8 +231,11 @@ func (p *AtlassianProvider) Configure(ctx context.Context, req provider.Configur
 		clientConfig.RetryWaitMax = d
 	}
 
-	// Determine authentication method
-	var auth atlassian.Authenticator
+	// Determine authentication methods.
+	// Site API uses Basic Auth (username:api_key); Admin API uses Bearer (api_key).
+	// OAuth tokens work for both APIs.
+	var siteAuth atlassian.Authenticator
+	var adminAuth atlassian.Authenticator
 	var authErr error
 
 	hasAPIKey := apiKey != ""
@@ -235,17 +244,30 @@ func (p *AtlassianProvider) Configure(ctx context.Context, req provider.Configur
 
 	switch {
 	case hasAPIKey:
-		auth, authErr = atlassian.NewAPIKeyAuthenticator(apiKey)
+		// Admin API: Bearer token
+		adminAuth, authErr = atlassian.NewAPIKeyAuthenticator(apiKey)
+		if authErr != nil {
+			resp.Diagnostics.AddError("Authentication configuration error", authErr.Error())
+			return
+		}
+		// Site API: Basic Auth (username:api_key) if username provided
+		if username != "" {
+			siteAuth, authErr = atlassian.NewBasicAuthenticator(username, apiKey)
+		} else {
+			siteAuth = adminAuth
+		}
 	case hasOAuthRefresh:
-		auth, authErr = atlassian.NewOAuthRefreshAuthenticator(oauthClientID, oauthClientSecret, oauthRefreshToken)
+		siteAuth, authErr = atlassian.NewOAuthRefreshAuthenticator(oauthClientID, oauthClientSecret, oauthRefreshToken)
+		adminAuth = siteAuth
 	case hasOAuthClientCreds:
-		auth, authErr = atlassian.NewOAuthClientCredentialsAuthenticator(oauthClientID, oauthClientSecret)
+		siteAuth, authErr = atlassian.NewOAuthClientCredentialsAuthenticator(oauthClientID, oauthClientSecret)
+		adminAuth = siteAuth
 	default:
 		resp.Diagnostics.AddError("No authentication configured",
-			"Configure either an Admin API key (api_key) or OAuth 2.0 "+
+			"Configure either an API key (api_key + username) or OAuth 2.0 "+
 				"(oauth_client_id + oauth_client_secret, with optional oauth_refresh_token). "+
 				"Values can be set via provider attributes or environment variables "+
-				"(ATLASSIAN_API_KEY, ATLASSIAN_OAUTH_CLIENT_ID, etc.)")
+				"(ATLASSIAN_API_KEY, ATLASSIAN_USERNAME, ATLASSIAN_OAUTH_CLIENT_ID, etc.)")
 		return
 	}
 
@@ -254,12 +276,15 @@ func (p *AtlassianProvider) Configure(ctx context.Context, req provider.Configur
 		return
 	}
 
-	// Create the API client
-	apiClient, err := atlassian.NewClient(clientConfig, auth)
+	// Create the API client with site auth
+	apiClient, err := atlassian.NewClient(clientConfig, siteAuth)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to create Atlassian API client", err.Error())
 		return
 	}
+
+	// Set admin auth (Bearer) for Admin API calls
+	apiClient.SetAdminAuth(adminAuth)
 
 	// Make the client available to resources and data sources
 	resp.ResourceData = apiClient

@@ -31,8 +31,10 @@ func testAdminMockServer(t *testing.T) *httptest.Server {
 	orgs := map[string]map[string]interface{}{
 		"org-1": {
 			"id":   "org-1",
-			"name": "Test Organization",
-			"type": "organization",
+			"type": "orgs",
+			"attributes": map[string]interface{}{
+				"name": "Test Organization",
+			},
 		},
 	}
 
@@ -65,11 +67,11 @@ func testAdminMockServer(t *testing.T) *httptest.Server {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"data": org})
+		json.NewEncoder(w).Encode(org)
 	})
 
-	// POST /installations/v2/orgs/{orgID}/products - provision product
-	mux.HandleFunc("POST /installations/v2/orgs/{orgID}/products", func(w http.ResponseWriter, r *http.Request) {
+	// POST /admin/installations/v2/orgs/{orgID}/products - provision product
+	mux.HandleFunc("POST /admin/installations/v2/orgs/{orgID}/products", func(w http.ResponseWriter, r *http.Request) {
 		orgID := r.PathValue("orgID")
 		mu.Lock()
 		defer mu.Unlock()
@@ -104,12 +106,12 @@ func testAdminMockServer(t *testing.T) *httptest.Server {
 		w.WriteHeader(200)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"requestId": requestID,
-			"statusUrl": fmt.Sprintf("/installations/v2/orgs/%s/products/status/%s", orgID, requestID),
+			"statusUrl": fmt.Sprintf("/admin/installations/v2/orgs/%s/products/status/%s", orgID, requestID),
 		})
 	})
 
-	// GET /installations/v2/orgs/{orgID}/products/status/{requestID} - poll status
-	mux.HandleFunc("GET /installations/v2/orgs/{orgID}/products/status/{requestID}", func(w http.ResponseWriter, r *http.Request) {
+	// GET /admin/installations/v2/orgs/{orgID}/products/status/{requestID} - poll status
+	mux.HandleFunc("GET /admin/installations/v2/orgs/{orgID}/products/status/{requestID}", func(w http.ResponseWriter, r *http.Request) {
 		requestID := r.PathValue("requestID")
 		mu.Lock()
 		defer mu.Unlock()
@@ -128,8 +130,8 @@ func testAdminMockServer(t *testing.T) *httptest.Server {
 		})
 	})
 
-	// POST /v2/orgs/{orgID}/workspaces - query workspaces
-	mux.HandleFunc("POST /v2/orgs/{orgID}/workspaces", func(w http.ResponseWriter, r *http.Request) {
+	// POST /admin/v2/orgs/{orgID}/workspaces - query workspaces
+	mux.HandleFunc("POST /admin/v2/orgs/{orgID}/workspaces", func(w http.ResponseWriter, r *http.Request) {
 		orgID := r.PathValue("orgID")
 		mu.Lock()
 		defer mu.Unlock()
@@ -249,7 +251,7 @@ func TestAdminOrganizationResourceCreate(t *testing.T) {
 	if name := getStringAttr(t, createResp.State, "name"); name != "Test Organization" {
 		t.Errorf("expected name 'Test Organization', got %q", name)
 	}
-	if typ := getStringAttr(t, createResp.State, "type"); typ != "organization" {
+	if typ := getStringAttr(t, createResp.State, "type"); typ != "orgs" {
 		t.Errorf("expected type 'organization', got %q", typ)
 	}
 }
@@ -301,7 +303,7 @@ func TestAdminOrganizationResourceRead(t *testing.T) {
 	if name := getStringAttr(t, readResp.State, "name"); name != "Test Organization" {
 		t.Errorf("expected name 'Test Organization', got %q", name)
 	}
-	if typ := getStringAttr(t, readResp.State, "type"); typ != "organization" {
+	if typ := getStringAttr(t, readResp.State, "type"); typ != "orgs" {
 		t.Errorf("expected type 'organization', got %q", typ)
 	}
 }
@@ -346,7 +348,7 @@ func TestAdminOrganizationResourceDelete(t *testing.T) {
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":   tftypes.NewValue(tftypes.String, "org-1"),
 		"name": tftypes.NewValue(tftypes.String, "Test Organization"),
-		"type": tftypes.NewValue(tftypes.String, "organization"),
+		"type": tftypes.NewValue(tftypes.String, "orgs"),
 	})}
 	deleteResp := &resource.DeleteResponse{State: tfsdk.State{Schema: s, Raw: state.Raw.Copy()}}
 	r.Delete(ctx, resource.DeleteRequest{State: state}, deleteResp)
@@ -373,12 +375,12 @@ func TestAdminOrganizationResourceUpdate(t *testing.T) {
 	plan := tfsdk.Plan{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":   tftypes.NewValue(tftypes.String, "org-1"),
 		"name": tftypes.NewValue(tftypes.String, "New Name"),
-		"type": tftypes.NewValue(tftypes.String, "organization"),
+		"type": tftypes.NewValue(tftypes.String, "orgs"),
 	})}
 	state := tfsdk.State{Schema: s, Raw: tftypes.NewValue(tfType, map[string]tftypes.Value{
 		"id":   tftypes.NewValue(tftypes.String, "org-1"),
 		"name": tftypes.NewValue(tftypes.String, "Test Organization"),
-		"type": tftypes.NewValue(tftypes.String, "organization"),
+		"type": tftypes.NewValue(tftypes.String, "orgs"),
 	})}
 	updateResp := &resource.UpdateResponse{State: emptyState(ctx, s)}
 	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, updateResp)
@@ -723,7 +725,7 @@ func TestAdminOrganizationDataSourceRead(t *testing.T) {
 	if name := getStringAttr(t, dsResp.State, "name"); name != "Test Organization" {
 		t.Errorf("expected name 'Test Organization', got %q", name)
 	}
-	if typ := getStringAttr(t, dsResp.State, "type"); typ != "organization" {
+	if typ := getStringAttr(t, dsResp.State, "type"); typ != "orgs" {
 		t.Errorf("expected type 'organization', got %q", typ)
 	}
 }
@@ -1238,7 +1240,7 @@ func TestAdminProductResourceCreateProvisionFailed(t *testing.T) {
 	t.Parallel()
 	callCount := 0
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /installations/v2/orgs/{orgID}/products", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /admin/installations/v2/orgs/{orgID}/products", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -1246,7 +1248,7 @@ func TestAdminProductResourceCreateProvisionFailed(t *testing.T) {
 			"statusUrl": "/status/req-fail",
 		})
 	})
-	mux.HandleFunc("GET /installations/v2/orgs/{orgID}/products/status/{reqID}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /admin/installations/v2/orgs/{orgID}/products/status/{reqID}", func(w http.ResponseWriter, r *http.Request) {
 		callCount++
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -1297,7 +1299,7 @@ func TestAdminProductResourceCreateProvisionFailed(t *testing.T) {
 func TestAdminProductResourceCreateStatusCheckError(t *testing.T) {
 	t.Parallel()
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /installations/v2/orgs/{orgID}/products", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /admin/installations/v2/orgs/{orgID}/products", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -1305,7 +1307,7 @@ func TestAdminProductResourceCreateStatusCheckError(t *testing.T) {
 			"statusUrl": "/status/req-err",
 		})
 	})
-	mux.HandleFunc("GET /installations/v2/orgs/{orgID}/products/status/{reqID}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /admin/installations/v2/orgs/{orgID}/products/status/{reqID}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(500)
 		json.NewEncoder(w).Encode(map[string]interface{}{

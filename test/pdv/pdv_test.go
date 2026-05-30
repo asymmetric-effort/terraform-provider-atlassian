@@ -36,6 +36,7 @@ func pdvProviderConfig() string {
 provider "atlassian" {
   url       = %q
   admin_url = "https://api.atlassian.com/admin"
+  username  = %q
   api_key   = %q
 
   request_timeout = "30s"
@@ -44,6 +45,7 @@ provider "atlassian" {
   retry_wait_max  = "15s"
 }
 `, os.Getenv("ATLASSIAN_URL"),
+		os.Getenv("ATLASSIAN_USERNAME"),
 		os.Getenv("ATLASSIAN_API_KEY"))
 }
 
@@ -100,6 +102,7 @@ resource "atlassian_organization" "test" {
 `, orgID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("atlassian_organization.test", "id", orgID),
+					resource.TestCheckResourceAttrSet("atlassian_organization.test", "name"),
 				),
 			},
 			// Import
@@ -128,6 +131,7 @@ data "atlassian_organization" "test" {
 `, orgID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.atlassian_organization.test", "id", orgID),
+					resource.TestCheckResourceAttrSet("data.atlassian_organization.test", "name"),
 				),
 			},
 		},
@@ -137,10 +141,8 @@ data "atlassian_organization" "test" {
 // ==================== PRODUCT PROVISIONING ====================
 
 // TestPDV_Product_Provision exercises provisioning a new Atlassian product instance.
-// Skipped: provisioning API response format needs investigation — requestId field
-// is empty in the real API response, causing status polling to fail.
+// This creates a real site with a unique numeric suffix.
 func TestPDV_Product_Provision(t *testing.T) {
-	t.Skip("Skipped: provisioning API response format needs investigation (empty requestId)")
 	skipIfNoAdminPDV(t)
 	orgID := os.Getenv("ATLASSIAN_ORG_ID")
 	suffix := numericSuffix()
@@ -179,9 +181,7 @@ resource "atlassian_product" "test" {
 
 // TestPDV_Product_DataSource exercises reading a workspace via data source
 // after provisioning a product.
-// Skipped: depends on product provisioning which needs response format investigation.
 func TestPDV_Product_DataSource(t *testing.T) {
-	t.Skip("Skipped: depends on product provisioning (empty requestId)")
 	skipIfNoAdminPDV(t)
 	orgID := os.Getenv("ATLASSIAN_ORG_ID")
 	suffix := numericSuffix()

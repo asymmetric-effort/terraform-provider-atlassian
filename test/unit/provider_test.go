@@ -51,7 +51,7 @@ func TestProviderSchema(t *testing.T) {
 	}
 
 	expectedAttrs := []string{
-		"url", "admin_url", "api_key",
+		"url", "admin_url", "username", "api_key",
 		"oauth_client_id", "oauth_client_secret", "oauth_refresh_token",
 		"request_timeout", "max_retries", "retry_wait_min", "retry_wait_max",
 	}
@@ -73,7 +73,7 @@ func TestProviderSchemaAttributeCount(t *testing.T) {
 	resp := &frameworkprovider.SchemaResponse{}
 	p.Schema(context.Background(), req, resp)
 
-	expected := 10
+	expected := 11
 	actual := len(resp.Schema.Attributes)
 	if actual != expected {
 		t.Errorf("expected %d schema attributes, got %d", expected, actual)

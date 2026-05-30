@@ -34,6 +34,7 @@ func buildProviderConfig(t *testing.T, attrs map[string]interface{}) tfsdk.Confi
 	values := map[string]tftypes.Value{
 		"url":                 tftypes.NewValue(tftypes.String, nil),
 		"admin_url":           tftypes.NewValue(tftypes.String, nil),
+		"username":            tftypes.NewValue(tftypes.String, nil),
 		"api_key":             tftypes.NewValue(tftypes.String, nil),
 		"oauth_client_id":     tftypes.NewValue(tftypes.String, nil),
 		"oauth_client_secret": tftypes.NewValue(tftypes.String, nil),
